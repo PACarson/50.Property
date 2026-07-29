@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════
- * PROPERTY OS — 00_File_Map.gs
+ * PROPERTY OS — 00_File_Map.js
  * 系统地图（开发导航 / File Responsibilities & Module Relationships）
  * ═══════════════════════════════════════════════════════════════════════
  *
@@ -12,7 +12,7 @@
  * （避免 Speculative Design）。
  *
  * 关联文件（不属于本文件编号体系，皆为 Contract Design 阶段产出）：
- *   - 00_ADR_Log.gs                       — ADR-P01~P07 正式记录
+ *   - 00_ADR_Log.js                       — ADR-P01~P07 正式记录
  *   - PropertyOS_DomainModel.md           — 跨 Engine 共用领域模型
  *   - ObligationEngine_VerticalSlice.md   — 912/913 完整 Vertical Slice
  *
@@ -312,13 +312,35 @@
 // 5. TESTING LAYER
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-//   遵循既有 Node sandbox 测试模式，独立于 GAS 文件编号。Obligation
-//   Engine 的完整 Test Plan（Unit/Contract/State Transition/Replay/
-//   Reminder Integration/Finance Integration/AI Query/Migration）已
-//   于 ObligationEngine_VerticalSlice.md §13 设计，实际测试文件待
-//   Session 1 Runtime 阶段建立。
-//   Status: Not Started（无代码可测）
+//   Node sandbox, independent of the GAS file numbering — matches UEF's
+//   `NN_Tests_<FeatureId>.js` / `runAllXTests()` convention (confirmed
+//   by reading UEF v1.5 directly, not guessed).
+//
+//   property-os-tests/
+//     shim/GasShim.js                    — mocks SpreadsheetApp/
+//       LockService/CacheService/Utilities/Session/Logger; loads real
+//       900-903/912-913 source into a Node vm context. Faithfully
+//       reproduces the real Sheets date→string coercion bug so the
+//       fix itself is actually exercised, not just asserted.
+//     shim/TestKit.js                    — tiny assert/report utility,
+//       zero external dependencies (no Jest/Mocha added for this)
+//     tests/900_Tests_Foundation.js      — 19 tests (Unit)
+//     tests/912_Tests_ObligationEngine.js — 40 tests (Unit + State
+//       Transition + AI Query)
+//     tests/919_Tests_ObligationIntegration.js — 42 tests (Contract +
+//       Replay + Reminder/Finance Integration, contract-level + Migration)
+//     runAllTests.js                     — aggregate runner
+//     MANUAL_VERIFICATION_CHECKLIST.md   — the I/O-dependent half the
+//       sandbox can't cover (real Sheets/Lock/Cache/timezone behavior)
+//
+//   Status: ✅ Built and passing — 101/101, run 2026-07-29 against the
+//   actual 900-903/912-913 source (not a copy). Covers all 8 Vertical
+//   Slice §13 categories: Unit, Contract, State Transition, Replay
+//   (scoped to ObligationHistory — no real EventBus to replay from yet,
+//   noted honestly in the test itself), Reminder/Finance Integration
+//   (contract-level only — 913/914's real counterparts don't exist),
+//   AI Query, Migration.
 //
 // ═══════════════════════════════════════════════════════════════════════
-// END OF 00_File_Map.gs
+// END OF 00_File_Map.js
 // ═══════════════════════════════════════════════════════════════════════

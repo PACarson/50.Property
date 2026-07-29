@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════
- * PROPERTY OS — 901_PropertySchema.gs
+ * PROPERTY OS — 901_PropertySchema.js
  * Foundation Layer — Schema
  * ═══════════════════════════════════════════════════════════════════════
  *
@@ -11,7 +11,7 @@
  * entities whose schema has passed Architecture Review. Other entities
  * (Property, Loan, Document, ...) are added when their own Phase begins.
  *
- * Depends on: 900_PropertyConfig.gs
+ * Depends on: 900_PropertyConfig.js
  * ═══════════════════════════════════════════════════════════════════════
  */
 
@@ -103,6 +103,10 @@ var PROPERTY_SCHEMA = Object.freeze({
  * which would break string-equality idempotency checks such as
  * (ObligationID, EffectiveDue) in findOccurrenceByRuleAndDue_.
  *
+ * Every call also freezes row 1 (header), whether the sheet is new or
+ * already existed — cheap and idempotent, so existing sheets pick this
+ * up automatically the next time anything calls this function.
+ *
  * @param {string} sheetName
  * @param {string[]} columns
  * @param {string[]} [dateColumns] column names to force to plain text
@@ -141,6 +145,16 @@ function ensureSheetSchema_(sheetName, columns, dateColumns) {
       }
     });
   }
+
+  // Every Property OS sheet keeps its header row visible while
+  // scrolling. Unconditional (not gated on isNewSheet) and safe to
+  // call every time: setFrozenRows(1) is idempotent and touches no
+  // data, so it also retroactively fixes any sheet that was created
+  // before this existed — including the three Obligation sheets
+  // already created via a live initObligationSchema_() run before this
+  // fix landed. They pick it up automatically the next time this
+  // function runs, no manual step needed beyond that.
+  sheet.setFrozenRows(1);
 
   return sheet;
 }

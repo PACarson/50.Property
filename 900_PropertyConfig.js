@@ -1,13 +1,13 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════
- * PROPERTY OS — 900_PropertyConfig.gs
+ * PROPERTY OS — 900_PropertyConfig.js
  * Foundation Layer — Configuration
  * ═══════════════════════════════════════════════════════════════════════
  *
- * Governs: 00_Project_Constitution.gs §6/§7, ADR-P01 (category list)
+ * Governs: 00_Project_Constitution.js §6/§7, ADR-P01 (category list)
  * Session 1, Part A (Foundation) — file 1 of 4.
  *
- * Load-order note: GAS loads .gs files in filename order in the absence
+ * Load-order note: GAS loads .js files in filename order in the absence
  * of a bundler, which is why every Property OS file carries a numeric
  * prefix. 901/902/903 reference PROPERTY_CONFIG at their own top level,
  * so this file (900) must continue to sort before them. Do not rename.

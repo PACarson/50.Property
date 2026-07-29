@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════
- * PROPERTY OS — 00_Project_Constitution.gs
+ * PROPERTY OS — 00_Project_Constitution.js
  * 项目宪法（永远有效 / Rarely Modified）
  * ═══════════════════════════════════════════════════════════════════════
  *
@@ -250,7 +250,7 @@
 // 6. NAMING CONVENTION 命名规范
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-// - 文件命名：<NNN>_<PascalCaseModuleName>.gs
+// - 文件命名：<NNN>_<PascalCaseModuleName>.js
 //   Property OS 号段：Reserved 900-949（ADR-P03，非 Locked，见 §11）
 // - 私有 / 内部函式：结尾加底线，例如 functionName_()
 // - Entity ID 前缀（[NEEDS CONFIRMATION] 具体格式，待与既有 ID 规则核对）：
@@ -449,5 +449,5 @@
 //   Ecosystem Registry 统一确认后正式 Assign。
 //
 // ═══════════════════════════════════════════════════════════════════════
-// END OF 00_Project_Constitution.gs
+// END OF 00_Project_Constitution.js
 // ═══════════════════════════════════════════════════════════════════════

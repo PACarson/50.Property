@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════
- * PROPERTY OS — 903_PropertyEventDefinitions.gs
+ * PROPERTY OS — 903_PropertyEventDefinitions.js
  * Foundation Layer — Event Definitions
  * ═══════════════════════════════════════════════════════════════════════
  *
@@ -24,7 +24,7 @@
  * logging placeholder — that is the intended state, not unfinished
  * work. When the API stabilizes, only this one function changes.
  *
- * Depends on: 900_PropertyConfig.gs, 902_PropertyIdentity.gs
+ * Depends on: 900_PropertyConfig.js, 902_PropertyIdentity.js
  * ═══════════════════════════════════════════════════════════════════════
  */
 

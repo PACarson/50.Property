@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════
- * PROPERTY OS — 912_ObligationEngine.gs
+ * PROPERTY OS — 912_ObligationEngine.js
  * Runtime Layer — Obligation Engine (ADR-P01: single source of truth for
  * all Recurring Obligations)
  * ═══════════════════════════════════════════════════════════════════════
@@ -34,9 +34,9 @@
  * 912 and 913 stand in for "subscription" until a real EventBus exists.
  * See 913's file header for the matching note.
  *
- * Depends on: 900_PropertyConfig.gs, 901_PropertySchema.gs,
- * 902_PropertyIdentity.gs, 903_PropertyEventDefinitions.gs,
- * 913_ObligationScheduler.gs
+ * Depends on: 900_PropertyConfig.js, 901_PropertySchema.js,
+ * 902_PropertyIdentity.js, 903_PropertyEventDefinitions.js,
+ * 913_ObligationScheduler.js
  * ═══════════════════════════════════════════════════════════════════════
  */
 

@@ -3,7 +3,7 @@
 **Status:** v0.1 — Contract Design（不属于 Runtime，独立于任何 Engine 文件）
 **目的：** 在任何 Engine 开始 Runtime 实作前，先固定整个 Property OS 的领域模型。所有 Engine（Asset/Obligation/Mortgage/Rental/Document/Maintenance/Defect/Renovation/Insurance/Tax/Finance）都必须围绕本模型扩展，避免未来大规模重构。
 
-本文件遵守 `00_Project_Constitution.gs`；如有冲突，以 Constitution 为准。
+本文件遵守 `00_Project_Constitution.js`；如有冲突，以 Constitution 为准。
 
 ---
 

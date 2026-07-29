@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════
- * PROPERTY OS — 00_ADR_Log.gs
+ * PROPERTY OS — 00_ADR_Log.js
  * Architecture Decision Records
  * ═══════════════════════════════════════════════════════════════════════
  *
@@ -249,7 +249,7 @@
 // Decision: 采用 Option B。
 //   Domain Layer（Engine / Command / State Machine / Business Rules）
 //   永远不知道 EventBus 的具体实现。唯一允许知道的地方是
-//   `publishPropertyEvent_()`（903_PropertyEventDefinitions.gs）。在
+//   `publishPropertyEvent_()`（903_PropertyEventDefinitions.js）。在
 //   Personal AI Core 的 Shared EventBus API 最终固定之前，这个函式的
 //   内部实作合理地维持为 Logger 占位——这是正确做法，不是未完成。
 //   API 固定后，只需要改这一个函式的内部，912/913/914/915 及未来所有
@@ -265,6 +265,37 @@
 //   的判断"提升为"正式架构原则"，供未来所有 Engine 遵循。
 
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ADR-P08 — File Extension: .gs → .js (adopts UEF D8)
+// STATUS: APPROVED (2026-07-29) — NEW
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// Question: Property OS's governance and Runtime files were .gs from
+//   Session 0 (CC's own explicit instruction). Reading UEF v1.3 surfaced
+//   a conflict — UEF mandated .txt for all project-level governance
+//   files, matching Rider OS/Reminder OS/Personal AI Core's existing
+//   convention, contradicting Property OS's .gs. Which one moves?
+//
+// Decision: Neither, directly — UEF's own default changed instead. Per
+//   UEF v1.5 D8, CC decided the ecosystem-wide default becomes .js (not
+//   .txt, not .gs). Property OS adopts this immediately: all ten
+//   existing files renamed .gs → .js this session, including every
+//   internal cross-reference between them (Constitution/State/File Map/
+//   ADR Log referencing each other by name, and the two Vertical Slice/
+//   Domain Model .md companion docs' own references).
+//
+// Full reasoning lives in UEF's own D8 entry (Universal_Engineering_
+// Framework, v1.5) — not duplicated here (EP4/P6: one source of truth).
+// This entry exists so Property OS's own ADR Log has its own record of
+// adopting an ecosystem-level decision, per UEF §0.7's stated pattern
+// for project-level logs.
+//
+// Impact: File extension only — zero logic changes. Verified: all ten
+//   .js files still parse as valid JavaScript after the rename (node
+//   --check), and no stray .gs references remain anywhere in the
+//   project directory, including inside file-header self-references and
+//   the two .md companion docs.
+
 // ═══════════════════════════════════════════════════════════════════════
-// END OF 00_ADR_Log.gs
+// END OF 00_ADR_Log.js
 // ═══════════════════════════════════════════════════════════════════════

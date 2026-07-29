@@ -2,7 +2,7 @@
 
 **Modules covered:** `912_ObligationEngine`, `913_ObligationScheduler`
 **Status:** ✅ **APPROVED (2026-07-19)** — Architecture Review passed. This document is the baseline spec for Session 1 Runtime. Amended same day to incorporate ADR-P06 (Event Immutability), which was adopted at approval time — see §4, §5, §9, §14 for the additions.
-**Governs:** ADR-P01, ADR-P02, ADR-P04, ADR-P05, ADR-P06 (see `00_ADR_Log.gs`)
+**Governs:** ADR-P01, ADR-P02, ADR-P04, ADR-P05, ADR-P06 (see `00_ADR_Log.js`)
 
 ---
 

@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════
- * PROPERTY OS — 913_ObligationScheduler.gs
+ * PROPERTY OS — 913_ObligationScheduler.js
  * Runtime Layer — Obligation Scheduler
  * ═══════════════════════════════════════════════════════════════════════
  *
@@ -27,9 +27,9 @@
  * "913 subscribes to 912's PAYMENT_COMPLETED" until a real EventBus
  * exists (ADR-P07); recordPayment() in 912 is the only caller.
  *
- * Depends on: 900_PropertyConfig.gs, 901_PropertySchema.gs,
- * 902_PropertyIdentity.gs, 903_PropertyEventDefinitions.gs,
- * 912_ObligationEngine.gs (createOccurrence_, transitionRuleToCompleted_)
+ * Depends on: 900_PropertyConfig.js, 901_PropertySchema.js,
+ * 902_PropertyIdentity.js, 903_PropertyEventDefinitions.js,
+ * 912_ObligationEngine.js (createOccurrence_, transitionRuleToCompleted_)
  * ═══════════════════════════════════════════════════════════════════════
  */
 

@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════════════
- * PROPERTY OS — 902_PropertyIdentity.gs
+ * PROPERTY OS — 902_PropertyIdentity.js
  * Foundation Layer — Identity
  * ═══════════════════════════════════════════════════════════════════════
  *
@@ -16,7 +16,7 @@
  * is the only place that needs to change — nothing else in Property OS
  * should construct IDs by hand instead of calling these functions.
  *
- * Depends on: 900_PropertyConfig.gs, 901_PropertySchema.gs (propertyError_)
+ * Depends on: 900_PropertyConfig.js, 901_PropertySchema.js (propertyError_)
  * ═══════════════════════════════════════════════════════════════════════
  */
 
