@@ -10,7 +10,7 @@
 // PROJECT VERSION
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-//   Current Version : v0.6.0-test-plan-complete
+//   Current Version : v0.7.0-gas-native-tests
 //   Current Branch  : （待 CC 指定，建议 property-os/session1-obligation-engine）
 //   Blueprint 合规  : Universal Domain OS Blueprint ✓ | UEF ✓
 //   ADR 状态        : ADR-P01, P02, P04, P05, P06, P07 APPROVED；
@@ -127,11 +127,15 @@
 //      了 shim 模拟不到、需要对着真实项目核对的部分（真实 Sheets 的
 //      日期强制转文字行为、真实并发下的 LockService、CacheService
 //      真实 TTL 等）。
-//   6. [新增] 尚未实际部署 / 复制进 CC 的真实 GAS 项目——目前只在这次
-//      对话的沙箱环境中存在，需要 CC 手动搬过去。
-//      ★ 已部分过时：CC 已确认 Foundation 层代码在真实 GAS 项目跑过
-//      （initObligationSchema_ 成功建表、试写入成功）。912/913 的
-//      Command 是否已复制过去、跑过，尚未确认。
+//   6. [更新] 990_TestKit.js / 991_Tests_ObligationEngine.js 已写好，
+//      逻辑已透过 Node shim 自我检查过（9/9 通过，含安全防呆的正反两面
+//      测试），但那只证明 991 本身逻辑没错，不等于已经对着真实 GAS
+//      项目跑过。★ 仍待办：CC 需要（a）建一个专用测试 spreadsheet，
+//      名字要含"TEST"字样（991 的安全防呆会检查这个），（b）把
+//      900-903/912-913/990/991 复制进去，（c）实际执行
+//      runAllObligationEngineTestsLive()，确认真实结果。912/913 的
+//      Command 本身是否已复制进 CC 的正式 GAS 项目、跑过，也尚未确认
+//      （区分于上面"专用测试项目"这件事——正式项目不该跑 991）。
 //   7. [已解决 2026-07-29] .txt vs .gs 冲突（读 UEF v1.4 时发现，历史
 //      记录：UEF 当时明文规定所有 project-level 治理文件用 .txt，
 //      不用 .gs；但 Property OS 从第一轮开始就是照 CC 给的文件名
@@ -180,6 +184,23 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+//   2026-07-29 (d)  CC 指出 property-os-tests/（Node 沙箱）不是 GAS
+//                   能跑的东西，档名（900_Tests_Foundation.js 这种）
+//                   看起来太像要跟真实 GAS 源码放一起，是没说清楚的
+//                   地方。新增真正的 GAS-native 测试：990_TestKit.js +
+//                   991_Tests_ObligationEngine.js，对着真实
+//                   SpreadsheetApp/LockService/CacheService 跑（非
+//                   模拟），聚焦在 Node shim 只能模拟、无法证实的部分：
+//                   真实日期强制转文字、真实 freeze header、真实
+//                   Lock/Cache、端到端 createObligation→recordPayment
+//                   真实跑一遍。含安全防呆
+//                   （assertRunningInTestSpreadsheet_，spreadsheet 名字
+//                   须含"TEST"才允许跑）与 cleanupTestData_ 级联清理。
+//                   991 本身逻辑已用 Node shim 自我检查（9/9 通过，
+//                   含防呆正反两面）——但这只证明 991 没写错，不等于
+//                   已经对着真实 GAS 项目跑过，仍是待办。property-os-
+//                   tests/ 新增 README.md 说明两套测试的分工与差异。
 //
 //   2026-07-29 (c)  Obligation Engine Test Plan 落地：101 个测试全数
 //                   通过，涵盖 Vertical Slice §13 全部 8 类。搭了一个

@@ -312,34 +312,58 @@
 // 5. TESTING LAYER
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-//   Node sandbox, independent of the GAS file numbering — matches UEF's
-//   `NN_Tests_<FeatureId>.js` / `runAllXTests()` convention (confirmed
-//   by reading UEF v1.5 directly, not guessed).
+//   Two suites, on purpose — they check different things (full
+//   rationale + comparison table: property-os-tests/README.md).
+//
+//   A) GAS-NATIVE (lives in THIS directory, part of the real project)
+//
+//   990_TestKit
+//   Purpose: GAS-native assert/report utility. No require/module.exports
+//     — those don't exist in Apps Script. Pure functions only.
+//   Dependencies: 无
+//   Status: ✅ Built (2026-07-29)
+//
+//   991_Tests_ObligationEngine
+//   Purpose: Runs against REAL SpreadsheetApp/LockService/CacheService —
+//     curated (9 tests, not all 101) to cover specifically what a
+//     simulation can only approximate: the actual Sheets date-coercion
+//     fix, actual freeze-header, actual Lock/Cache behavior, a real
+//     end-to-end createObligation→recordPayment cycle. Refuses to run
+//     unless the bound spreadsheet's name contains "TEST"
+//     (assertRunningInTestSpreadsheet_) — must be run from a dedicated
+//     test copy of the project, never production. cleanupTestData_()
+//     cascades PropertyID-pattern-matched test rows through Rules →
+//     Occurrences → History.
+//   Dependencies: 900-903, 912-913, 990 (all same-project, same global
+//     scope — no import mechanism exists or is needed)
+//   Called By: run manually from the Script Editor
+//   Status: ✅ Built (2026-07-29); logic self-verified by loading it into
+//     the Node shim below with a "...TEST..." fake spreadsheet name
+//     (9/9 passed there too) — but that only proves 991's OWN logic is
+//     bug-free, not that real GAS behaves as assumed. Running it for
+//     real, in a real dedicated test spreadsheet, is still outstanding
+//     — see MANUAL_VERIFICATION_CHECKLIST.md and TECH DEBT.
+//
+//   B) NODE SANDBOX (property-os-tests/, a SEPARATE, non-GAS local tool
+//      — do not paste any of this into the Apps Script editor)
 //
 //   property-os-tests/
+//     README.md                          — Node-vs-GAS-native rationale
 //     shim/GasShim.js                    — mocks SpreadsheetApp/
-//       LockService/CacheService/Utilities/Session/Logger; loads real
-//       900-903/912-913 source into a Node vm context. Faithfully
-//       reproduces the real Sheets date→string coercion bug so the
-//       fix itself is actually exercised, not just asserted.
-//     shim/TestKit.js                    — tiny assert/report utility,
-//       zero external dependencies (no Jest/Mocha added for this)
+//       LockService/CacheService/Utilities/Session/Logger via Node's
+//       vm module; faithfully reproduces the real Sheets date-coercion
+//       bug so the fix itself is actually exercised, not just asserted
+//     shim/TestKit.js                    — Node assert/report utility
 //     tests/900_Tests_Foundation.js      — 19 tests (Unit)
 //     tests/912_Tests_ObligationEngine.js — 40 tests (Unit + State
 //       Transition + AI Query)
 //     tests/919_Tests_ObligationIntegration.js — 42 tests (Contract +
-//       Replay + Reminder/Finance Integration, contract-level + Migration)
+//       Replay + Reminder/Finance Integration[contract-level] + Migration)
 //     runAllTests.js                     — aggregate runner
-//     MANUAL_VERIFICATION_CHECKLIST.md   — the I/O-dependent half the
-//       sandbox can't cover (real Sheets/Lock/Cache/timezone behavior)
-//
-//   Status: ✅ Built and passing — 101/101, run 2026-07-29 against the
-//   actual 900-903/912-913 source (not a copy). Covers all 8 Vertical
-//   Slice §13 categories: Unit, Contract, State Transition, Replay
-//   (scoped to ObligationHistory — no real EventBus to replay from yet,
-//   noted honestly in the test itself), Reminder/Finance Integration
-//   (contract-level only — 913/914's real counterparts don't exist),
-//   AI Query, Migration.
+//     MANUAL_VERIFICATION_CHECKLIST.md   — what's still unverified even
+//       after BOTH suites (real-world edge cases neither can reach)
+//   Status: ✅ 101/101 passing (2026-07-29), against the actual
+//     900-903/912-913 source, not a copy.
 //
 // ═══════════════════════════════════════════════════════════════════════
 // END OF 00_File_Map.js
