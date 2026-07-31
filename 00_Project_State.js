@@ -78,9 +78,11 @@
 // IN PROGRESS 开发中模块
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-//   - 无 Runtime 开发中。912/913 已完成，是下一个自然停点。建议下一步
-//     是 Vertical Slice §13 Test Plan 落地（Node sandbox，比照 Reminder
-//     OS 既有模式）——但未经 CC 确认前不预设这就是下一轮内容。
+//   - 910_PropertyAssetEngine Vertical Slice 交付，等待 Review
+//     Approval（比照 Obligation Engine 流程，但份量更轻——单一
+//     Aggregate，无 Rule/Occurrence 分裂、无 Scheduler）。两项
+//     [NEEDS CONFIRMATION]：PropertyType 枚举值、Address 用结构化
+//     VO 还是 doc1 原本的扁平字串。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -127,15 +129,13 @@
 //      了 shim 模拟不到、需要对着真实项目核对的部分（真实 Sheets 的
 //      日期强制转文字行为、真实并发下的 LockService、CacheService
 //      真实 TTL 等）。
-//   6. [更新] 990_TestKit.js / 991_Tests_ObligationEngine.js 已写好，
-//      逻辑已透过 Node shim 自我检查过（9/9 通过，含安全防呆的正反两面
-//      测试），但那只证明 991 本身逻辑没错，不等于已经对着真实 GAS
-//      项目跑过。★ 仍待办：CC 需要（a）建一个专用测试 spreadsheet，
-//      名字要含"TEST"字样（991 的安全防呆会检查这个），（b）把
-//      900-903/912-913/990/991 复制进去，（c）实际执行
-//      runAllObligationEngineTestsLive()，确认真实结果。912/913 的
-//      Command 本身是否已复制进 CC 的正式 GAS 项目、跑过，也尚未确认
-//      （区分于上面"专用测试项目"这件事——正式项目不该跑 991）。
+//   6. [已解决 2026-07-29] 991_Tests_ObligationEngine.js 已在 CC 的真实
+//      GAS 专用测试 spreadsheet 上跑过，9/9 通过。Obligation Engine
+//      现在是 Node shim（101/101）与真实 GAS（9/9）双重验证。
+//      精确记录哪些 Manual Verification Checklist 项目因此关闭、哪些
+//      仍未覆盖，见该文件本身（991 的 9 个案例是精选，不是全部——
+//      真实并发下的 LockService、CacheService 真正的 1 小时 TTL
+//      到期、真实 schema drift 侦测，这几项 991 没测到，仍标待办）。
 //   7. [已解决 2026-07-29] .txt vs .gs 冲突（读 UEF v1.4 时发现，历史
 //      记录：UEF 当时明文规定所有 project-level 治理文件用 .txt，
 //      不用 .gs；但 Property OS 从第一轮开始就是照 CC 给的文件名
@@ -184,6 +184,19 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+//   2026-07-29 (e)  CC 确认 991_Tests_ObligationEngine.js 已在真实
+//                   GAS 专用测试 spreadsheet 跑过，9/9 通过。
+//                   MANUAL_VERIFICATION_CHECKLIST.md 精确勾掉这次
+//                   真的覆盖到的项目（Sheets 日期防护、Freeze Header、
+//                   时区），如实保留仍未覆盖的（真实并发 Lock、Cache
+//                   TTL 到期、schema drift）。TECH DEBT #6 关闭。
+//                   开始 910_PropertyAssetEngine：产出 Vertical Slice
+//                   （PropertyAssetEngine_VerticalSlice.md），份量比
+//                   Obligation Engine 轻（单一 Aggregate），沿用已批准
+//                   的模式（ADR-P06/P07/P10 直接套用，不重新论证）。
+//                   两项待确认：PropertyType 枚举、Address 结构化 vs
+//                   扁平字串。等待 Review Approval，未写 Runtime。
 //
 //   2026-07-29 (d)  CC 指出 property-os-tests/（Node 沙箱）不是 GAS
 //                   能跑的东西，档名（900_Tests_Foundation.js 这种）
