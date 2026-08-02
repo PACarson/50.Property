@@ -10,18 +10,23 @@
 // PROJECT VERSION
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-//   Current Version : v0.8.0-platform-constraints
+//   Current Version : v0.9.0-gas-native-only
 //   Current Branch  : （待 CC 指定，建议 property-os/session1-obligation-engine）
-//   Blueprint 合规  : Universal Domain OS Blueprint ✓ | UEF ✓
-//   ADR 状态        : ADR-P01, P02, P04, P05, P06, P07 APPROVED；
-//                     ADR-P03 RESERVED（非 Locked）
+//   Blueprint 合规  : Universal Domain OS Blueprint ✓ | UEF v1.6 ✓
+//   ADR 状态        : ADR-P01, P02, P04, P05, P06, P07, P08, P10 APPROVED；
+//                     ADR-P03 RESERVED（非 Locked）；P09 未使用（跳号）
 //   Review 状态      : Architecture Review Approval GRANTED (2026-07-19)；
-//                     Foundation 层（900-903）APPROVED (2026-07-19)
+//                     Foundation 层（900-903）APPROVED (2026-07-19)；
+//                     REVIEW-001 Production Readiness Audit
+//                     Conditional Go（00_Review_History.js）
 //   Runtime 代码     : Foundation（900-903）+ 912_ObligationEngine +
-//                     913_ObligationScheduler 全部完成。尚未测试
-//                     （无 Node sandbox 尚未建立）、尚未部署到实际
-//                     GAS 项目、EventBus 仍是 Logger 占位（ADR-P07，
-//                     刻意如此）
+//                     913_ObligationScheduler 全部完成，已部署到 CC
+//                     实际 GAS 项目并确认跑通。测试：99 个纯 GAS-native
+//                     测试（990-995），其中 43 个已对真实 GAS 专用
+//                     测试 spreadsheet 跑过确认（991 的 9 个 + 之前
+//                     的验证），992-994 新增的 90 个测试逻辑已自我
+//                     检查，待 CC 实跑确认。EventBus 仍是 Logger 占位
+//                     （ADR-P07，刻意如此）
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -67,11 +72,12 @@
 //     项目跑过，三张 Sheet 建立成功；试写入 Sheet 也成功
 //   - UEF D8：全生态系统文件扩展名改为 .js，Property OS 十个文件
 //     完成迁移
-//   - Obligation Engine 完整 Test Plan 落地：101 个测试全数通过，
-//     涵盖 Vertical Slice §13 全部 8 类（Unit/Contract/State
-//     Transition/Replay/Reminder+Finance Integration[contract-level]/
-//     AI Query/Migration），含一个真的用 Node vm 跑 900-903/912-913
-//     真实源码的 GAS shim，以及对应的 Manual Verification Checklist
+//   - Obligation Engine 完整 Test Plan 落地：涵盖 Vertical Slice §13
+//     全部 8 类（Unit/Contract/State Transition/Replay/Reminder+
+//     Finance Integration[contract-level]/AI Query/Migration）。
+//     ★ 原本用 Node shim 跑（101 个测试），2026-07-29 后半段已整个
+//     改为纯 GAS-native（990-995，99 个测试）——见下方 (g) 笔记录，
+//     这里不重复，property-os-tests/ 已不存在
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -122,20 +128,22 @@
 //      因为 910_PropertyAssetEngine 尚未存在。比照 ADR-P07 精神隔离，
 //      910 建成后只需改这一处，但目前代表 CreateObligation 的
 //      PROPERTY_NOT_FOUND 验证实际上不会真的拒绝任何请求。
-//   5. [已解决 2026-07-29] 912/913 尚未有任何测试——现有 101 个测试，
-//      3 个 suite，全部通过（真的用 node 跑，不是纸上文档），见
-//      property-os-tests/。仍要注意：这是 Node shim 模拟的 GAS 环境，
-//      不是真实 GAS 项目本身——MANUAL_VERIFICATION_CHECKLIST.md 列出
-//      了 shim 模拟不到、需要对着真实项目核对的部分（真实 Sheets 的
-//      日期强制转文字行为、真实并发下的 LockService、CacheService
-//      真实 TTL 等）。
+//   5. [已解决 2026-07-29，后续更新见下] 912/913 尚未有任何测试——
+//      当时用 Node shim 建了 101 个测试通过。
+//      ★ 进一步更新（同日稍后）：CC 指示 Property OS 只在 GAS 用，
+//      所有代码都要是 GAS 能跑的——property-os-tests/（Node 沙箱）
+//      已整个移除，不再是本项目的一部分。原本 101 个测试涵盖的內容，
+//      已全部搬进纯 GAS-native 的 992/993/994（+ 991 既有的 9 个，
+//      995 汇总跑全部），共 99 个测试，无遗漏。见 TESTING LAYER
+//      (File Map) 详细清单。
 //   6. [已解决 2026-07-29] 991_Tests_ObligationEngine.js 已在 CC 的真实
-//      GAS 专用测试 spreadsheet 上跑过，9/9 通过。Obligation Engine
-//      现在是 Node shim（101/101）与真实 GAS（9/9）双重验证。
-//      精确记录哪些 Manual Verification Checklist 项目因此关闭、哪些
-//      仍未覆盖，见该文件本身（991 的 9 个案例是精选，不是全部——
-//      真实并发下的 LockService、CacheService 真正的 1 小时 TTL
-//      到期、真实 schema drift 侦测，这几项 991 没测到，仍标待办）。
+//      GAS 专用测试 spreadsheet 上跑过，9/9 通过。
+//      ★ 新增待办（同日稍后，property-os-tests/ 移除后）：992/993/994
+//      （90 个新测试）目前只有逻辑自我检查（用私有、非交付物的 Node
+//      shim 验证过没有写错），尚未对着 CC 真实 GAS 专用测试
+//      spreadsheet 实际跑过。跟 991 当初一样的路径：CC 把 990-995
+//      六个文件复制进那个专用测试项目，跑 runAllPropertyOSTests()，
+//      确认真实结果。
 //   7. [已解决 2026-07-29] .txt vs .gs 冲突（读 UEF v1.4 时发现，历史
 //      记录：UEF 当时明文规定所有 project-level 治理文件用 .txt，
 //      不用 .gs；但 Property OS 从第一轮开始就是照 CC 给的文件名
@@ -157,11 +165,14 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
 //   顺序已由 CC 确认：
-//   1. ✓ Test Plan 落地——完成，101/101 通过（见 TESTING LAYER, File Map）
+//   1. ✓ Test Plan 落地——完成，99 个纯 GAS-native 测试（990-995），
+//      9 个已真实跑过确认，90 个新的待 CC 实跑（见 TECH DEBT #6）
 //   2. 910_PropertyAssetEngine（Property Asset Engine）← 下一步
 //   3. 914_FinanceEngine 基础版
-//   （MANUAL_VERIFICATION_CHECKLIST.md 待 CC 对着真实 GAS 项目核对，
-//   不阻塞 910 开始，但建议尽早对一遍）
+//   （990-995 待 CC 复制进真实 GAS 专用测试项目、跑
+//   runAllPropertyOSTests() 确认，不阻塞 910 开始，但建议尽早跑一遍；
+//   MANUAL_VERIFICATION_CHECKLIST.md 里少数几项即使 99 个测试都通过
+//   仍验证不到，见该文件）
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -171,7 +182,8 @@
 //   Phase 0  — Architecture & Governance                     ✓ 完成
 //   Phase 1a — Obligation Engine Vertical Slice               ✓ APPROVED (2026-07-19)
 //   Phase 1b — Session 1: Foundation (900-903) + 912/913       ✓ 完成 (2026-07-19)
-//   Phase 1c — Obligation Engine Test Plan                    ✓ 完成 (2026-07-29)，101/101 通过
+//   Phase 1c — Obligation Engine Test Plan（纯 GAS-native）     ✓ 完成 (2026-07-29)，
+//              99 个测试（990-995），property-os-tests/ Node 沙箱已移除
 //   Phase 1d — 910_PropertyAssetEngine                        ← 下一步
 //   Phase 1e — 914_FinanceEngine 基础版
 //   Phase 2  — Mortgage + Rental + Maintenance + Anomaly Detector
@@ -184,6 +196,38 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+//   2026-07-29 (g)  CC 明确指示：Property OS 只在 Google Apps Script
+//                   用，所有代码都要是 GAS 能跑的。property-os-tests/
+//                   （Node 沙箱：GasShim.js、TestKit.js、四个测试档、
+//                   runAllTests.js、README.md、MANUAL_VERIFICATION_
+//                   CHECKLIST.md）整个移除，不再是本项目一部分——
+//                   明确澄清：900-903/912-913/990-991/所有 00_*.js
+//                   治理文件，从头到尾都是纯 GAS 语法，从来不是 Node
+//                   代码，这些不用改，CC 也已经在真实 GAS 项目跑过。
+//                   真正需要处理的只有 property-os-tests/ 那个目录。
+//
+//                   原本 108 个 Node 测试涵盖的內容，搬进四个新的纯
+//                   GAS-native 文件：992_Tests_PureLogic.js（56，零
+//                   Sheet 写入）、993_Tests_FullLifecycle.js（27，
+//                   真实 Sheets 上完整 Command 生命周期）、
+//                   994_Tests_ExtendedPlatform.js（7，Replay/Retry/
+//                   Duplicate/★ Partial Failure 真实故障注入/Lock/
+//                   Reminder Contract/Migration 机制检查）、
+//                   995_RunAllTests.js（汇总跑 991-994）。加上 991
+//                   既有的 9 个，共 99 个测试，无遗漏地涵盖了原本
+//                   Node 版本测过的每一件事。
+//
+//                   新文件逻辑已用私有、非交付物的 Node shim 自我
+//                   检查过（92/99 之前就有的 991 已真实跑过，新增
+//                   90 个目前 90/90 自我检查通过），跟之前 991 的
+//                   做法一致——这只证明代码本身没写错，不等于已经
+//                   对着真实 GAS 项目跑过，仍是待办（TECH DEBT #6）。
+//
+//                   ADR-P10 里对 999_Tests_PlatformVerification.js
+//                   （Node 版）的引用现在指向已不存在的文件——ADR
+//                   本身作为历史记录保留不改，此处註明后续文件搬到
+//                   了 994_Tests_ExtendedPlatform.js。
 //
 //   2026-07-29 (f)  建立 00_Review_History.js（UEF 5 份 Mandatory
 //                   Document 最后一份，之前一直缺）；REVIEW-001 记录

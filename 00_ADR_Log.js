@@ -335,3 +335,14 @@
 //   proposals get a place to live (local adoption + UEF Candidate
 //   entry) without silently lowering the evidence bar for what counts
 //   as ratified, cross-project UEF content.
+//
+// Addendum (2026-07-29, later same day): the file this ADR references
+//   (`999_Tests_PlatformVerification.js`) was a Node-sandbox file that
+//   no longer exists — CC directed the whole project to pure GAS-native
+//   code, and property-os-tests/ was removed entirely. The same test
+//   coverage now lives in `994_Tests_ExtendedPlatform.js`. This ADR's
+//   actual decision (local adoption of the three categories; Candidate
+//   Pattern, not ratified UEF content) is unchanged — only the file
+//   path is stale. Left as-is rather than edited, per this project's
+//   own convention that ADR entries are a record of the decision made
+//   at the time, not a living pointer kept in sync with every rename.

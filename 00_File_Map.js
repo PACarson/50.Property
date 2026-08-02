@@ -327,65 +327,69 @@
 // 5. TESTING LAYER
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-//   Two suites, on purpose — they check different things (full
-//   rationale + comparison table: property-os-tests/README.md).
+//   ★ 2026-07-29：CC 明确指示 Property OS 只在 Google Apps Script 用，
+//   所有代码都要是 GAS 能跑的——原本的 property-os-tests/（Node 本地
+//   沙箱，用 require/module.exports/vm，从来就不是拿来贴进 Apps
+//   Script 编辑器的）已从本项目移除，不再是 Property OS 的一部分。
+//   之前那 108 个测试涵盖的东西，已经全部搬进下面这几个纯 GAS-native
+//   文件，没有遗漏——搬迁细节见 00_Project_State.js changelog。
 //
-//   A) GAS-NATIVE (lives in THIS directory, part of the real project)
+//   全部都是纯 Apps Script 语法（无 require/module.exports/process/
+//   __dirname），跟 900-903/912-913 贴在同一个 GAS 专案里，靠 GAS
+//   本身的共用全域作用域互相调用，不需要任何 import 机制。
 //
 //   990_TestKit
-//   Purpose: GAS-native assert/report utility. No require/module.exports
-//     — those don't exist in Apps Script. Pure functions only.
+//   Purpose: GAS-native assert/report utility
 //   Dependencies: 无
 //   Status: ✅ Built (2026-07-29)
 //
 //   991_Tests_ObligationEngine
-//   Purpose: Runs against REAL SpreadsheetApp/LockService/CacheService —
-//     curated (9 tests, not all 101) to cover specifically what a
-//     simulation can only approximate: the actual Sheets date-coercion
-//     fix, actual freeze-header, actual Lock/Cache behavior, a real
-//     end-to-end createObligation→recordPayment cycle. Refuses to run
-//     unless the bound spreadsheet's name contains "TEST"
-//     (assertRunningInTestSpreadsheet_) — must be run from a dedicated
-//     test copy of the project, never production. cleanupTestData_()
-//     cascades PropertyID-pattern-matched test rows through Rules →
-//     Occurrences → History.
-//   Dependencies: 900-903, 912-913, 990 (all same-project, same global
-//     scope — no import mechanism exists or is needed)
-//   Called By: run manually from the Script Editor
-//   Status: ✅ Built (2026-07-29); logic self-verified by loading it into
-//     the Node shim below with a "...TEST..." fake spreadsheet name
-//     (9/9 passed there too) — but that only proves 991's OWN logic is
-//     bug-free, not that real GAS behaves as assumed. Running it for
-//     real, in a real dedicated test spreadsheet, is still outstanding
-//     — see MANUAL_VERIFICATION_CHECKLIST.md and TECH DEBT.
+//   Purpose: 真实 SpreadsheetApp/LockService/CacheService——9 个测试，
+//     聚焦在只有真实环境才能验证的部分：真实日期防护、真实 freeze
+//     header、真实 Lock/Cache、端到端 create→pay 真实转到下一期。
+//     assertRunningInTestSpreadsheet_ 安全防呆（spreadsheet 名字须含
+//     "TEST"）、cleanupTestData_ 级联清理，两者定义于本文件，供
+//     992-995 共用（同一 GAS 专案共用全域作用域）
+//   Dependencies: 900-903, 912-913, 990
+//   Status: ✅ 已在 CC 真实 GAS 专用测试 spreadsheet 跑过，9/9 通过
 //
-//   B) NODE SANDBOX (property-os-tests/, a SEPARATE, non-GAS local tool
-//      — do not paste any of this into the Apps Script editor)
+//   992_Tests_PureLogic  ← 新增 2026-07-29
+//   Purpose: 纯函数测试，零 Sheet 写入，可安全在任何环境跑。涵盖 ID
+//     产生格式、日期工具、addFrequencyToDate_ 全部频率类型（含月底
+//     闰年 clamp）、Overdue 判定、State Machine guard、9 种 Event
+//     Contract 的必填栏位系统性检查
+//   Dependencies: 900-903, 912-913
+//   Status: ✅ 56 tests，逻辑已用私有 Node shim 自我检查（56/56），
+//     待 CC 对真实 GAS 项目实际跑一次
 //
-//   property-os-tests/
-//     README.md                          — Node-vs-GAS-native rationale
-//     shim/GasShim.js                    — mocks SpreadsheetApp/
-//       LockService/CacheService/Utilities/Session/Logger via Node's
-//       vm module; faithfully reproduces the real Sheets date-coercion
-//       bug so the fix itself is actually exercised, not just asserted
-//     shim/TestKit.js                    — Node assert/report utility
-//     tests/900_Tests_Foundation.js      — 19 tests (Unit)
-//     tests/912_Tests_ObligationEngine.js — 40 tests (Unit + State
-//       Transition + AI Query)
-//     tests/919_Tests_ObligationIntegration.js — 42 tests (Contract +
-//       Replay + Reminder/Finance Integration[contract-level] + Migration)
-//     tests/999_Tests_PlatformVerification.js — 7 tests (Replay across
-//       a longer sequence, Migration cross-reference, Retry, Duplicate
-//       Command, ★ Partial Failure — found a real gap, see TECH DEBT,
-//       Lock-releases-on-throw). Three categories proposed by CC
-//       2026-07-29, adopted locally per ADR-P10 (UEF Candidate Pattern,
-//       not yet ecosystem-ratified — see UEF v1.6)
-//     runAllTests.js                     — aggregate runner
-//     README.md                          — Node-vs-GAS-native rationale
-//     MANUAL_VERIFICATION_CHECKLIST.md   — what's still unverified even
-//       after BOTH suites (real-world edge cases neither can reach)
-//   Status: ✅ 108/108 passing (2026-07-29: 101 original + 7 platform
-//     verification), against the actual 900-903/912-913 source.
+//   993_Tests_FullLifecycle  ← 新增 2026-07-29
+//   Purpose: 真实 Sheets 上的完整 Command 生命周期——7 个 Command 的
+//     validation/success/idempotency、cancel/pause/resume、
+//     reversePayment 全周期、AI Query 过滤
+//   Dependencies: 900-903, 912-913, 990, 991（共用 assertRunning
+//     InTestSpreadsheet_/testPropertyId_/cleanupTestData_）
+//   Status: ✅ 27 tests，逻辑已自我检查（27/27），待 CC 实跑
+//
+//   994_Tests_ExtendedPlatform  ← 新增 2026-07-29
+//   Purpose: Replay（多步骤真实序列）、Retry、Duplicate Command、
+//     ★ Partial Failure（真实故障注入，在真实 GAS 里覆写全域函式，
+//     手法跟之前 Node 版本一样，因为 GAS 本身也是共用全域作用域）、
+//     Lock 释放、Reminder Contract、Migration 机制检查（验证
+//     OBLIGATION_CATEGORIES 确实是 frozen，新增类别必须走真实的
+//     源码编辑+部署，不是 runtime 能改的）
+//   Dependencies: 900-903, 912-913, 990, 991
+//   Status: ✅ 7 tests，逻辑已自我检查（7/7），待 CC 实跑
+//
+//   995_RunAllTests  ← 新增 2026-07-29
+//   Purpose: 依序跑完 991-994，输出汇总。runAllPropertyOSTests()
+//   Dependencies: 990-994
+//   Status: ✅ 汇总已自我检查：99/99（56+9+27+7）全数通过
+//
+//   MANUAL_VERIFICATION_CHECKLIST.md（仍保留，独立于本项目 GAS 文件
+//   之外，纯文档）—— 即使 99 个 GAS-native 测试都通过，仍有几项
+//   （真实并发下的 Lock 竞争、CacheService 真实 1 小时 TTL 到期、
+//   GAS 6 分钟执行上限）无法在单次测试跑里验证，如实保留待办，不
+//   因为测试数字好看就假装已核实。
 //
 // ═══════════════════════════════════════════════════════════════════════
 // END OF 00_File_Map.js
