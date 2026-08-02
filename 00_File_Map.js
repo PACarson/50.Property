@@ -59,9 +59,21 @@
 // Status: Active (v0.2)
 
 // 00_ADR_Log
-// Purpose: 正式架构决策记录（ADR-P01~P07），含 Decision Matrix
+// Purpose: 正式架构决策记录（ADR-P01~P10），含 Decision Matrix
 //   （Question/Options/Evaluation/Trade-off/Decision）
 // Status: Active — v0.2，含 Review Approval 与 ADR-P06/P07 追认
+
+// 00_Review_History
+// Purpose: UEF 5 份 Mandatory Document 最后一份，之前一直缺。审核/
+//   Audit 记录，独立于 00_Project_State 的日常 changelog。REVIEW-001
+//   （Obligation Engine Production Readiness Audit）含 addendum
+// Status: Active — 本次建立
+
+// 00_Business_Rules
+// Purpose: UEF §0.3 Conditional Document（trigger 已满足）。Obligation
+//   Engine 的付款/循环/逾期/提醒/终止政策，与 Constitution 的结构性
+//   架构内容分开维护
+// Status: Active — 本次建立（Audit REVIEW-001 GAP-3 的修复）
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -160,7 +172,10 @@
 //   （尚未建），914_FinanceEngine（订阅 PAYMENT_COMPLETED，尚未建）
 // Status: ✅ Runtime Complete (2026-07-19)。910_PropertyAssetEngine 尚未
 //   存在，故 PropertyID 存在性检查（propertyExists_）暂为 permissive
-//   placeholder，比照 ADR-P07 Adapter 模式隔离，910 建成后只需改这一处
+//   placeholder，比照 ADR-P07 Adapter 模式隔离，910 建成后只需改这一处。
+//   2026-07-29 新增 logPartialFailure_：create/record/reverse Payment
+//   在 Truth 写入之后的步骤失败时大声记录（UEF v1.6 §2/D9），不假装
+//   原子性——Sheets 没有多语句事务，这是平台事实不是本文件的选择
 
 // 913_ObligationScheduler  ★ 核心新模块 — Runtime Complete
 // Purpose: Frequency-aware NextDue 计算（含月末 clamp，避免 1/31 +1月
@@ -359,11 +374,18 @@
 //       Transition + AI Query)
 //     tests/919_Tests_ObligationIntegration.js — 42 tests (Contract +
 //       Replay + Reminder/Finance Integration[contract-level] + Migration)
+//     tests/999_Tests_PlatformVerification.js — 7 tests (Replay across
+//       a longer sequence, Migration cross-reference, Retry, Duplicate
+//       Command, ★ Partial Failure — found a real gap, see TECH DEBT,
+//       Lock-releases-on-throw). Three categories proposed by CC
+//       2026-07-29, adopted locally per ADR-P10 (UEF Candidate Pattern,
+//       not yet ecosystem-ratified — see UEF v1.6)
 //     runAllTests.js                     — aggregate runner
+//     README.md                          — Node-vs-GAS-native rationale
 //     MANUAL_VERIFICATION_CHECKLIST.md   — what's still unverified even
 //       after BOTH suites (real-world edge cases neither can reach)
-//   Status: ✅ 101/101 passing (2026-07-29), against the actual
-//     900-903/912-913 source, not a copy.
+//   Status: ✅ 108/108 passing (2026-07-29: 101 original + 7 platform
+//     verification), against the actual 900-903/912-913 source.
 //
 // ═══════════════════════════════════════════════════════════════════════
 // END OF 00_File_Map.js

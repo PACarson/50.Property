@@ -14,10 +14,26 @@
  * 原则：本文件极少修改，记录不可轻易改变的规则。
  *       新 AI / 新开发者接手 Property OS，必须先读此文件。
  *
+ * ★ Platform Constraint（2026-07-29 明文化，呼应 UEF v1.6 §2）：
+ * Property OS 100% 运行于 Google Apps Script + Google Sheets（Truth
+ * Layer）。不是"目前碰巧用 GAS"，是这整个系统唯一的目标平台——所有
+ * 架构决策都是在这个前提下做的。具体含义：
+ *   - Sheets 没有多语句事务；一个 Command 的多笔写入（Truth/History/
+ *     Event）是各自独立的操作，不是原子的一整包。见 §5 Coding
+ *     Standards 与 ADR-P10 相关记录（logPartialFailure_ 的做法）。
+ *   - 除了 LockService，没有真正的跨执行并发原语；且 LockService
+ *     只在同一个 GAS 专案内的多次执行之间生效，不同专案（例如
+ *     Property OS 跟 Reminder OS）之间没有任何锁协调，只能透过共用
+ *     Sheet 的资料本身去推断状态。
+ *   - 任何未来考虑的技术（Firestore/SQLite/Cloud Run 等）都是"透过
+ *     ADR-P07 Adapter 替换实作"的假设性讨论，不是目前路线图的一部分；
+ *     不要因为讨论过这些可能性就以为系统正在往那个方向迁移。
+ *
  * 上位框架（Property OS 不得重新设计，只能遵守）：
  *   - Personal AI Core Framework      — 整体架构，不可绕过
  *   - Universal Domain OS Blueprint   — 运行时分层标准（0~5）
- *   - Universal Engineering Framework — 工程方法论标准（UEF，0~9）
+ *   - Universal Engineering Framework — 工程方法论标准（UEF，0~9，
+ *     目前 v1.6，含 §2 Platform Constraints／D9 与本文件呼应）
  *
  * 本文件不包含任何可执行逻辑（无 function），仅为治理文档。
  * ═══════════════════════════════════════════════════════════════════════

@@ -296,6 +296,42 @@
 //   project directory, including inside file-header self-references and
 //   the two .md companion docs.
 
-// ═══════════════════════════════════════════════════════════════════════
-// END OF 00_ADR_Log.js
-// ═══════════════════════════════════════════════════════════════════════
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ADR-P10 — Local Adoption of Three Platform Verification Categories
+// STATUS: APPROVED (2026-07-29) — NEW
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// Question: CC proposed three verification categories as platform-level
+//   (applicable to every Domain OS): Replay Verification, Migration
+//   Verification, Failure Recovery Verification (Lock/Retry/Partial
+//   Failure/Duplicate Command). Should Property OS adopt these now, and
+//   should they go straight into UEF as binding on every project?
+//
+// Decision: Property OS adopts all three **locally, immediately** —
+//   see `property-os-tests/tests/999_Tests_PlatformVerification.js`.
+//   A single project doesn't need ecosystem-wide evidence to improve
+//   its own practice. Promoting them into UEF itself as binding on
+//   every Domain OS is a **separate** question, gated by UEF's own
+//   D7/D8 evidence bar (two independent projects, or an explicit
+//   Decision Matrix override) — not decided here. Recorded as a new
+//   Candidate Pattern entry in UEF v1.5's own table instead of being
+//   folded into ratified content, for the same reason D7 exists: good
+//   ideas still need the evidence UEF itself requires before they bind
+//   every current and future project.
+//
+// Evidence (2026-07-29, this session): Running these tests immediately
+//   surfaced a real, previously-undocumented gap — see TECH DEBT and
+//   00_Review_History.js REVIEW-001 addendum. Not a hypothetical
+//   benefit; the Failure Recovery category found something on its
+//   first run.
+//
+// Impact: `999_Tests_PlatformVerification.js` added to the Node
+//   sandbox (7 tests). `property-os-tests/README.md`'s file table
+//   should be updated to list it (see File Map). No Runtime code
+//   changed by this ADR itself — the finding it surfaced is tracked
+//   separately, fix/defer decision not bundled into this entry.
+//
+// Related ADRs: Same underlying discipline as ADR-P07/D7/D8 — good
+//   proposals get a place to live (local adoption + UEF Candidate
+//   entry) without silently lowering the evidence bar for what counts
+//   as ratified, cross-project UEF content.

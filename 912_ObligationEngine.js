@@ -70,6 +70,29 @@ function withObligationLock_(fn) {
   }
 }
 
+/**
+ * Per UEF v1.6 §2 "Platform Constraints" (D9): Sheets has no multi-
+ * statement transactions, so a Command's several writes are NOT atomic.
+ * This does not attempt to fix that — full saga/reconciliation
+ * machinery is a disproportionate response at this project's scale
+ * (D9's reasoning). It makes a failure AFTER a Truth write already
+ * succeeded loud and specifically labeled, so a rare failure is a
+ * findable, human-reconcilable event instead of a silent inconsistency.
+ * Never swallows the error — always call this, then re-throw.
+ * @param {string} commandName e.g. 'recordPayment'
+ * @param {string} truthDescription exactly what already committed
+ * @param {Error} originalError
+ */
+function logPartialFailure_(commandName, truthDescription, originalError) {
+  Logger.log(
+    '⚠ PARTIAL FAILURE in ' + commandName + ' — the following ' +
+    'Truth Layer write ALREADY SUCCEEDED before a later step failed ' +
+    '(UEF v1.6 §2 Platform Constraints, D9 — Sheets has no multi-' +
+    'statement transactions): ' + truthDescription + '. Manual ' +
+    'reconciliation may be needed. Underlying error: ' + originalError.message
+  );
+}
+
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Idempotency (ClientRequestID) — CreateObligation, UpdateObligation
@@ -357,19 +380,35 @@ function createObligation(input) {
     ruleSheet_().appendRow(objectToRowArray_(rule, PROPERTY_SCHEMA.ObligationRule.columns));
 
     var firstOccurrence = createOccurrence_(rule, input.dueAnchor);
-
-    publishPropertyEvent_(
-      PROPERTY_EVENTS.OBLIGATION_CREATED,
-      rule.PropertyID,
-      rule.ObligationID,
-      { obligationId: rule.ObligationID, propertyId: rule.PropertyID, category: rule.Category, rule: rule }
-    );
-    publishPropertyEvent_(
-      PROPERTY_EVENTS.REMINDER_REQUESTED,
-      rule.PropertyID,
-      rule.ObligationID,
-      buildReminderRequest_(rule, firstOccurrence)
-    );
+    // ^ Rule + first Occurrence committed (both Truth writes). Per UEF
+    // v1.6 §2/D9, the event publishes below are not guaranteed atomic
+    // with either — a failure here is logged loudly and specifically,
+    // then re-thrown. (The Rule-then-Occurrence boundary itself is a
+    // narrower, separate partial-failure edge — not wrapped here; see
+    // 00_Project_State.js TECH DEBT for the note rather than expanding
+    // this fix indefinitely in one pass.)
+    try {
+      publishPropertyEvent_(
+        PROPERTY_EVENTS.OBLIGATION_CREATED,
+        rule.PropertyID,
+        rule.ObligationID,
+        { obligationId: rule.ObligationID, propertyId: rule.PropertyID, category: rule.Category, rule: rule }
+      );
+      publishPropertyEvent_(
+        PROPERTY_EVENTS.REMINDER_REQUESTED,
+        rule.PropertyID,
+        rule.ObligationID,
+        buildReminderRequest_(rule, firstOccurrence)
+      );
+    } catch (postWriteError) {
+      logPartialFailure_(
+        'createObligation',
+        'ObligationRule ' + rule.ObligationID + ' and its first Occurrence ' +
+        firstOccurrence.OccurrenceID + ' already created — event publish step(s) did not all complete',
+        postWriteError
+      );
+      throw postWriteError;
+    }
 
     var result = {
       success: true,
@@ -505,25 +544,43 @@ function recordPayment(input) {
       ReversalReason: '',
       UpdatedAt: toIsoDateTime_(new Date())
     });
-    appendObligationHistory_(occurrence.OccurrenceID, 'Active', 'Paid', 'RecordPayment', input.note || '');
+    // ^ Truth write committed. Per UEF v1.6 §2 Platform Constraints
+    // (D9): Sheets has no multi-statement transactions, so everything
+    // below is NOT guaranteed atomic with the write above. Rather than
+    // pretend otherwise, a failure past this point is logged loudly
+    // and specifically (naming exactly what may now be orphaned), then
+    // re-thrown — the caller still sees the error either way.
+    var paymentEvent, nextOccurrence;
+    try {
+      appendObligationHistory_(occurrence.OccurrenceID, 'Active', 'Paid', 'RecordPayment', input.note || '');
 
-    var paymentEvent = publishPropertyEvent_(
-      PROPERTY_EVENTS.PAYMENT_COMPLETED,
-      rule.PropertyID,
-      rule.ObligationID,
-      {
-        obligationId: rule.ObligationID,
-        occurrenceId: occurrence.OccurrenceID,
-        effectiveDue: occurrence.EffectiveDue,
-        amount: paidAmount,
-        paidDate: paidDate,
-        paidVia: paidVia
-      }
-    );
+      paymentEvent = publishPropertyEvent_(
+        PROPERTY_EVENTS.PAYMENT_COMPLETED,
+        rule.PropertyID,
+        rule.ObligationID,
+        {
+          obligationId: rule.ObligationID,
+          occurrenceId: occurrence.OccurrenceID,
+          effectiveDue: occurrence.EffectiveDue,
+          amount: paidAmount,
+          paidDate: paidDate,
+          paidVia: paidVia
+        }
+      );
 
-    // 914_FinanceEngine doesn't exist yet — see file header. Not called
-    // here, on purpose. 913 IS called here, on purpose (see file header).
-    var nextOccurrence = scheduleNextOccurrence_(rule, occurrence);
+      // 914_FinanceEngine doesn't exist yet — see file header. Not called
+      // here, on purpose. 913 IS called here, on purpose (see file header).
+      nextOccurrence = scheduleNextOccurrence_(rule, occurrence);
+    } catch (postWriteError) {
+      logPartialFailure_(
+        'recordPayment',
+        'Occurrence ' + occurrence.OccurrenceID + ' already set to Paid ' +
+        '(PaidAmount=' + paidAmount + ', PaidDate=' + paidDate + ') — ' +
+        'History/Event/next-cycle steps did not all complete',
+        postWriteError
+      );
+      throw postWriteError;
+    }
 
     return {
       success: true,
@@ -687,20 +744,33 @@ function reversePayment(input) {
       ReversalReason: input.reason || '',
       UpdatedAt: now
     });
-    appendObligationHistory_(occurrence.OccurrenceID, 'Paid', 'Active', 'ReversePayment', input.reason || '');
+    // ^ Truth write committed — same UEF v1.6 §2/D9 caveat as
+    // recordPayment: everything below is not guaranteed atomic with it.
+    var event;
+    try {
+      appendObligationHistory_(occurrence.OccurrenceID, 'Paid', 'Active', 'ReversePayment', input.reason || '');
 
-    var event = publishPropertyEvent_(
-      PROPERTY_EVENTS.PAYMENT_REVERSED,
-      rule.PropertyID,
-      rule.ObligationID,
-      {
-        obligationId: rule.ObligationID,
-        occurrenceId: occurrence.OccurrenceID,
-        originalEventId: originalEventId,
-        reversedAmount: reversedAmount,
-        reason: input.reason || ''
-      }
-    );
+      event = publishPropertyEvent_(
+        PROPERTY_EVENTS.PAYMENT_REVERSED,
+        rule.PropertyID,
+        rule.ObligationID,
+        {
+          obligationId: rule.ObligationID,
+          occurrenceId: occurrence.OccurrenceID,
+          originalEventId: originalEventId,
+          reversedAmount: reversedAmount,
+          reason: input.reason || ''
+        }
+      );
+    } catch (postWriteError) {
+      logPartialFailure_(
+        'reversePayment',
+        'Occurrence ' + occurrence.OccurrenceID + ' already set back to Active ' +
+        '(reversedAmount=' + reversedAmount + ') — History/Event steps did not all complete',
+        postWriteError
+      );
+      throw postWriteError;
+    }
 
     return {
       success: true,

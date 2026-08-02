@@ -10,7 +10,7 @@
 // PROJECT VERSION
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-//   Current Version : v0.7.0-gas-native-tests
+//   Current Version : v0.8.0-platform-constraints
 //   Current Branch  : （待 CC 指定，建议 property-os/session1-obligation-engine）
 //   Blueprint 合规  : Universal Domain OS Blueprint ✓ | UEF ✓
 //   ADR 状态        : ADR-P01, P02, P04, P05, P06, P07 APPROVED；
@@ -184,6 +184,28 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+//   2026-07-29 (f)  建立 00_Review_History.js（UEF 5 份 Mandatory
+//                   Document 最后一份，之前一直缺）；REVIEW-001 记录
+//                   Obligation Engine Production Readiness Audit（比照
+//                   UEF §9 流程），Disposition: Conditional Go，如实
+//                   标记 pending（未全部通过 Manual Checklist）。建立
+//                   00_Business_Rules.js（GAP-3），把付款/循环/逾期/
+//                   提醒/终止政策从 Vertical Slice 移到独立治理文件。
+//                   CC 提议三项平台级验证，采纳为 ADR-P10，落地
+//                   999_Tests_PlatformVerification.js（7 测试），
+//                   Failure Recovery 类别第一次跑就挖出真的 Partial
+//                   Failure gap（Sheets 无多语句事务，此前 Vertical
+//                   Slice 声称的 all-or-nothing 不准确，已订正）。
+//                   UEF 升到 v1.6：新增 §2 Platform Constraints 明文
+//                   化 GAS-only 与无事务的事实（D9），4 项新 Candidate
+//                   Pattern。912 三个 Command（create/record/reverse
+//                   Payment）加上 logPartialFailure_——失败时大声记录
+//                   哪笔可能不一致，不假装原子性，也不过度工程化建
+//                   真正的事务机制（D9 比例原则）。Constitution 新增
+//                   明文 Platform Constraint 段落。108 个测试
+//                   （101+7）全数通过。File 扩展名 .gs→.js 的部分见
+//                   前几笔记录，本笔不重复。
 //
 //   2026-07-29 (e)  CC 确认 991_Tests_ObligationEngine.js 已在真实
 //                   GAS 专用测试 spreadsheet 跑过，9/9 通过。
