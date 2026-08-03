@@ -123,6 +123,35 @@
 //      本身如何实现或迁移，只影响 Adapter，不影响任何 Engine。在
 //      上游 API 尚未定案前，Adapter 内部合理地维持占位实作（例如
 //      Logger 记录），这是正确做法，不是技术债。
+//
+// P12 — Status Pipeline（明文化于 910 Review Approval, 2026-07-19）
+//      每个 Engine/子系统的成熟度用同一套词汇追踪，不用模糊的"差不多
+//      好了"："能不能上线"永远由这条 Pipeline 的位置回答，不是由测试
+//      数字好不好看回答：
+//
+//        Draft → Ready → Done → Pending Production Verification
+//              → Production Ready → Released
+//
+//      对应 UEF §0.5 的精确定义（本文件不重新定义，只是把 Draft/
+//      Released 两端接上）：
+//        Draft   = Vertical Slice 撰写中，尚未 Review
+//        Ready   = UEF Definition of Ready（治理原则已存在 + 若碰 live
+//                  schema，Migration Plan 已签核）
+//        Done    = UEF Definition of Done（代码完成 + 纯逻辑测试通过 +
+//                  治理文件同 session 更新 + Change Impact Analysis
+//                  已报告）
+//        Pending Production Verification = Done，但 Manual
+//                  Verification Checklist 尚未对真实部署跑完——这是
+//                  目前 Obligation Engine 的位置，明确记录，不因为
+//                  Automated+GAS 测试全过就跳过这一格
+//        Production Ready = UEF Definition of Production-Ready（Done +
+//                  Manual Checklist 已对真实部署跑完一次）
+//        Released = Production Ready 之后，实际交由使用者日常依赖
+//                  （例如 CC 开始真的用 /property_paid 记录真实帐单）
+//
+//      不得为了让状态"看起来漂亮"而跳格或提前标记；每次状态变更需在
+//      00_Project_State.js CHANGELOG 留下依据（哪些验证项目真的做了，
+//      哪些还没有）。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

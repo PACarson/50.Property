@@ -346,3 +346,102 @@
 //   path is stale. Left as-is rather than edited, per this project's
 //   own convention that ADR entries are a record of the decision made
 //   at the time, not a living pointer kept in sync with every rename.
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ADR-P11 — PropertyType Enum Naming: Deliberate UPPER_SNAKE_CASE Exception
+// STATUS: APPROVED (2026-07-29) — NEW
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// Question: 910's PropertyType enum was approved (Review Approval,
+//   2026-07-29) as UPPER_SNAKE_CASE (`RESIDENTIAL_CONDO`, `COMMERCIAL`,
+//   ...). Every other enum in Property OS so far — Category, Status
+//   (both Rule and Occurrence), FrequencyType, FreeholdLeasehold — is
+//   PascalCase (`'Mortgage'`, `'Active'`, `'Monthly'`, `'Freehold'`).
+//   Flag the inconsistency, or silently normalize PropertyType to match?
+//
+// Decision: Flag it, don't silently normalize. PropertyType stays
+//   UPPER_SNAKE_CASE — CC's explicit instruction at Review Approval,
+//   not something to second-guess or quietly "fix" into consistency.
+//   Recorded here specifically so a future reader (human or AI) finds
+//   the reason on purpose rather than assuming it's drift or an
+//   oversight. This ADR does not retroactively change Category/Status/
+//   FrequencyType/FreeholdLeasehold to match — those already have real
+//   data in CC's live spreadsheet (912/913 have been running since
+//   2026-07-19); changing an already-deployed enum's on-disk string
+//   values would be a breaking data migration, not a naming preference,
+//   and is out of scope for a brand-new Engine's design decision.
+//
+// Evidence: N/A — single, explicit instruction from the project owner,
+//   not a pattern requiring cross-project evidence (unlike UEF-level
+//   promotions, which is a different question this ADR isn't about).
+//
+// Impact: `900_PropertyConfig.js`'s `PROPERTY_TYPES` array is
+//   UPPER_SNAKE_CASE; every other enum array in that file stays
+//   PascalCase. `PropertyAssetEngine_VerticalSlice.md` §1 carries the
+//   same flag inline.
+//
+// Related ADRs: None directly — this is a one-off naming decision, not
+//   an architecture pattern in the ADR-P01~P10 sense.
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ADR-P12 — Finance Engine Stays Event-Driven; EventBus Gap Is
+// Infrastructure, Not Architecture (Review Decision)
+// STATUS: APPROVED (2026-07-29) — NEW
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// Question: Claude flagged a genuine tension before starting 914's
+//   Vertical Slice: ADR-P01 requires Finance Engine to only subscribe
+//   to Domain Events, never poll or directly read another Engine's
+//   Truth Layer — but the real EventBus (ADR-P07) is still a Logger
+//   placeholder with no actual pub-sub dispatch. Does 914 (a) get built
+//   assuming a real subscription mechanism that doesn't exist yet, (b)
+//   get a temporary direct call from 912/910 into Finance as a
+//   documented shortcut, or (c) something else?
+//
+// Decision: (a), explicitly — this is an Architecture Decision, not a
+//   Runtime one. ADR-P01 is unchanged: Finance Engine subscribes to
+//   Domain Events, builds the Ledger, computes Cashflow, provides
+//   Analytics; it does not read/write other Engines' Truth Layers and
+//   does not maintain its own schedule, regardless of EventBus's
+//   current state. The missing piece (a real dispatch mechanism) is
+//   Platform Infrastructure, governed by ADR-P07's existing Adapter
+//   pattern — the same pattern already isolates `publishPropertyEvent_`
+//   from EventBus's real implementation; a mirror-image
+//   `subscribeFinanceEvent_()` Adapter is added for the consuming side,
+//   equally permitted to be a placeholder for now. 914's actual
+//   Runtime logic (the part that decides what a PAYMENT_COMPLETED event
+//   *means* for the Ledger) is written against the event *shape*, not
+//   against how it arrives — when the real Shared EventBus exists, only
+//   the Adapter is replaced; Finance Engine's Runtime does not get
+//   rewritten.
+//
+// Principle (stated directly by CC, kept verbatim as the clearest
+//   summary): "Platform 未完成，不应改变 Domain。Infrastructure 可以
+//   Placeholder。Architecture 不允许 Placeholder。" (An incomplete
+//   Platform should not change Domain design. Infrastructure may be a
+//   placeholder. Architecture may not be.)
+//
+// Ecosystem-level direction (recorded here, elaborated in UEF v1.7 —
+//   see there for the full note): EventBus should eventually be an
+//   independent Platform Capability shared by every Domain OS (Property,
+//   Finance, Reminder, Investment, News, Health, ...), not something
+//   each project builds its own version of. Every Domain OS talks to it
+//   only through its own Adapter (`publishXEvent_`/`subscribeXEvent_`
+//   pair), so a future swap of the underlying transport (Sheets →
+//   Firestore → Pub/Sub → anything else) touches only Adapters, never
+//   Domain Runtime. This is CC's stated direction for Personal AI
+//   Core's architecture, not yet built — recorded as intent, not
+//   claimed as already-proven the way a ratified UCR would be.
+//
+// Impact: 914_FinanceEngine's Vertical Slice proceeds on this basis —
+//   full Contract Design (Business Rules through Architecture Review),
+//   with `subscribeFinanceEvent_()` explicitly named as a permitted
+//   placeholder Adapter, same tier as `publishPropertyEvent_()`. Real
+//   EventBus wiring, real cross-OS subscription, and real Reminder
+//   integration stay explicitly out of scope for 914's Runtime until
+//   the Shared EventBus API is fixed.
+//
+// Related ADRs: ADR-P01 (unchanged, reaffirmed), ADR-P07 (pattern
+//   extended to the consuming side via subscribeFinanceEvent_()).

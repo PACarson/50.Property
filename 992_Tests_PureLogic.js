@@ -118,6 +118,28 @@ function runAllPureLogicTests() {
     s.assertThrows(function () { assertOccurrenceTransition_('Paid', 'Cancelled'); }, 'FORBIDDEN_TRANSITION');
   });
 
+  s.test('assertPropertyTransition_ (910) forbids Sold -> Active via the generic path — ReversePropertySale is the only exit', function () {
+    s.assertThrows(function () { assertPropertyTransition_('Sold', 'Active'); }, 'FORBIDDEN_TRANSITION');
+  });
+
+  s.test('assertPropertyTransition_ (910) allows Active -> Sold', function () {
+    assertPropertyTransition_('Active', 'Sold'); // must not throw
+  });
+
+  // ─── Address formatting (910) — derived, never stored ────────────
+
+  s.test('formatAddress_ joins non-empty parts with ", " and skips blanks', function () {
+    var full = formatAddress_({
+      AddressLine1: '1 Test Street', AddressLine2: '', AddressCity: 'Test City',
+      AddressState: 'Test State', AddressPostcode: '00000', AddressCountry: 'Test Country'
+    });
+    s.assertEqual(full, '1 Test Street, Test City, Test State, 00000, Test Country');
+  });
+
+  s.test('formatAddress_ handles every optional field being blank without throwing', function () {
+    s.assertEqual(formatAddress_({ AddressLine1: 'Only Line', AddressLine2: '', AddressCity: '', AddressState: '', AddressPostcode: '', AddressCountry: '' }), 'Only Line');
+  });
+
   // ─── Event Contract (903) — every event type, minimal valid payload ───
 
   var minimalPayloads = {
@@ -129,7 +151,12 @@ function runAllPureLogicTests() {
     PAYMENT_COMPLETED: { obligationId: 'OBL-1', occurrenceId: 'OCC-1', effectiveDue: '2026-07-19', amount: 100, paidDate: '2026-07-19', paidVia: 'Manual' },
     PAYMENT_REVERSED: { obligationId: 'OBL-1', occurrenceId: 'OCC-1', originalEventId: 'OCC-1:2026-07-19', reversedAmount: 100, reason: 'error' },
     REMINDER_REQUESTED: { obligationId: 'OBL-1', occurrenceId: 'OCC-1', effectiveDue: '2026-07-19', offsets: [30, 14, 7, 3, 1, 0, -1, -3, -7] },
-    UTILITY_BILL_RECEIVED: { source: 'ManualInput', rawAmount: 100, rawDueDate: '2026-07-19', category: 'Electricity' }
+    UTILITY_BILL_RECEIVED: { source: 'ManualInput', rawAmount: 100, rawDueDate: '2026-07-19', category: 'Electricity' },
+    // 910_PropertyAssetEngine (added 2026-07-29)
+    PROPERTY_CREATED: { propertyId: 'PROP-1', propertyName: 'Test Condo', status: 'Active' },
+    PROPERTY_UPDATED: { propertyId: 'PROP-1', changedFields: { PropertyName: 'New Name' } },
+    PROPERTY_SOLD: { propertyId: 'PROP-1', soldDate: '2026-07-19', soldPrice: 600000 },
+    PROPERTY_SALE_REVERSED: { propertyId: 'PROP-1', originalEventId: 'PROP-1:2026-07-19', reason: 'fell through' }
   };
 
   Object.keys(minimalPayloads).forEach(function (eventType) {

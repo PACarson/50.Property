@@ -127,6 +127,27 @@
 //   Disposition 更新：GAP-1/GAP-3 之外，新增一项已处理的发现（Partial
 //   Failure），MEDIUM，已用比例原则回应，非阻塞，如实记录不夸大也
 //   不隐藏。
+//
+// ─── Addendum 2 (2026-07-29，同日) ──────────────────────────────────
+//   CC 指示全部改为纯 GAS-native（property-os-tests/ Node 沙箱移除），
+//   原本 108 个测试的內容搬进 990-995（99 个测试）。CC 已实际执行
+//   runAllPropertyOSTests()，对着真实 GAS 专用测试 spreadsheet，
+//   99/99 全数通过，与自我检查预测完全一致。
+//
+//   对 Definition of Production-Ready 的影响：MANUAL_VERIFICATION_
+//   CHECKLIST.md 里 Platform-level verification 三项（Replay/
+//   Migration/Failure Recovery）现在全部确认。但 Concurrency（真实
+//   并发竞争）、Caching（真实 1 小时 TTL 到期）、Sheets behavior
+//   （真实 schema drift）、Runtime limits（GAS 执行上限）几项仍
+//   未勾选——这些是 99 个测试在结构上就无法产生的情境（需要真实
+//   并发的两个重叠执行、真的等一小时、真的先破坏一次 Sheet 表头），
+//   不是"忘记测"，是"这种测试方法测不到"。
+//
+//   ★ 结论不变：按 UEF §0.5 的定义，Obligation Engine 子系统仍是
+//   pending，不是 Production-Ready——99/99 通过是很扎实的进展，但
+//   没有让 Manual Checklist 全部清空，就不能改变这个结论。CC 先前
+//   已明确指示过这一点（"保持目前状态为 pending 是正确的"），本次
+//   更新照办，没有因为数字好看就放宽。
 
 // ═══════════════════════════════════════════════════════════════════════
 // END OF 00_Review_History.js

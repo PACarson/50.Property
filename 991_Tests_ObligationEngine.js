@@ -42,28 +42,76 @@ function assertRunningInTestSpreadsheet_() {
   }
 }
 
+var TEST_PROPERTY_NAME_TAG_ = 'TEST-';
+
+/**
+ * ★ Updated 2026-07-29 (910's Runtime landed): propertyExists_() is now
+ * a REAL check against the Properties sheet (910_PropertyAssetEngine.js)
+ * instead of the old permissive placeholder. Every test that calls
+ * createObligation needs an Obligation's propertyId to actually exist,
+ * or createObligation now correctly throws PROPERTY_NOT_FOUND — which
+ * is the intended behavior, not a test bug to work around by faking an
+ * ID. So this function's contract changed: it now actually creates a
+ * real, findable Property (tagged via PropertyName, since generated
+ * PropertyIDs don't carry a "TEST" marker of their own) and returns its
+ * real PropertyID. Every existing call site (991/993/994) keeps working
+ * unchanged — they just get a real ID now instead of a fake one.
+ * @return {string} a real PropertyID backed by an actual Properties row
+ */
 function testPropertyId_() {
-  return 'PROP-TEST-' + new Date().getTime() + '-' + Math.floor(Math.random() * 1e6);
+  var result = createProperty({
+    propertyName: TEST_PROPERTY_NAME_TAG_ + new Date().getTime() + '-' + Math.floor(Math.random() * 1e6),
+    addressLine1: '1 Test Street',
+    addressCity: 'Test City',
+    addressState: 'Test State',
+    addressPostcode: '00000',
+    addressCountry: 'Test Country',
+    purchaseDate: '2020-01-01',
+    purchasePrice: 500000,
+    freeholdLeasehold: 'Freehold',
+    propertyType: 'RESIDENTIAL_CONDO'
+  });
+  return result.propertyId;
 }
 
 /**
- * Cascading cleanup: finds ObligationRules whose PropertyID matches the
- * test pattern, deletes them, then follows the FK chain to delete their
- * Occurrences and those Occurrences' History rows. Cleans up test debris
- * from ANY past run, not just the most recent one — there's no per-run
- * tag to match against once a new execution starts, so this matches the
- * general "this looks like test data" pattern instead. Safe to call
+ * ★ Updated 2026-07-29: now starts from the Properties sheet instead of
+ * pattern-matching ObligationRule's PropertyID column directly — real
+ * PropertyIDs (generatePropertyId_) don't carry a "TEST" marker of
+ * their own, so the tag lives on PropertyName instead (see
+ * testPropertyId_ above). Cascades Properties -> ObligationRules ->
+ * Occurrences -> History, deleting all four. Cleans up test debris from
+ * ANY past run, not just the most recent one — there's no per-run tag
+ * to match against once a new execution starts. Safe to call
  * repeatedly; a clean sheet with nothing matching is a no-op.
  */
 function cleanupTestData_() {
   assertRunningInTestSpreadsheet_();
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var propSheet = ss.getSheetByName(PROPERTY_CONFIG.SHEET_NAMES.PROPERTIES);
   var ruleSheet = ss.getSheetByName('ObligationRules');
   var occSheet = ss.getSheetByName('ObligationOccurrences');
   var histSheet = ss.getSheetByName('ObligationHistory');
 
+  var testPropertyIds = {};
   var testObligationIds = {};
   var testOccurrenceIds = {};
+
+  if (propSheet) {
+    var propCols = PROPERTY_SCHEMA.Property.columns;
+    var propNameCol = propCols.indexOf('PropertyName');
+    var propIdColOwn = propCols.indexOf('PropertyID');
+    var lastRow0 = propSheet.getLastRow();
+    if (lastRow0 >= 2) {
+      var data0 = propSheet.getRange(2, 1, lastRow0 - 1, propCols.length).getValues();
+      for (var m = data0.length - 1; m >= 0; m--) {
+        if (String(data0[m][propNameCol]).indexOf(TEST_PROPERTY_NAME_TAG_) === 0) {
+          testPropertyIds[data0[m][propIdColOwn]] = true;
+          propSheet.deleteRow(m + 2);
+        }
+      }
+    }
+  }
 
   if (ruleSheet) {
     var ruleCols = PROPERTY_SCHEMA.ObligationRule.columns;
@@ -73,7 +121,7 @@ function cleanupTestData_() {
     if (lastRow >= 2) {
       var data = ruleSheet.getRange(2, 1, lastRow - 1, ruleCols.length).getValues();
       for (var i = data.length - 1; i >= 0; i--) {
-        if (TEST_ID_PATTERN_.test(String(data[i][propIdCol]))) {
+        if (testPropertyIds[data[i][propIdCol]] || TEST_ID_PATTERN_.test(String(data[i][propIdCol]))) {
           testObligationIds[data[i][obligIdCol]] = true;
           ruleSheet.deleteRow(i + 2);
         }
@@ -82,6 +130,7 @@ function cleanupTestData_() {
   }
 
   if (occSheet) {
+
     var occCols = PROPERTY_SCHEMA.ObligationOccurrence.columns;
     var occObligIdCol = occCols.indexOf('ObligationID');
     var occIdCol = occCols.indexOf('OccurrenceID');
@@ -111,7 +160,8 @@ function cleanupTestData_() {
     }
   }
 
-  Logger.log('cleanupTestData_: removed ' + Object.keys(testObligationIds).length + ' test Rule(s), ' +
+  Logger.log('cleanupTestData_: removed ' + Object.keys(testPropertyIds).length + ' test Propert(y/ies), ' +
+    Object.keys(testObligationIds).length + ' test Rule(s), ' +
     Object.keys(testOccurrenceIds).length + ' test Occurrence(s), and their History rows.');
 }
 

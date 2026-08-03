@@ -168,17 +168,16 @@ function assertOccurrenceTransition_(fromStatus, toStatus) {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 /**
- * 910_PropertyAssetEngine does not exist yet, so there is no real
- * Properties table to check against. Rather than guessing at 910's
- * future shape, or blocking 912 on 910 being built first, this check is
- * permissive for now — deliberately isolated in its own function so
- * that when 910 exists, this is the only place that needs to change.
- * @param {string} propertyId
- * @return {boolean}
+ * 910_PropertyAssetEngine now provides the real propertyExists_()
+ * (defined there, not here — Vertical Slice §8 promise fulfilled
+ * 2026-07-29). Nothing left to define in this file: GAS loads files in
+ * filename order (910 before 912), so if a second `function
+ * propertyExists_` were left here, it would load AFTER and silently
+ * shadow 910's real check with the old permissive placeholder — a real
+ * bug, not a hypothetical one, caught while wiring this up rather than
+ * after. Every call site below (createObligation) already calls
+ * propertyExists_() exactly as before; only its definition moved.
  */
-function propertyExists_(propertyId) {
-  return true; // placeholder — see comment above
-}
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

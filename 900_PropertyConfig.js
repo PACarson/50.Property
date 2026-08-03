@@ -67,13 +67,37 @@ var PROPERTY_CONFIG = Object.freeze({
 
   PAID_VIA_OPTIONS: Object.freeze(['Manual', 'Import', 'API']),
 
+  // 910_PropertyAssetEngine. UPPER_SNAKE_CASE is a deliberate, documented
+  // exception to every other enum in this file (PascalCase) — CC's
+  // explicit instruction at Review Approval (2026-07-29), not a drift.
+  // See 00_ADR_Log.js for the pointer. OTHER exists so a genuinely new
+  // property type doesn't force a Schema Migration; MIXED_USE is
+  // reserved for future combined-use property.
+  PROPERTY_TYPES: Object.freeze([
+    'RESIDENTIAL_CONDO',
+    'RESIDENTIAL_LANDED',
+    'COMMERCIAL',
+    'INDUSTRIAL',
+    'LAND',
+    'MIXED_USE',
+    'OTHER'
+  ]),
+
+  FREEHOLD_LEASEHOLD_OPTIONS: Object.freeze(['Freehold', 'Leasehold']),
+
+  // No Draft/Archived — see Vertical Slice §6: Sold is reversible only
+  // via ReversePropertySale (ADR-P06/P10 applied), no other states are
+  // needed yet (avoid Speculative Design).
+  PROPERTY_STATUSES: Object.freeze(['Active', 'Sold']),
+
   SHEET_NAMES: Object.freeze({
     OBLIGATION_RULES: 'ObligationRules',
     OBLIGATION_OCCURRENCES: 'ObligationOccurrences',
-    OBLIGATION_HISTORY: 'ObligationHistory'
-    // Other Engines' sheet names (Properties, Loans, Ledger, ...) are
-    // added here when their own Phase begins — not stubbed out
-    // speculatively now (Constitution: avoid Speculative Design).
+    OBLIGATION_HISTORY: 'ObligationHistory',
+    PROPERTIES: 'Properties'
+    // Other Engines' sheet names (Loans, Ledger, ...) are added here
+    // when their own Phase begins — not stubbed out speculatively now
+    // (Constitution: avoid Speculative Design).
   }),
 
   ID_PREFIXES: Object.freeze({

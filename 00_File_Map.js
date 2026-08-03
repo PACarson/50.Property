@@ -144,15 +144,27 @@
 // 2. RUNTIME LAYER — ENGINES  [910-929]
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-// 910_PropertyAssetEngine
-// Purpose: 管理房产主档（PropertyID, PropertyName, Developer, Address,
-//   GPS, PurchaseDate/Price, CurrentValue, LoanID, BuiltUp, LandSize,
-//   FreeholdLeasehold, Parking, StoreRoom, CompletionDate, VPDate,
-//   DefectExpiry, Status, Owner, PropertyType）
+// 910_PropertyAssetEngine  ★ 核心新模块 — Runtime Complete
+// Purpose: 管理房产主档。四个 Command（Create/Update/MarkSold/
+//   ReverseSale）、State Machine 强制（Active⇄Sold，仅经
+//   reversePropertySale 可逆，比照 912 的 Paid⇄Active）、单层 Lock、
+//   ClientRequestID 幂等（Create）、结构化 Address VO（六栏位）+
+//   formatAddress_ 衍生字段（不落库）、PropertyType 用 UPPER_SNAKE_CASE
+//   （本系统唯一例外，CC 于 Review Approval 明确指示，见 00_ADR_Log.js）
 // Dependencies: 901, 902, 903
-// Called By: 922_DashboardEngine, 914_FinanceEngine, 935_DecisionEngine,
-//   Telegram Layer
-// Status: Planned — Phase 1
+// Called By: 912（propertyExists_ 现已真实接上，取代原本的 permissive
+//   placeholder）, 922_DashboardEngine（尚未建）, 914_FinanceEngine
+//   （尚未建）, 935_DecisionEngine（尚未建）, Telegram Layer（尚未建）
+// Status: ✅ Runtime Complete (2026-07-29)。996_Tests_PropertyAssetEngine.js
+//   （21 tests）+ 992 扩充（Event Contract/State Machine/formatAddress_，
+//   19 tests）逻辑已自我检查全数通过，过程中真的抓到一个 bug：
+//   reversePropertySale 原本误呼叫了通用的 assertPropertyTransition_
+//   ('Sold','Active')，但 PROPERTY_TRANSITIONS_ 故意没有 'Sold' 这个
+//   key（比照 912 的 OCCURRENCE_TRANSITIONS_ 不放 'Paid' 的原因——
+//   唯一允许离开 Sold 的路径就是这个 Command 自己的明确检查，不是
+//   通用 Map），所以每次呼叫都会抛错。已修正：拿掉那行呼叫，靠原本
+//   就有的 PROPERTY_NOT_SOLD 检查即可。待 CC 对真实 GAS 项目实际跑
+//   一次确认（TECH DEBT）。
 
 // 911_DocumentEngine
 // Purpose: Document Library + Metadata；Evidence 附件来源
@@ -170,9 +182,9 @@
 //   buildReminderRequest_）
 // Called By: 944_PropertyTelegramCommands（尚未建），922_DashboardEngine
 //   （尚未建），914_FinanceEngine（订阅 PAYMENT_COMPLETED，尚未建）
-// Status: ✅ Runtime Complete (2026-07-19)。910_PropertyAssetEngine 尚未
-//   存在，故 PropertyID 存在性检查（propertyExists_）暂为 permissive
-//   placeholder，比照 ADR-P07 Adapter 模式隔离，910 建成后只需改这一处。
+// Status: ✅ Runtime Complete (2026-07-19)。2026-07-29: propertyExists_
+//   现由 910_PropertyAssetEngine 提供真实实作（原本的 permissive
+//   placeholder已移除——ADR-P07 Adapter 模式的承诺兑现）。
 //   2026-07-29 新增 logPartialFailure_：create/record/reverse Payment
 //   在 Truth 写入之后的步骤失败时大声记录（UEF v1.6 §2/D9），不假装
 //   原子性——Sheets 没有多语句事务，这是平台事实不是本文件的选择
@@ -191,13 +203,19 @@
 //   本次 Runtime 完成——比照 ADR-P07 精神，Domain 逻辑先写完）
 
 // 914_FinanceEngine
-// Purpose: Ledger 与 Cashflow/ROI/Yield 计算。ADR-P01 明文禁止维护
+// Purpose: Ledger 与 Cashflow 计算（基础版）。ADR-P01 明文禁止维护
 //   任何 Due Date/Reminder Schedule/Payment Schedule，只能订阅
-//   PAYMENT_COMPLETED 镜像写入
-// Dependencies: 901, 902, 903, 910（订阅 912 事件，非直接依赖）
-// Called By: 922_DashboardEngine, 932_CashflowForecastEngine,
-//   942_InvestmentIntegrationAdapter
-// Status: Planned — Phase 1
+//   PAYMENT_COMPLETED/PAYMENT_REVERSED/PROPERTY_SOLD/
+//   PROPERTY_SALE_REVERSED，镜像写入不可变的 Ledger（ADR-P06/P10 applied）
+// Dependencies: 901, 902, 903；订阅 912/910 事件（非直接依赖，
+//   ADR-P12——EventBus 是占位 Adapter，Architecture 不因此妥协）
+// Called By: 922_DashboardEngine（尚未建）, 932_CashflowForecastEngine
+//   （尚未建，Phase 4）, 942_InvestmentIntegrationAdapter（尚未建）
+// Status: ⏳ Vertical Slice 完成（FinanceEngine_VerticalSlice.md），
+//   等待 Review Approval，未写 Runtime。两项待确认：(1) Category
+//   继承是否透过 getObligation() 唯读查询，还是要求 912 的
+//   PAYMENT_COMPLETED payload 直接带 category 栏位；(2) PROPERTY_
+//   SALE_REVERSED 的补偿分录用 Expense 还是需要独立语义。
 
 // 915_MortgageEngine
 // Purpose: Mortgage Calculator — Amortization/Refinancing/Comparison/
@@ -359,7 +377,9 @@
 //     闰年 clamp）、Overdue 判定、State Machine guard、9 种 Event
 //     Contract 的必填栏位系统性检查
 //   Dependencies: 900-903, 912-913
-//   Status: ✅ 56 tests，逻辑已用私有 Node shim 自我检查（56/56），
+//   Status: ✅ 75 tests（56 原有 + 19 于 910 完成后新增：4 种 Property
+//     Event Contract、assertPropertyTransition_、formatAddress_），
+//     逻辑已用私有 Node shim 自我检查（75/75），
 //     待 CC 对真实 GAS 项目实际跑一次
 //
 //   993_Tests_FullLifecycle  ← 新增 2026-07-29
@@ -381,9 +401,17 @@
 //   Status: ✅ 7 tests，逻辑已自我检查（7/7），待 CC 实跑
 //
 //   995_RunAllTests  ← 新增 2026-07-29
-//   Purpose: 依序跑完 991-994，输出汇总。runAllPropertyOSTests()
-//   Dependencies: 990-994
-//   Status: ✅ 汇总已自我检查：99/99（56+9+27+7）全数通过
+//   Purpose: 依序跑完 991-994、996，输出汇总。runAllPropertyOSTests()
+//   Dependencies: 990-994, 996
+//   Status: ✅ 汇总已自我检查：139/139（56+19+9+27+7+21，见下方明细）
+//     全数通过
+//
+//   996_Tests_PropertyAssetEngine  ← 新增 2026-07-29（910 Runtime 完成）
+//   Purpose: 910 四个 Command 的 validation/success/state transition，
+//     含 propertyExists_/createObligation 的跨 Engine 整合确认
+//   Dependencies: 900-903, 910, 990, 991（共用安全防呆/cleanupTestData_）
+//   Status: ✅ 21 tests，逻辑已自我检查（21/21，过程中抓到并修正一个
+//     真的 bug——见 910 条目），待 CC 实跑
 //
 //   MANUAL_VERIFICATION_CHECKLIST.md（仍保留，独立于本项目 GAS 文件
 //   之外，纯文档）—— 即使 99 个 GAS-native 测试都通过，仍有几项

@@ -84,6 +84,50 @@ var PROPERTY_SCHEMA = Object.freeze({
       'Note'           // string, optional
     ]),
     dateColumns: Object.freeze(['ChangedAt'])
+  }),
+
+  // 910_PropertyAssetEngine. Field list + Address VO decision:
+  // PropertyAssetEngine_VerticalSlice.md §2 (Review Approval 2026-07-19).
+  Property: Object.freeze({
+    sheetName: PROPERTY_CONFIG.SHEET_NAMES.PROPERTIES,
+    columns: Object.freeze([
+      'PropertyID',        // string PK, PROP-...
+      'PropertyName',
+      'Developer',
+      // Structured Address VO (Review Approval 2026-07-19) — six
+      // columns, not one flat string. formattedAddress is NOT a column
+      // here — it's derived on read via formatAddress_(), never stored.
+      'AddressLine1',
+      'AddressLine2',
+      'AddressCity',
+      'AddressState',
+      'AddressPostcode',
+      'AddressCountry',
+      'GPS',                // 'lat,lng' string; not a GeoPoint VO (§3)
+      'PurchaseDate',
+      'PurchasePrice',
+      'CurrentValue',        // defaults to PurchasePrice if omitted (§1)
+      'LoanID',              // FK, format-checked only — 915 doesn't exist yet
+      'BuiltUp',
+      'LandSize',
+      'FreeholdLeasehold',
+      'Parking',
+      'StoreRoom',
+      'CompletionDate',
+      'VPDate',
+      'DefectExpiry',
+      'Status',              // Active / Sold (§6)
+      'SoldDate',             // set only via MarkPropertySold
+      'SoldPrice',            // set only via MarkPropertySold
+      'Owner',
+      'PropertyType',         // UPPER_SNAKE_CASE — see PROPERTY_CONFIG note
+      'CreatedAt',
+      'UpdatedAt'
+    ]),
+    dateColumns: Object.freeze([
+      'PurchaseDate', 'CompletionDate', 'VPDate', 'DefectExpiry',
+      'SoldDate', 'CreatedAt', 'UpdatedAt'
+    ])
   })
 
 });
@@ -179,6 +223,19 @@ function initObligationSchema_() {
     PROPERTY_SCHEMA.ObligationHistory.sheetName,
     PROPERTY_SCHEMA.ObligationHistory.columns,
     PROPERTY_SCHEMA.ObligationHistory.dateColumns
+  );
+}
+
+/**
+ * Initializes the Properties sheet. Call once at project setup, and
+ * defensively at the start of any 910 entry point — same self-healing
+ * pattern as initObligationSchema_().
+ */
+function initPropertySchema_() {
+  ensureSheetSchema_(
+    PROPERTY_SCHEMA.Property.sheetName,
+    PROPERTY_SCHEMA.Property.columns,
+    PROPERTY_SCHEMA.Property.dateColumns
   );
 }
 

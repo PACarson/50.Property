@@ -1,7 +1,7 @@
 # Property Asset Engine — Vertical Slice (Contract Design)
 
 **Module:** `910_PropertyAssetEngine`
-**Status:** Contract Design — **AWAITING REVIEW APPROVAL**, no Runtime code exists.
+**Status:** ✅ **APPROVED (Review Approval, 2026-07-29)** — Runtime authorized to begin.
 **Scope note:** Deliberately lighter than the Obligation Engine Vertical Slice — Property is a single Aggregate with no internal sub-entity (no Rule/Occurrence split), no recurring schedule, no Scheduler counterpart. Sections that would be near-duplicates of already-approved decisions (Lock/idempotency pattern, Adapter isolation, event envelope shape) are referenced, not re-derived.
 
 ---
@@ -12,7 +12,7 @@
 - `PurchasePrice > 0`.
 - `CurrentValue` optional at creation; **defaults to `PurchasePrice`** if omitted (a property's value is its purchase price until someone records an update — never null, never a guess this module invents).
 - `FreeholdLeasehold ∈ {Freehold, Leasehold}`.
-- `PropertyType` — **[NEEDS CONFIRMATION]** doc1 lists the field but never enumerates values. Proposed: `{ResidentialCondo, ResidentialLanded, Commercial, Industrial, Land}`, matching Malaysian property categories used elsewhere in this spec (Quit Rent/Assessment context). Confirm or replace before Runtime.
+- `PropertyType` — ✅ **RESOLVED (Review Approval, 2026-07-29).** `{RESIDENTIAL_CONDO, RESIDENTIAL_LANDED, COMMERCIAL, INDUSTRIAL, LAND, MIXED_USE, OTHER}`. `MIXED_USE` reserved for future combined-use property; `OTHER` exists specifically so a genuinely new category doesn't force a Schema Migration — new *known* types still get their own named value when they come up, `OTHER` is the forward-compatible fallback, not a way to avoid ever naming new types properly. ★ Naming note: this is UPPER_SNAKE_CASE, unlike every other enum in Property OS so far (Category/Status/FrequencyType are all PascalCase — `'Active'`, `'Mortgage'`, `'Monthly'`). Flagged, not silently normalized away — CC's explicit instruction, recorded as a deliberate, documented exception (see `00_ADR_Log.js` for the pointer) rather than something a future reader has to puzzle out.
 - `LoanID` — optional FK. **915_MortgageEngine doesn't exist yet** (Phase 2). Same pattern as 912's `propertyExists_()`: format-only validation now, real existence check deferred, isolated so only one function changes later (see §8).
 - A **Sold** Property is not deleted — historical Obligation/Maintenance/Document rows referencing it must stay queryable (P3, and simply good sense for tax records).
 
@@ -25,7 +25,7 @@
 | PropertyID | string (PK) | `PROP-{ts36}-{rand4}` |
 | PropertyName | string | required |
 | Developer | string | optional |
-| Address | Address (VO) | **[DEVIATION FROM doc1 — flagged]** doc1 lists a flat `Address` field; this uses the structured `Address` Value Object already defined in `PropertyOS_DomainModel.md` §4 (`{line1, line2, city, state, postcode, country}`) instead, so Property OS has exactly one addressing scheme, not two. Stored as columns `AddressLine1, AddressLine2, AddressCity, AddressState, AddressPostcode, AddressCountry` (Sheets has no nested-object cell type). Confirm or revert to a single flat string before Runtime. |
+| Address | Address (VO) | ✅ **RESOLVED (Review Approval, 2026-07-29).** Structured, not flat — matches `PropertyOS_DomainModel.md` §4's `Address` VO (`{line1, line2, city, state, postcode, country}`), so Property OS has exactly one addressing scheme. Stored as columns `AddressLine1, AddressLine2, AddressCity, AddressState, AddressPostcode, AddressCountry` (Sheets has no nested-object cell type). A `formattedAddress` string is available for Query/UI display — **computed on read via `formatAddress_()`, never stored as its own column.** It is a Derived Field, not a Truth Source: storing it would create a second, driftable copy of the same information the six structured columns already hold. |
 | GPS | string | `"lat,lng"`, optional |
 | PurchaseDate | ISO date | required |
 | PurchasePrice | number | required, > 0 |
@@ -106,9 +106,9 @@ Same shape as Obligation Engine's (§11 there): Commands fail all-or-nothing, no
 | ADR-P07 (Adapter isolation) | ✅ Same `publishPropertyEvent_()`, no new infra decision; LoanID existence check isolated the same way PropertyID's was |
 | Avoids Speculative Design | ✅ No GPS math, no multi-owner structure, no extra lifecycle states — all explicitly deferred with a reason, not silently added |
 
-**Open items needing CC's confirmation before Runtime (all in §1/§2):**
-1. `PropertyType` enum values (proposed above)
-2. Structured `Address` VO vs. doc1's flat string field
+**Resolved at Review Approval (2026-07-29):**
+1. `PropertyType` — UPPER_SNAKE_CASE enum, 7 values including `MIXED_USE`/`OTHER` (§1)
+2. `Address` — structured VO confirmed, `formattedAddress` added as a derived-only display field (§2)
 
 ---
 
