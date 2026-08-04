@@ -27,7 +27,9 @@
  *   00_Project_State.js
  *   00_Review_History.js
  *   900_PropertyConfig.js
- *   901_PropertySchema.js
+ *   901_PropertySchema.js            ← ensureSheetSchema_ 现有
+ *                                       per-execution 缓存（见下方
+ *                                       CHANGELOG，修真实执行超时用）
  *   902_PropertyIdentity.js          ← 含 generatePropertyId_（910 新增）
  *   903_PropertyEventDefinitions.js  ← 含 4 个 PROPERTY_* Event +
  *                                       PAYMENT_COMPLETED/REVERSED 的

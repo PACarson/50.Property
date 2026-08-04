@@ -16,3 +16,9 @@ README.md
 
 # Node js test run
 GasShim.js
+900_Tests_Foundation.js
+912_Tests_ObligationEngine.js
+919_Tests_ObligationIntegration.js
+999_Tests_PlatformVerification.js
+runAllTests.js
+TestKit.js

@@ -156,7 +156,31 @@ var PROPERTY_SCHEMA = Object.freeze({
  * @param {string[]} [dateColumns] column names to force to plain text
  * @return {GoogleAppsScript.Spreadsheet.Sheet}
  */
+
+// Per-execution cache: once a sheet's header has been verified and its
+// rows frozen THIS execution, every later call in the same execution
+// returns the cached reference instead of repeating those real Sheets
+// API round-trips. GAS re-evaluates top-level `var` on every fresh
+// execution (same reasoning as 991's TEST_ID_PATTERN_-style constants),
+// so this correctly starts empty each run — it never masks a genuine
+// schema drift that happens between separate executions, only skips
+// re-checking the same, unchanged sheet repeatedly within one.
+//
+// Added 2026-07-29 after a real execution timeout: every Command in
+// 910/912 touches a sheet via this function, and with ~140 tests each
+// doing several Sheets operations, the getRange/getValues header check
+// + unconditional setFrozenRows was happening hundreds of times when a
+// handful (one per sheet) would do — see 00_Project_State.js changelog
+// for the full diagnosis, and MANUAL_VERIFICATION_CHECKLIST.md's
+// Runtime limits section, which had flagged the 6-minute ceiling as
+// untested until this run hit it for real.
+var SHEET_SCHEMA_CACHE_ = {};
+
 function ensureSheetSchema_(sheetName, columns, dateColumns) {
+  if (SHEET_SCHEMA_CACHE_[sheetName]) {
+    return SHEET_SCHEMA_CACHE_[sheetName];
+  }
+
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(sheetName);
   var isNewSheet = !sheet;
@@ -191,15 +215,16 @@ function ensureSheetSchema_(sheetName, columns, dateColumns) {
   }
 
   // Every Property OS sheet keeps its header row visible while
-  // scrolling. Unconditional (not gated on isNewSheet) and safe to
-  // call every time: setFrozenRows(1) is idempotent and touches no
-  // data, so it also retroactively fixes any sheet that was created
-  // before this existed — including the three Obligation sheets
+  // scrolling. Runs at most once per sheet per execution now (the cache
+  // above), but still unconditional-per-execution (not gated on
+  // isNewSheet) so it also retroactively fixes any sheet that was
+  // created before this existed — including the three Obligation sheets
   // already created via a live initObligationSchema_() run before this
-  // fix landed. They pick it up automatically the next time this
-  // function runs, no manual step needed beyond that.
+  // fix landed. They pick it up automatically the next execution, no
+  // manual step needed beyond that.
   sheet.setFrozenRows(1);
 
+  SHEET_SCHEMA_CACHE_[sheetName] = sheet;
   return sheet;
 }
 

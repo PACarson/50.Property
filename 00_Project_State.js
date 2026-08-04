@@ -207,6 +207,39 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-07-29 (l)  CC 重跑 runAllPropertyOSTests()——文件同步问题
+//                   解决了（991/992/993 全过），但跑到 994 中途撞上
+//                   "Exceeded maximum execution time"。这正是
+//                   MANUAL_VERIFICATION_CHECKLIST.md 一直标着"未验证"
+//                   的 GAS 6 分钟执行上限，这次真的碰到了。
+//
+//                   根因诊断：ensureSheetSchema_（901）在"每一次"
+//                   碰 Sheet 的操作（几乎每个 Command/Query）都重新
+//                   做一次表头核对 + setFrozenRows，即使同一次执行
+//                   内 Schema 根本不可能变。~140 个测试，每个测试
+//                   多次碰 Sheet，等于同一份没变过的表头被重复核对
+//                   几百次，每次都是真实 API 往返（Node shim 是
+//                   内存模拟，瞬间完成，测不出这个成本）。
+//
+//                   ★ 修复：ensureSheetSchema_ 加上 per-execution
+//                   缓存（SHEET_SCHEMA_CACHE_）——同一次执行内，每张
+//                   表只会真的核对一次，之后直接回传缓存的 Sheet
+//                   物件。缓存是顶层 var，GAS 每次全新执行都会重新
+//                   评估成空物件，不会跨执行残留，不影响真正的
+//                   schema drift 侦测。
+//
+//                   Node shim 自我检查确认逻辑正确（141/141），但
+//                   这个修复的"真的变快了吗"这件事，Node shim 天生
+//                   测不出来（内存操作本来就是瞬间的）——需要 CC
+//                   真的重跑一次才能确认。995_RunAllTests.js 已经
+//                   补上退路说明：如果这次修复后还是太慢，改成
+//                   分开单独跑 5 个 suite（各自独立执行，GAS 的
+//                   上限是按次算，不是累计），不必等一次性修好。
+//
+//                   MANUAL_VERIFICATION_CHECKLIST.md 的 Runtime
+//                   limits 部分已更新，如实记录"上限真的存在"这个
+//                   确认结果，以及修复的确切范围（逻辑对，速度待证）。
+//
 //   2026-07-29 (k)  CC 实跑 runAllPropertyOSTests()，118 个测试里
 //                   41 个失败。診斷：几乎全部是 "generatePropertyId_
 //                   is not defined" 和 "Unknown Property OS event
