@@ -44,6 +44,10 @@ function generateHistoryId_() {
   return generateId_(PROPERTY_CONFIG.ID_PREFIXES.HISTORY);
 }
 
+function generatePropertyId_() {
+  return generateId_(PROPERTY_CONFIG.ID_PREFIXES.PROPERTY);
+}
+
 /**
  * Validates that an ID matches an expected prefix. Throws if not — used
  * at Command entry points to fail fast on caller mistakes (e.g. passing

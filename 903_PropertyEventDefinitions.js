@@ -37,7 +37,12 @@ var PROPERTY_EVENTS = Object.freeze({
   PAYMENT_COMPLETED: 'PAYMENT_COMPLETED',
   PAYMENT_REVERSED: 'PAYMENT_REVERSED',           // ADR-P06 compensating event
   REMINDER_REQUESTED: 'REMINDER_REQUESTED',
-  UTILITY_BILL_RECEIVED: 'UTILITY_BILL_RECEIVED'  // producer (945) not yet built
+  UTILITY_BILL_RECEIVED: 'UTILITY_BILL_RECEIVED',  // producer (945) not yet built
+  // 910_PropertyAssetEngine (PropertyAssetEngine_VerticalSlice.md §4)
+  PROPERTY_CREATED: 'PROPERTY_CREATED',
+  PROPERTY_UPDATED: 'PROPERTY_UPDATED',
+  PROPERTY_SOLD: 'PROPERTY_SOLD',
+  PROPERTY_SALE_REVERSED: 'PROPERTY_SALE_REVERSED'  // ADR-P06 compensating event
 });
 
 // Required payload fields per event type (Vertical Slice §4). Publishing
@@ -49,14 +54,28 @@ var PROPERTY_EVENT_REQUIRED_FIELDS = (function () {
   m[PROPERTY_EVENTS.OBLIGATION_CANCELLED] = ['obligationId', 'reason'];
   m[PROPERTY_EVENTS.OBLIGATION_PAUSED] = ['obligationId'];
   m[PROPERTY_EVENTS.OBLIGATION_RESUMED] = ['obligationId'];
+  // Event Completeness Principle (Review Decision, 2026-07-29 — see
+  // 00_ADR_Log.js ADR-P13): a Domain Event carries the stable business
+  // data its known consumers need to do their own work, rather than
+  // requiring them to call back into the publisher's Truth Layer. Both
+  // payment events below carry `category` for exactly this reason —
+  // 914_FinanceEngine needs it to build a Ledger entry, and reaching
+  // back into 912 via getObligation() would couple Finance Engine to
+  // Obligation Engine's process (breaks the moment they're ever split
+  // into separate GAS deployments, matching how other Domain OS
+  // projects in this ecosystem already are).
   m[PROPERTY_EVENTS.PAYMENT_COMPLETED] =
-    ['obligationId', 'occurrenceId', 'effectiveDue', 'amount', 'paidDate', 'paidVia'];
+    ['obligationId', 'occurrenceId', 'category', 'effectiveDue', 'amount', 'paidDate', 'paidVia'];
   m[PROPERTY_EVENTS.PAYMENT_REVERSED] =
-    ['obligationId', 'occurrenceId', 'originalEventId', 'reversedAmount', 'reason'];
+    ['obligationId', 'occurrenceId', 'category', 'originalEventId', 'reversedAmount', 'reason'];
   m[PROPERTY_EVENTS.REMINDER_REQUESTED] =
     ['obligationId', 'occurrenceId', 'effectiveDue', 'offsets'];
   m[PROPERTY_EVENTS.UTILITY_BILL_RECEIVED] =
     ['source', 'rawAmount', 'rawDueDate', 'category'];
+  m[PROPERTY_EVENTS.PROPERTY_CREATED] = ['propertyId', 'propertyName', 'status'];
+  m[PROPERTY_EVENTS.PROPERTY_UPDATED] = ['propertyId', 'changedFields'];
+  m[PROPERTY_EVENTS.PROPERTY_SOLD] = ['propertyId', 'soldDate', 'soldPrice'];
+  m[PROPERTY_EVENTS.PROPERTY_SALE_REVERSED] = ['propertyId', 'originalEventId', 'reason'];
   return Object.freeze(m);
 })();
 

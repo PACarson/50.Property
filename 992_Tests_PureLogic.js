@@ -148,8 +148,8 @@ function runAllPureLogicTests() {
     OBLIGATION_CANCELLED: { obligationId: 'OBL-1', reason: 'sold' },
     OBLIGATION_PAUSED: { obligationId: 'OBL-1' },
     OBLIGATION_RESUMED: { obligationId: 'OBL-1' },
-    PAYMENT_COMPLETED: { obligationId: 'OBL-1', occurrenceId: 'OCC-1', effectiveDue: '2026-07-19', amount: 100, paidDate: '2026-07-19', paidVia: 'Manual' },
-    PAYMENT_REVERSED: { obligationId: 'OBL-1', occurrenceId: 'OCC-1', originalEventId: 'OCC-1:2026-07-19', reversedAmount: 100, reason: 'error' },
+    PAYMENT_COMPLETED: { obligationId: 'OBL-1', occurrenceId: 'OCC-1', category: 'Mortgage', effectiveDue: '2026-07-19', amount: 100, paidDate: '2026-07-19', paidVia: 'Manual' },
+    PAYMENT_REVERSED: { obligationId: 'OBL-1', occurrenceId: 'OCC-1', category: 'Mortgage', originalEventId: 'OCC-1:2026-07-19', reversedAmount: 100, reason: 'error' },
     REMINDER_REQUESTED: { obligationId: 'OBL-1', occurrenceId: 'OCC-1', effectiveDue: '2026-07-19', offsets: [30, 14, 7, 3, 1, 0, -1, -3, -7] },
     UTILITY_BILL_RECEIVED: { source: 'ManualInput', rawAmount: 100, rawDueDate: '2026-07-19', category: 'Electricity' },
     // 910_PropertyAssetEngine (added 2026-07-29)

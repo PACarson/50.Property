@@ -12,9 +12,42 @@
  * （避免 Speculative Design）。
  *
  * 关联文件（不属于本文件编号体系，皆为 Contract Design 阶段产出）：
- *   - 00_ADR_Log.js                       — ADR-P01~P07 正式记录
+ *   - 00_ADR_Log.js                       — ADR-P01~P13 正式记录
  *   - PropertyOS_DomainModel.md           — 跨 Engine 共用领域模型
  *   - ObligationEngine_VerticalSlice.md   — 912/913 完整 Vertical Slice
+ *
+ * ★ CURRENT DEPLOYMENT MANIFEST（2026-07-29，每次同步真实 GAS 项目时
+ * 核对这份清单，逐一比对——散落在各次对话记录里的"这个文件改了"很
+ * 容易漏掉，这份清单才是当下应该存在于 GAS 项目里的完整文件集）：
+ *
+ *   00_ADR_Log.js
+ *   00_Business_Rules.js
+ *   00_File_Map.js（本文件，纯文档，不影响 Runtime 但建议一并同步）
+ *   00_Project_Constitution.js
+ *   00_Project_State.js
+ *   00_Review_History.js
+ *   900_PropertyConfig.js
+ *   901_PropertySchema.js
+ *   902_PropertyIdentity.js          ← 含 generatePropertyId_（910 新增）
+ *   903_PropertyEventDefinitions.js  ← 含 4 个 PROPERTY_* Event +
+ *                                       PAYMENT_COMPLETED/REVERSED 的
+ *                                       category 栏位（两次不同批次
+ *                                       新增，都在这份里）
+ *   910_PropertyAssetEngine.js
+ *   912_ObligationEngine.js          ← recordPayment/reversePayment 的
+ *                                       Event Payload 含 category
+ *   913_ObligationScheduler.js
+ *   990_TestKit.js
+ *   991_Tests_ObligationEngine.js
+ *   992_Tests_PureLogic.js
+ *   993_Tests_FullLifecycle.js
+ *   994_Tests_ExtendedPlatform.js
+ *   995_RunAllTests.js
+ *   996_Tests_PropertyAssetEngine.js
+ *
+ *   （共 20 个 .js 文件。若真实 GAS 专案的文件数量或任一文件内容与此
+ *   不符，先同步再跑测试——大部分"莫名其妙的 undefined"报错都是
+ *   这里没对齐，不是逻辑真的错了。）
  *
  * Foundation 层（900-903）Runtime 已完成并批准（2026-07-19）。903 的
  * publishPropertyEvent_() 是 ADR-P07 的 Infrastructure Adapter，其

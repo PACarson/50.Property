@@ -207,6 +207,34 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-07-29 (k)  CC 实跑 runAllPropertyOSTests()，118 个测试里
+//                   41 个失败。診斷：几乎全部是 "generatePropertyId_
+//                   is not defined" 和 "Unknown Property OS event
+//                   type: undefined"——两个都是建 910 时新增到
+//                   902/903 的东西，CC 真实 GAS 专案当时同步的是
+//                   910 之前的旧版 902/903。不是逻辑错误，是文件
+//                   同步没跟上。同一时间 Claude 自己也抓到一个真实
+//                   的不一致：正在做的 Category-in-Event 改动
+//                   （903 要求 PAYMENT_COMPLETED/PAYMENT_REVERSED
+//                   带 category）还没同步改完 912 去真的提供这个
+//                   欄位——已收尾（912 的 rule.Category 已经在
+//                   scope 里，不需要新查询）。
+//
+//                   ★ 根因层面的修复：00_File_Map.js 新增
+//                   "CURRENT DEPLOYMENT MANIFEST"——一份纯粹、可
+//                   逐项核对的 20 个 .js 文件清单，放在文件最前面，
+//                   每次同步真实 GAS 专案时先核对这份，而不是散落
+//                   在多轮对话记录里去回忆"这个文件是不是也改过"。
+//
+//                   修复后完整跑一次（Node shim 自我检查）：
+//                   141/141 全数通过。待 CC 用同一份 Manifest 重新
+//                   同步真实专案后再跑一次确认。
+//
+//                   914_FinanceEngine 的 Category-in-Event /
+//                   PROPERTY_SALE_REVERSED 语义两项决定已经拍板
+//                   （见上一轮对话），Vertical Slice 文件本身的
+//                   对应章节更新仍在进行中，尚未在这一轮完成。
+//
 //   2026-07-29 (j)  Claude 在开始 914 之前，主动提出一个真正的架构
 //                   问题：ADR-P01 要求 Finance Engine 只订阅 Event，
 //                   但 EventBus（ADR-P07）目前还是 Logger 占位符，

@@ -560,6 +560,7 @@ function recordPayment(input) {
         {
           obligationId: rule.ObligationID,
           occurrenceId: occurrence.OccurrenceID,
+          category: rule.Category, // Event Completeness Principle, ADR-P13 — already in scope, no extra lookup needed
           effectiveDue: occurrence.EffectiveDue,
           amount: paidAmount,
           paidDate: paidDate,
@@ -756,6 +757,7 @@ function reversePayment(input) {
         {
           obligationId: rule.ObligationID,
           occurrenceId: occurrence.OccurrenceID,
+          category: rule.Category, // Event Completeness Principle, ADR-P13
           originalEventId: originalEventId,
           reversedAmount: reversedAmount,
           reason: input.reason || ''
