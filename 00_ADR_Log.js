@@ -445,3 +445,149 @@
 //
 // Related ADRs: ADR-P01 (unchanged, reaffirmed), ADR-P07 (pattern
 //   extended to the consuming side via subscribeFinanceEvent_()).
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ADR-P13 — Event Completeness Principle; Reversal Is Its Own
+// TransactionType (Review Decision)
+// STATUS: APPROVED (2026-07-29) — NEW
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// Question: Two related open items from 914's Vertical Slice §12.
+//   (1) Finance Engine needs each Obligation payment's Category to
+//   build a correct Ledger entry — does it get this via a read-only
+//   `getObligation()` call into 912, or does the event itself carry it?
+//   (2) A `PROPERTY_SALE_REVERSED` event's Ledger effect was originally
+//   modeled as an `Expense` entry offsetting the original `Income` —
+//   is that the right semantic, or does a reversal deserve its own
+//   category distinct from ordinary Expense?
+//
+// Decision (1): The event carries `category` directly. `PAYMENT_
+//   COMPLETED`/`PAYMENT_REVERSED` (903_PropertyEventDefinitions.js)
+//   both now require it; 912's `recordPayment`/`reversePayment` supply
+//   it from `rule.Category`, already in scope — no new lookup added
+//   anywhere. Reasoning, stated as a named platform principle:
+//
+//   **Event Completeness Principle** — a Domain Event should carry the
+//   stable business data its known consumers need to complete their
+//   own work, rather than requiring them to call back into the
+//   publisher's Truth Layer or read API. This is not just about one
+//   fewer function call: a read-only query still couples the consumer
+//   to the publisher's process. If Property OS's Engines are ever split
+//   into separate GAS deployments — which is already how other Domain
+//   OS projects in this ecosystem are structured — a direct call like
+//   `getObligation()` from 914 into 912 wouldn't be possible at all,
+//   while an event payload carrying `category` works identically either
+//   way. Building against the event's complete shape now costs nothing
+//   and avoids a real architectural dead-end later.
+//
+// Decision (2): `PROPERTY_SALE_REVERSED` (and `PAYMENT_REVERSED`) both
+//   produce a Ledger entry with `TransactionType='Reversal'` — a fourth
+//   enum value alongside `Income`/`Expense`/`Adjustment`, not an
+//   `Expense`-tagged offset. A reversal is not a cost and not revenue;
+//   it is its own kind of fact (an undone prior transaction). Collapsing
+//   it into `Expense` would corrupt future RPGT/capital-gains analysis,
+//   which needs "a sale happened" and "a sale was undone" as distinct,
+//   separately visible events, not netted into a single cost line.
+//   `queryCashflowSummary` (914's Query Contract) still nets correctly
+//   by looking up what each `Reversal` entry reverses and adjusting
+//   that entry's original bucket — precision in the Ledger's own
+//   semantics didn't cost correctness in the aggregate query.
+//
+// Impact: `903_PropertyEventDefinitions.js` — `category` added to
+//   `PAYMENT_COMPLETED`/`PAYMENT_REVERSED` required fields.
+//   `912_ObligationEngine.js` — `recordPayment`/`reversePayment` both
+//   updated to supply it. `FinanceEngine_VerticalSlice.md` — §1/§3/§4/
+//   §5/§6/§7/§12 updated throughout (4-value `TransactionType`, no
+//   separate `IsReversal` boolean, `findLedgerEntryToReverse_` lookup
+//   mechanism specified). UEF gains a stated-direction note for the
+//   Event Completeness Principle, same tier as the EventBus-as-
+//   Platform-Capability note (D10) — CC's direction for this ecosystem,
+//   not yet claimed as two-project-evidenced.
+//
+// Related ADRs: ADR-P12 (this decision strengthens it — Finance Engine
+//   now has zero cross-Engine calls, not even read-only), ADR-P06/P10
+//   (Reversal-as-new-Aggregate-instance is the same Event Immutability
+//   pattern, now with a more precise TransactionType for it).
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ADR-P14 — Pause 914, Build the Operator Console First
+// (Development Order + onOpen()/Trigger Clarification + Dashboard
+// Adapter Pattern — Review Decision)
+// STATUS: APPROVED (2026-07-29) — NEW
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// Question: 912/913/910 are Runtime-complete and real-GAS-confirmed
+//   (141/141). The only way to use any of it today is opening the
+//   Script Editor and hand-writing a full input object literal per
+//   Command call — real friction for genuine daily use. Continue
+//   straight to 914_FinanceEngine Runtime (more Engine capability), or
+//   pause and build a usable interface first (real usage feedback)?
+//
+// Decision: Pause 914. Build a lightweight, daily-usable UI — named
+//   **"Operator Console"** (not "MVP UI"/"Sidebar" — CC's naming
+//   direction: every future Domain OS will eventually have one of
+//   these, e.g. Rider OS Operator Console, Finance OS Operator Console,
+//   so a consistent name across the ecosystem matters more than a
+//   one-off descriptive label). Built on GAS's native HtmlService +
+//   Sidebar — no new framework, no architecture change. The Console
+//   calls existing Commands via `google.script.run`; it never writes a
+//   Sheet directly and never bypasses the Domain Layer. Explicitly not
+//   held to Vertical Slice / full Governance rigor — CC's stated MVP
+//   principle: "不是 Architecture。不是 Feature Complete。而是 Real
+//   Usage Feedback" (not Architecture, not feature-complete, but real
+//   usage feedback) — while still required to respect Constitution,
+//   Truth Layer boundaries, and every existing ADR. Speed of *iteration*
+//   is what's being optimized, not permission to bypass Domain Commands.
+//
+// onOpen() clarification (so this doesn't read as contradicting
+//   ADR-P02 to a future reader): ADR-P02 prohibits **Time-based and
+//   Installable Triggers** — autonomous, schedule-driven execution with
+//   no human present, which is Reminder OS's territory, not Property
+//   OS's. `onOpen(e)` is a **Simple Trigger** — it only fires when a
+//   human is actively opening the spreadsheet in their browser, used
+//   here solely to add a custom menu entry ("Property OS" → "Open
+//   Operator Console"). This is UI Bootstrap bound to live user
+//   interaction, categorically different from a Scheduler. Does not
+//   violate ADR-P02.
+//
+// Dashboard Adapter pattern (Query-side counterpart to ADR-P07's
+//   publish-side Adapter): the Operator Console's Dashboard view needs
+//   a monthly-expense total, which doesn't exist as a real aggregate
+//   yet (914's Ledger isn't built). Rather than have the Console query
+//   `ObligationOccurrence` directly — which would need editing the moment
+//   914 exists — a new function, `getMonthlyExpenseSummary()`
+//   (`922_DashboardAdapter.js`), sits between them. MVP implementation:
+//   aggregates `ObligationOccurrence.PaidAmount`/`PaidDate` directly
+//   (Current Source, documented in the function's own header comment).
+//   Once 914 exists: only this function's *internal* implementation
+//   changes to query the Ledger instead (Target Source, same comment).
+//   The Operator Console's calling code never changes — it only ever
+//   knew about `getMonthlyExpenseSummary()`, never about where the
+//   number actually came from. Same Adapter-isolation discipline as
+//   ADR-P07, applied to a Query instead of a publish.
+//
+// Ecosystem-level direction (recorded here, elaborated in UEF — see
+//   there for the full note): every future Domain OS should follow
+//   **Governance → Vertical Slice → Runtime → Operator Console → 2-4
+//   weeks real usage → next batch of Engines**, rather than building
+//   every Engine before any UI exists. CC's stated reasoning: this is a
+//   personally-used system, not software being shipped externally —
+//   real usage surfaces which fields are unnecessary, which flows are
+//   annoying, which reminders fire at the wrong time, far faster and
+//   more reliably than continued design-and-build without anyone
+//   actually touching it daily. Recorded as CC's direction for Personal
+//   AI Core's development methodology, not claimed as externally
+//   validated — same evidentiary tier as D10/D11's stated-direction
+//   notes, not a ratified UCR.
+//
+// Impact: 914_FinanceEngine Runtime paused, resumes after 1-2 weeks of
+//   real Operator Console usage. New files: `945_OperatorConsole.html`,
+//   `946_OperatorConsoleServer.js`, `922_DashboardAdapter.js` (renamed
+//   from the earlier-planned "922_DashboardEngine" placeholder — this
+//   is deliberately lighter-weight than that name implied; may grow
+//   into a fuller Dashboard Engine later, not built out that way now).
+//
+// Related ADRs: ADR-P02 (clarified, not contradicted), ADR-P07 (pattern
+//   extended once more, this time to a Query rather than a publish).

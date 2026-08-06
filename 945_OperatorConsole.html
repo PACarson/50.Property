@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size: 13px;
+    color: #202124;
+    margin: 0;
+    padding: 0;
+    background: #f8f9fa;
+  }
+  #tabs {
+    display: flex;
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  #tabs button {
+    flex: 1;
+    padding: 10px 4px;
+    border: none;
+    background: none;
+    font-size: 12px;
+    color: #5f6368;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  #tabs button.active {
+    color: #1a73e8;
+    border-bottom-color: #1a73e8;
+    font-weight: 600;
+  }
+  #propertyFilterBar {
+    padding: 8px 10px;
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  select, input, textarea {
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid #dadce0;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #fff;
+  }
+  .view { display: none; padding: 10px; }
+  .view.active { display: block; }
+  section { margin-bottom: 14px; }
+  h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #5f6368;
+    margin: 0 0 6px 2px;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 6px;
+  }
+  .card.overdue { border-left: 3px solid #d93025; }
+  .card.upcoming { border-left: 3px solid #1a73e8; }
+  .card.paid { border-left: 3px solid #188038; opacity: .85; }
+  .card-row { display: flex; justify-content: space-between; align-items: center; }
+  .card-title { font-weight: 600; }
+  .card-sub { color: #5f6368; font-size: 12px; margin-top: 2px; }
+  .card-amount { font-weight: 600; white-space: nowrap; margin-left: 8px; }
+  .btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    background: #1a73e8;
+    color: #fff;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn.secondary { background: #f1f3f4; color: #202124; }
+  .btn.small { padding: 4px 10px; font-size: 11px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .pay-form {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #dadce0;
+    display: flex;
+    gap: 6px;
+    align-items: flex-end;
+  }
+  .pay-form > div { flex: 1; }
+  .pay-form label { display: block; font-size: 10px; color: #5f6368; margin-bottom: 2px; }
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 12px; color: #5f6368; margin-bottom: 3px; }
+  .field-row { display: flex; gap: 8px; }
+  .field-row > .field { flex: 1; }
+  details { margin-bottom: 10px; }
+  details summary { font-size: 12px; color: #1a73e8; cursor: pointer; padding: 4px 0; }
+  .empty { color: #9aa0a6; font-size: 12px; padding: 8px 2px; }
+  .toast {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    background: #202124;
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    text-align: center;
+    z-index: 100;
+    display: none;
+  }
+  .toast.error { background: #d93025; }
+  .summary-box {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 10px;
+  }
+  .summary-total { font-size: 20px; font-weight: 700; }
+  .summary-breakdown { font-size: 11px; color: #5f6368; margin-top: 4px; }
+  .loading { text-align: center; color: #9aa0a6; padding: 20px; font-size: 12px; }
+  .search-box { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<nav id="tabs">
+  <button data-view="dashboard" class="active">Dashboard</button>
+  <button data-view="addBill">Add Bill</button>
+  <button data-view="properties">Properties</button>
+  <button data-view="history">History</button>
+</nav>
+
+<div id="propertyFilterBar">
+  <select id="propertyFilter"><option value="">All Properties</option></select>
+</div>
+
+<div id="view-dashboard" class="view active">
+  <div id="dashboardLoading" class="loading">Loading…</div>
+  <div id="dashboardContent" style="display:none">
+    <section>
+      <h3>Overdue</h3>
+      <div id="overdueList"></div>
+    </section>
+    <section>
+      <h3>Due This Week</h3>
+      <div id="thisWeekList"></div>
+    </section>
+    <section>
+      <h3>Upcoming (30 days)</h3>
+      <div id="upcomingList"></div>
+    </section>
+    <section>
+      <h3>This Month</h3>
+      <div class="summary-box">
+        <div class="summary-total" id="monthlyTotal">—</div>
+        <div class="summary-breakdown" id="monthlyBreakdown"></div>
+      </div>
+    </section>
+    <section>
+      <h3>Recent Payments</h3>
+      <div id="recentPaymentsList"></div>
+    </section>
+  </div>
+</div>
+
+<div id="view-addBill" class="view">
+  <div class="field">
+    <label>Property</label>
+    <select id="ob_propertyId"></select>
+  </div>
+  <div class="field">
+    <label>Category</label>
+    <select id="ob_category"></select>
+  </div>
+  <div class="field">
+    <label>Payee</label>
+    <input id="ob_payee" type="text" placeholder="e.g. Maybank, TNB, Air Selangor">
+  </div>
+  <div class="field-row">
+    <div class="field">
+      <label>Amount (MYR)</label>
+      <input id="ob_amount" type="number" step="0.01" min="0">
+    </div>
+    <div class="field">
+      <label>Frequency</label>
+      <select id="ob_frequencyType"></select>
+    </div>
+  </div>
+  <div class="field" id="ob_customIntervalField" style="display:none">
+    <label>Custom interval (days)</label>
+    <input id="ob_customIntervalDays" type="number" min="1">
+  </div>
+  <div class="field">
+    <label>First due date</label>
+    <input id="ob_dueAnchor" type="date">
+  </div>
+  <details>
+    <summary>More options</summary>
+    <div class="field">
+      <label>Grace days (default 0)</label>
+      <input id="ob_graceDays" type="number" min="0" value="0">
+    </div>
+    <div class="field">
+      <label>End date (optional — leave blank if ongoing)</label>
+      <input id="ob_endDate" type="date">
+    </div>
+    <div class="field">
+      <label><input id="ob_autoGenerate" type="checkbox" checked style="width:auto;display:inline-block;vertical-align:middle"> Auto-generate next cycle after payment</label>
+    </div>
+  </details>
+  <button class="btn" id="ob_submit" style="width:100%">Add Bill</button>
+</div>
+
+<div id="view-properties" class="view">
+  <div id="propertiesList"></div>
+  <button class="btn secondary" id="showAddPropertyBtn" style="width:100%;margin-top:8px">+ Add Property</button>
+
+  <div id="addPropertyForm" style="display:none;margin-top:10px">
+    <div class="field">
+      <label>Property Name</label>
+      <input id="p_propertyName" type="text" placeholder="e.g. Sunway Condo Unit 12-3">
+    </div>
+    <div class="field">
+      <label>Address Line 1</label>
+      <input id="p_addressLine1" type="text">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>City</label>
+        <input id="p_addressCity" type="text">
+      </div>
+      <div class="field">
+        <label>State</label>
+        <input id="p_addressState" type="text">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Purchase Date</label>
+        <input id="p_purchaseDate" type="date">
+      </div>
+      <div class="field">
+        <label>Purchase Price (MYR)</label>
+        <input id="p_purchasePrice" type="number" step="0.01" min="0">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Type</label>
+        <select id="p_propertyType"></select>
+      </div>
+      <div class="field">
+        <label>Tenure</label>
+        <select id="p_freeholdLeasehold"></select>
+      </div>
+    </div>
+    <details>
+      <summary>More details</summary>
+      <div class="field"><label>Developer</label><input id="p_developer" type="text"></div>
+      <div class="field-row">
+        <div class="field"><label>Address Line 2</label><input id="p_addressLine2" type="text"></div>
+        <div class="field"><label>Postcode</label><input id="p_addressPostcode" type="text"></div>
+      </div>
+      <div class="field"><label>Country</label><input id="p_addressCountry" type="text" value="Malaysia"></div>
+      <div class="field-row">
+        <div class="field"><label>Built-up (sqft)</label><input id="p_builtUp" type="number" min="0"></div>
+        <div class="field"><label>Land size (sqft)</label><input id="p_landSize" type="number" min="0"></div>
+      </div>
+      <div class="field"><label>Owner</label><input id="p_owner" type="text"></div>
+    </details>
+    <button class="btn" id="p_submit" style="width:100%">Save Property</button>
+  </div>
+</div>
+
+<div id="view-history" class="view">
+  <div class="search-box">
+    <input id="historySearch" type="text" placeholder="Search payee, category, property…">
+  </div>
+  <div id="historyList"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var state = {
+  properties: [],
+  formOptions: null,
+  currentPropertyFilter: ''
+};
+
+document.addEventListener('DOMContentLoaded', init);
+
+function init() {
+  setupTabs();
+  setupPropertyFilter();
+  setupAddBillForm();
+  setupPropertiesView();
+  setupHistoryView();
+  loadFormOptions();
+  loadProperties();
+  loadDashboard();
+}
+
+// ─── Tabs ────────────────────────────────────────────────────────
+
+function setupTabs() {
+  document.querySelectorAll('#tabs button').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('#tabs button').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('view-' + btn.dataset.view).classList.add('active');
+      if (btn.dataset.view === 'history') loadHistory();
+    });
+  });
+}
+
+// ─── Property filter (shared across Dashboard/History) ───────────
+
+function setupPropertyFilter() {
+  document.getElementById('propertyFilter').addEventListener('change', function (e) {
+    state.currentPropertyFilter = e.target.value;
+    loadDashboard();
+    if (document.getElementById('view-history').classList.contains('active')) loadHistory();
+  });
+}
+
+function loadProperties() {
+  google.script.run
+    .withSuccessHandler(function (res) {
+    if (!res.success) { showToast(res.error, true); return; }
+    state.properties = res.data;
+    var sel = document.getElementById('propertyFilter');
+    var obSel = document.getElementById('ob_propertyId');
+    sel.innerHTML = '<option value="">All Properties</option>';
+    obSel.innerHTML = '';
+    res.data.forEach(function (p) {
+      var opt1 = document.createElement('option');
+      opt1.value = p.PropertyID; opt1.textContent = p.PropertyName;
+      sel.appendChild(opt1);
+      var opt2 = opt1.cloneNode(true);
+      obSel.appendChild(opt2);
+    });
+    renderPropertiesList();
+    })
+    .withFailureHandler(function (err) { showToast('Failed to load properties: ' + err.message, true); })
+    .console_listProperties();
+}
+
+// ─── Dashboard ─────────────────────────────────────────────────────
+
+function loadDashboard() {
+  document.getElementById('dashboardLoading').style.display = 'block';
+  document.getElementById('dashboardContent').style.display = 'none';
+  google.script.run
+    .withSuccessHandler(function (res) {
+      document.getElementById('dashboardLoading').style.display = 'none';
+      document.getElementById('dashboardContent').style.display = 'block';
+      if (!res.success) { showToast(res.error, true); return; }
+      renderDashboard(res.data);
+    })
+    .withFailureHandler(function (err) {
+      document.getElementById('dashboardLoading').style.display = 'none';
+      showToast('Failed to load dashboard: ' + err.message, true);
+    })
+    .console_getDashboardSnapshot(state.currentPropertyFilter || null);
+}
+
+function renderDashboard(data) {
+  renderOccurrenceList('overdueList', data.overdue, 'overdue', 'No overdue payments.');
+  renderOccurrenceList('thisWeekList', data.dueThisWeek, 'upcoming', 'Nothing due this week.');
+  renderOccurrenceList('upcomingList', data.dueUpcoming, 'upcoming', 'Nothing else due in the next 30 days.');
+  renderOccurrenceList('recentPaymentsList', data.recentPayments, 'paid', 'No payments recorded yet.');
+
+  document.getElementById('monthlyTotal').textContent = 'RM ' + formatAmount(data.monthlyExpense.total);
+  var breakdown = Object.keys(data.monthlyExpense.byCategory).map(function (cat) {
+    return cat + ': RM ' + formatAmount(data.monthlyExpense.byCategory[cat]);
+  }).join(' · ');
+  document.getElementById('monthlyBreakdown').textContent = breakdown || 'No expenses recorded this month yet.';
+}
+
+function renderOccurrenceList(containerId, items, kind, emptyText) {
+  var container = document.getElementById(containerId);
+  container.innerHTML = '';
+  if (!items || items.length === 0) {
+    container.innerHTML = '<div class="empty">' + emptyText + '</div>';
+    return;
+  }
+  items.forEach(function (item) {
+    var card = document.createElement('div');
+    card.className = 'card ' + kind;
+    var dateLabel = kind === 'paid' ? ('Paid ' + item.paidDate) : ('Due ' + item.effectiveDue);
+    card.innerHTML =
+      '<div class="card-row">' +
+        '<div>' +
+          '<div class="card-title">' + escapeHtml(item.category) + ' — ' + escapeHtml(item.payee) + '</div>' +
+          '<div class="card-sub">' + escapeHtml(item.propertyName) + ' · ' + dateLabel + '</div>' +
+        '</div>' +
+        '<div class="card-amount">RM ' + formatAmount(kind === 'paid' ? item.paidAmount : item.expectedAmount) + '</div>' +
+      '</div>';
+    if (kind !== 'paid') {
+      var payBtn = document.createElement('button');
+      payBtn.className = 'btn small';
+      payBtn.style.marginTop = '8px';
+      payBtn.textContent = 'Pay';
+      payBtn.addEventListener('click', function () { showPayForm(card, item); });
+      card.appendChild(payBtn);
+    }
+    container.appendChild(card);
+  });
+}
+
+function showPayForm(card, item) {
+  if (card.querySelector('.pay-form')) return; // already open
+  var existingBtn = card.querySelector('.btn');
+  if (existingBtn) existingBtn.style.display = 'none';
+
+  var form = document.createElement('div');
+  form.className = 'pay-form';
+  var today = new Date().toISOString().slice(0, 10);
+  form.innerHTML =
+    '<div><label>Amount</label><input type="number" step="0.01" class="pf-amount" value="' + item.expectedAmount + '"></div>' +
+    '<div><label>Date</label><input type="date" class="pf-date" value="' + today + '"></div>';
+  var confirmBtn = document.createElement('button');
+  confirmBtn.className = 'btn small';
+  confirmBtn.textContent = 'Confirm';
+  var cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn small secondary';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.style.marginLeft = '4px';
+
+  confirmBtn.addEventListener('click', function () {
+    confirmBtn.disabled = true;
+    var amount = form.querySelector('.pf-amount').value;
+    var date = form.querySelector('.pf-date').value;
+    google.script.run
+      .withSuccessHandler(function (res) {
+        if (!res.success) { showToast(res.error, true); confirmBtn.disabled = false; return; }
+        showToast('Payment recorded.');
+        loadDashboard();
+      })
+      .withFailureHandler(function (err) { showToast(err.message, true); confirmBtn.disabled = false; })
+      .console_recordPayment(item.occurrenceId, amount, date, '');
+  });
+
+  form.appendChild(confirmBtn);
+  form.appendChild(cancelBtn);
+  cancelBtn.addEventListener('click', function () {
+    form.remove();
+    if (existingBtn) existingBtn.style.display = '';
+  });
+  card.appendChild(form);
+}
+
+// ─── Add Bill ────────────────────────────────────────────────────
+
+function setupAddBillForm() {
+  document.getElementById('ob_frequencyType').addEventListener('change', function (e) {
+    document.getElementById('ob_customIntervalField').style.display = e.target.value === 'Custom' ? 'block' : 'none';
+  });
+  document.getElementById('ob_submit').addEventListener('click', submitAddBill);
+}
+
+function submitAddBill() {
+  var btn = document.getElementById('ob_submit');
+  var input = {
+    propertyId: document.getElementById('ob_propertyId').value,
+    category: document.getElementById('ob_category').value,
+    payee: document.getElementById('ob_payee').value,
+    amount: Number(document.getElementById('ob_amount').value),
+    frequencyType: document.getElementById('ob_frequencyType').value,
+    dueAnchor: document.getElementById('ob_dueAnchor').value,
+    graceDays: Number(document.getElementById('ob_graceDays').value || 0),
+    autoGenerate: document.getElementById('ob_autoGenerate').checked
+  };
+  var customDays = document.getElementById('ob_customIntervalDays').value;
+  if (input.frequencyType === 'Custom' && customDays) input.customIntervalDays = Number(customDays);
+  var endDate = document.getElementById('ob_endDate').value;
+  if (endDate) input.endDate = endDate;
+
+  if (!input.propertyId || !input.category || !input.payee || !input.amount || !input.dueAnchor) {
+    showToast('Please fill in Property, Category, Payee, Amount, and Due Date.', true);
+    return;
+  }
+
+  btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function (res) {
+      btn.disabled = false;
+      if (!res.success) { showToast(res.error, true); return; }
+      showToast('Bill added.');
+      document.getElementById('ob_payee').value = '';
+      document.getElementById('ob_amount').value = '';
+      loadDashboard();
+    })
+    .withFailureHandler(function (err) { btn.disabled = false; showToast(err.message, true); })
+    .console_createObligation(input);
+}
+
+// ─── Properties ────────────────────────────────────────────────────
+
+function setupPropertiesView() {
+  document.getElementById('showAddPropertyBtn').addEventListener('click', function () {
+    var form = document.getElementById('addPropertyForm');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  });
+  document.getElementById('p_submit').addEventListener('click', submitAddProperty);
+}
+
+function renderPropertiesList() {
+  var container = document.getElementById('propertiesList');
+  container.innerHTML = '';
+  if (state.properties.length === 0) {
+    container.innerHTML = '<div class="empty">No properties yet — add one below.</div>';
+    return;
+  }
+  state.properties.forEach(function (p) {
+    var card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML =
+      '<div class="card-title">' + escapeHtml(p.PropertyName) + '</div>' +
+      '<div class="card-sub">' + escapeHtml(p.AddressLine1) + (p.AddressCity ? ', ' + escapeHtml(p.AddressCity) : '') + '</div>' +
+      '<div class="card-sub">' + escapeHtml(p.PropertyType) + ' · ' + escapeHtml(p.FreeholdLeasehold) + '</div>';
+    container.appendChild(card);
+  });
+}
+
+function submitAddProperty() {
+  var btn = document.getElementById('p_submit');
+  var input = {
+    propertyName: document.getElementById('p_propertyName').value,
+    addressLine1: document.getElementById('p_addressLine1').value,
+    addressLine2: document.getElementById('p_addressLine2').value,
+    addressCity: document.getElementById('p_addressCity').value,
+    addressState: document.getElementById('p_addressState').value,
+    addressPostcode: document.getElementById('p_addressPostcode').value,
+    addressCountry: document.getElementById('p_addressCountry').value || 'Malaysia',
+    purchaseDate: document.getElementById('p_purchaseDate').value,
+    purchasePrice: Number(document.getElementById('p_purchasePrice').value),
+    freeholdLeasehold: document.getElementById('p_freeholdLeasehold').value,
+    propertyType: document.getElementById('p_propertyType').value,
+    developer: document.getElementById('p_developer').value,
+    builtUp: document.getElementById('p_builtUp').value ? Number(document.getElementById('p_builtUp').value) : undefined,
+    landSize: document.getElementById('p_landSize').value ? Number(document.getElementById('p_landSize').value) : undefined,
+    owner: document.getElementById('p_owner').value
+  };
+
+  if (!input.propertyName || !input.addressLine1 || !input.purchaseDate || !input.purchasePrice) {
+    showToast('Please fill in Name, Address, Purchase Date, and Price.', true);
+    return;
+  }
+
+  btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function (res) {
+      btn.disabled = false;
+      if (!res.success) { showToast(res.error, true); return; }
+      showToast('Property added.');
+      document.getElementById('addPropertyForm').style.display = 'none';
+      loadProperties();
+    })
+    .withFailureHandler(function (err) { btn.disabled = false; showToast(err.message, true); })
+    .console_createProperty(input);
+}
+
+// ─── History ───────────────────────────────────────────────────────
+
+function setupHistoryView() {
+  var debounceTimer;
+  document.getElementById('historySearch').addEventListener('input', function () {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(loadHistory, 300);
+  });
+}
+
+function loadHistory() {
+  var search = document.getElementById('historySearch').value;
+  document.getElementById('historyList').innerHTML = '<div class="loading">Loading…</div>';
+  google.script.run
+    .withSuccessHandler(function (res) {
+      if (!res.success) { showToast(res.error, true); return; }
+      renderOccurrenceList('historyList', res.data, 'paid', 'No matching payments found.');
+    })
+    .withFailureHandler(function (err) { showToast(err.message, true); })
+    .console_getPaymentHistory(state.currentPropertyFilter || null, search);
+}
+
+// ─── Form options (dropdowns) ─────────────────────────────────────
+
+function loadFormOptions() {
+  google.script.run
+    .withSuccessHandler(function (opts) {
+      state.formOptions = opts;
+      fillSelect('ob_category', opts.categories);
+      fillSelect('ob_frequencyType', opts.frequencyTypes);
+      fillSelect('p_propertyType', opts.propertyTypes);
+      fillSelect('p_freeholdLeasehold', opts.freeholdLeaseholdOptions);
+    })
+    .withFailureHandler(function (err) { showToast('Failed to load form options: ' + err.message, true); })
+    .console_getFormOptions();
+}
+
+function fillSelect(id, values) {
+  var sel = document.getElementById(id);
+  sel.innerHTML = '';
+  values.forEach(function (v) {
+    var opt = document.createElement('option');
+    opt.value = v; opt.textContent = v;
+    sel.appendChild(opt);
+  });
+}
+
+// ─── Utilities ─────────────────────────────────────────────────────
+
+function formatAmount(n) {
+  n = Number(n) || 0;
+  return n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function escapeHtml(s) {
+  var div = document.createElement('div');
+  div.textContent = s == null ? '' : String(s);
+  return div.innerHTML;
+}
+
+var toastTimer;
+function showToast(msg, isError) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (isError ? ' error' : '');
+  t.style.display = 'block';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.style.display = 'none'; }, 3500);
+}
+</script>
+</body>
+</html>

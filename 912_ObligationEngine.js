@@ -861,3 +861,52 @@ function queryOverdue(params) {
 
   return { dataAsOf: toIsoDateTime_(new Date()), kind: 'authoritative', results: results };
 }
+
+/**
+ * @param {Object} [params] {propertyId?, limit?, from?, to?} — limit
+ *   defaults to 20 (acts as a generous safety cap when from/to are
+ *   given, or as the primary "how many" constraint when they're not).
+ *   Added 2026-07-29 for the Operator Console's Dashboard "recent
+ *   payments" view — queryUpcomingPayments/queryOverdue both
+ *   deliberately exclude Paid occurrences (each function's own scope),
+ *   so nothing existing could answer "what did I just pay." from/to
+ *   added the same day for 922_DashboardAdapter.js's monthly-total
+ *   use, which needs "everything paid in this date range," not just
+ *   "the most recent N."
+ */
+function queryRecentPayments(params) {
+  params = params || {};
+  var limit = params.limit || (params.from || params.to ? 10000 : 20);
+  var fromDate = params.from ? parseIsoDate_(params.from) : null;
+  var toDate = params.to ? parseIsoDate_(params.to) : null;
+  var columns = PROPERTY_SCHEMA.ObligationOccurrence.columns;
+  var sheet = occurrenceSheet_();
+  var lastRow = sheet.getLastRow();
+  var results = [];
+
+  if (lastRow >= 2) {
+    var data = sheet.getRange(2, 1, lastRow - 1, columns.length).getValues();
+    data.forEach(function (rowValues) {
+      var obj = {};
+      columns.forEach(function (col, i) { obj[col] = rowValues[i]; });
+      if (obj.Status !== 'Paid') return;
+      if (params.propertyId) {
+        var rule = getObligationRuleById_(obj.ObligationID);
+        if (!rule || rule.PropertyID !== params.propertyId) return;
+      }
+      obj.EffectiveDue = coerceToIsoDateString_(obj.EffectiveDue);
+      obj.PaidDate = coerceToIsoDateString_(obj.PaidDate);
+      var paidDateObj = parseIsoDate_(obj.PaidDate);
+      if (fromDate && paidDateObj.getTime() < fromDate.getTime()) return;
+      if (toDate && paidDateObj.getTime() > toDate.getTime()) return;
+      results.push(obj);
+    });
+
+    results.sort(function (a, b) {
+      return parseIsoDate_(b.PaidDate).getTime() - parseIsoDate_(a.PaidDate).getTime();
+    });
+    results = results.slice(0, limit);
+  }
+
+  return { dataAsOf: toIsoDateTime_(new Date()), kind: 'authoritative', results: results };
+}

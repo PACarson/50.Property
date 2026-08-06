@@ -162,6 +162,28 @@ function getProperty(propertyId) {
   return readRowAsObject_(sheet, rowIndex, PROPERTY_SCHEMA.Property.columns);
 }
 
+/**
+ * @return {Object[]} all Active Properties (Sold ones excluded — not
+ *   useful in a "which property is this bill for" dropdown). Added
+ *   2026-07-29 for the Operator Console's selector dropdowns.
+ */
+function listActiveProperties() {
+  var sheet = propertySheet_();
+  var columns = PROPERTY_SCHEMA.Property.columns;
+  var lastRow = sheet.getLastRow();
+  var results = [];
+  if (lastRow >= 2) {
+    var data = sheet.getRange(2, 1, lastRow - 1, columns.length).getValues();
+    data.forEach(function (rowValues) {
+      var obj = {};
+      columns.forEach(function (col, i) { obj[col] = rowValues[i]; });
+      if (obj.Status === 'Active') results.push(obj);
+    });
+  }
+  results.sort(function (a, b) { return String(a.PropertyName).localeCompare(String(b.PropertyName)); });
+  return results;
+}
+
 /** Real implementation for 912's propertyExists_ placeholder — see there. */
 function propertyExists_(propertyId) {
   return getProperty(propertyId) !== null;
