@@ -10,7 +10,7 @@
 // PROJECT VERSION
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-//   Current Version : v1.1.0-finance-engine-vertical-slice
+//   Current Version : v1.3.1-flush-fix-and-backlog
 //   Current Branch  : （待 CC 指定，建议 property-os/session1-obligation-engine）
 //   Blueprint 合规  : Universal Domain OS Blueprint ✓ | UEF v1.6 ✓
 //   ADR 状态        : ADR-P01, P02, P04, P05, P06, P07, P08, P10 APPROVED；
@@ -162,27 +162,42 @@
 //      冲突，900-949 大概率可以直接定案，不需要等一个可能根本不存在
 //      的"全局 registry"。這是推论，未向 CC 证实，故仍标待确认，
 //      但风险评级可以调低。
-//   9. [新增 2026-07-29] 910_PropertyAssetEngine 的 Runtime + 测试
-//      （910, 996, 992 扩充部分）尚未对 CC 真实 GAS 项目跑过——只有
-//      私有 Node shim 自我检查（139/139）。跟先前 Obligation Engine
-//      走过的路径一样：需要 CC 把 910/996 复制进真实 GAS 专用测试
-//      项目（990-995 应该已经在那里了），跑 runAllPropertyOSTests()
-//      确认真实结果。
+//   9. [已解决 2026-07-29] 910_PropertyAssetEngine 的 Runtime + 测试
+//      已对 CC 真实 GAS 项目跑过确认：141/141 全数通过（经过两轮
+//      诊断修复——文件同步、ensureSheetSchema_ 执行超时——才达到
+//      这个结果，过程完整记在上面几笔 CHANGELOG）。至此 990-996
+//      全部 20 个文件都已在真实 GAS 环境验证过至少一次。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // NEXT PRIORITY 下一步开发
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-//   顺序已由 CC 确认：
-//   1. ✓ Test Plan 落地——完成，139 个纯 GAS-native 测试（990-996）
-//   2. ✓ 910_PropertyAssetEngine——Runtime 完成，Review Approved
-//   3. 914_FinanceEngine——Vertical Slice 完成，等待 Review Approval
-//      ← 目前在此，两项待确认见 File Map/Vertical Slice §12
-//   （910/996 待 CC 复制进真实 GAS 专用测试项目、跑
-//   runAllPropertyOSTests() 确认，不阻塞 914 走 Review，但建议尽早
-//   跑一遍；MANUAL_VERIFICATION_CHECKLIST.md 里少数几项即使测试全过
-//   仍验证不到，如实保留）
+//   顺序已由 CC 确认（ADR-P14 更新了排序）：
+//   1. ✓ Test Plan 落地——完成，141 个纯 GAS-native 测试（990-996），
+//      已对真实 GAS 项目跑过确认，141/141 全数通过
+//   2. ✓ 910_PropertyAssetEngine——Runtime 完成，Review Approved，
+//      真实 GAS 确认通过
+//   3. ✓ 914_FinanceEngine——Vertical Slice APPROVED（ADR-P13）
+//   4. ⏸ 914_FinanceEngine Runtime——暂停（ADR-P14）
+//   5. ✅ Operator Console（922/945/946）已建好，逻辑面已自我检查
+//      ← 目前在此，待 CC 实际部署 + 打开来用
+//   6. CC 实战使用 1-2 周，收集真实回馈
+//   7. 依回馈决定下一步优先顺序（914 恢复 / Rental / Mortgage 等）
+//
+//   Operator Console 部署步骤（CC 需要做的）：
+//   a. Apps Script 编辑器「+ → HTML」新增文件，命名 945_
+//      OperatorConsole（会自动加 .html），贴入内容
+//   b. 「+ → 脚本」新增 922_DashboardAdapter.js、
+//      946_OperatorConsoleServer.js，贴入内容
+//   c. 912_ObligationEngine.js、910_PropertyAssetEngine.js 也要更新
+//      （各自新增了 queryRecentPayments / listActiveProperties）
+//   d. 存档后重新整理 Google Sheet 分頁——应该会看到新選單
+//      「Property OS → Open Operator Console」
+//
+//   （MANUAL_VERIFICATION_CHECKLIST.md 里少数几项——真实并发 Lock
+//   竞争、Cache 真实 1 小时 TTL 到期、真实 schema drift——即使
+//   141/141 通过仍验证不到，如实保留，非阻塞性待办）
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -206,6 +221,126 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+//   2026-07-29 (p)  CC 真实使用 Operator Console 的第一手回馈——
+//                   ADR-P14 的目标（Real Usage Feedback）第一天就
+//                   兑现了。确认能用：Sidebar 正常拉出、Dashboard
+//                   Loading→资料正常切换、新增 Property 后端 Sheet
+//                   真的多一行。真的抓到两个问题：新增 Property 后
+//                   列表没有立刻刷新、Add Bill 页签的 Property 下拉
+//                   没有新选项。
+//
+//                   诊断：两个症状同一根因——createProperty 那次
+//                   execution 的写入，跟紧接着 loadProperties() 那次
+//                   （完全不同的 execution）的读取之间，可能存在
+//                   跨 execution 的读写一致性问题。
+//
+//                   ★ 修复：在 withPropertyLock_（910）/
+//                   withObligationLock_（912）的 finally 区块统一
+//                   加 SpreadsheetApp.flush()，而不是在每个 Command
+//                   的 return 前各别加——集中一处，以后新增 Command
+//                   不会漏。連 throw 路径也会 flush（讓
+//                   logPartialFailure_/logPropertyPartialFailure_
+//                   记录的部分失败状态，也能立刻被后续读取看到，
+//                   不是留在不确定的状态）。私有 Node shim 补上
+//                   SpreadsheetApp.flush 的 no-op（shim 本身没有
+//                   跨 execution 一致性问题可模拟，flush 在这里
+//                   本来就没有东西要"冲刷"），141/141 回归测试确认
+//                   没有破坏任何既有逻辑。
+//
+//                   ★ 老实说明验证边界：这个修复解决了"逻辑上该做
+//                   什么"，但"真的解决了这个 bug"这件事，Node shim
+//                   天生证明不了——没有跨 execution 场景可以模拟。
+//                   需要 CC 重新测过 Add Property → 立刻看列表/下拉
+//                   才能确认。
+//
+//                   同时新增 00_Product_Backlog.js，记录 CC 提出的
+//                   三项未来功能（BL-1 Leasehold Lease Expiry、
+//                   BL-2 Property Insurance、BL-3 Management
+//                   Information），皆為設計草圖層級、非 Vertical
+//                   Slice，不影响当前 MVP 进度。PropertyOS_
+//                   DomainModel.md 新增 §7，記錄這三項未來如何融入
+//                   既有 Aggregate 骨架（BL-2 特別值得一提：设计為
+//                   复用 912 既有的 Reminder/Overdue/Payment 机制，
+//                   不是為保险另开一套排程逻辑）。
+//
+//   2026-07-29 (o)  CC 決定暫停 914 Runtime，改建 Operator Console
+//                   （ADR-P14）——目标不是 Architecture 或 Feature
+//                   Complete，是 Real Usage Feedback。三个新文件：
+//
+//                   922_DashboardAdapter.js — Query-side Adapter，
+//                   getMonthlyExpenseSummary() 明确标示 Current Source
+//                   （ObligationOccurrence 聚合）vs Target Source
+//                   （914 的 Ledger，未建），呼叫者不需要知道差异。
+//                   getDashboardSnapshot() 一次打包 Dashboard 五组资料。
+//                   逻辑已用私有 Node shim 验证过真实情境（建 Property
+//                   →建 Obligation→逾期/已缴分类正确、月支出加总正确）。
+//
+//                   946_OperatorConsoleServer.js — 服务端胶水层，
+//                   console_* 系列薄包装既有 Command/Query，统一
+//                   {success, data|error} 回传形状。onOpen() 会不会
+//                   违反 ADR-P02？不会——Simple Trigger（人打开 Sheet
+//                   才跑）跟 ADR-P02 禁的 Scheduler（自动排程、无人
+//                   在场）是两回事，ADR-P14 记录了完整区分。
+//
+//                   945_OperatorConsole.html — Sidebar 本体，纯
+//                   Vanilla HTML/CSS/JS。四个视图（Dashboard/Add
+//                   Bill/Properties/History），Dashboard 每笔逾期/
+//                   即将到期项目都有一键 Pay（金额/日期预填，2 次
+//                   点击可完成，符合 CC 的 15 秒基准）。已验证：JS
+//                   语法正确、每个 getElementById 引用的 ID 都真的
+//                   存在于 HTML（逐一比对，零遗漏）、client 端每个
+//                   google.script.run 呼叫的函式名都对应到 946 里
+//                   真实存在的函式（双向比对）。★ 老实说明这份验证
+//                   的边界：实际渲染、按钮点击手感、Sidebar 在真实
+//                   浏览器里好不好用，这些天生无法自我检查，需要 CC
+//                   真的打开来用才知道——这正是这个阶段要做的事。
+//
+//                   912 新增 queryRecentPayments（含 propertyId/
+//                   from/to/limit 过滤）——填补一个真实缺口：
+//                   queryUpcomingPayments/queryOverdue 都刻意排除
+//                   Paid 的 Occurrence，先前没有任何查询能回答
+//                   "最近付了什么"。910 新增 listActiveProperties，
+//                   供下拉选单用。
+//
+//                   完整回归测试（141 个既有测试）确认新文件加入后
+//                   仍全数通过，没有破坏既有功能。
+//
+//                   ★ 过程中的插曲：本轮中途出现大量重复的"继续"
+//                   訊息，怀疑是发送端卡住；期间部分已完成的编辑
+//                   （ADR-P14 初稿、queryRecentPayments）在沙箱重置
+//                   时遗失，因为还没来得及存进 outputs——已重做并
+//                   改成每完成一小块就立刻持久化，不再累积一大批
+//                   才存，降低类似情况再发生时的损失。
+//
+//                   914 保持暂停状态，等 CC 用 Operator Console 实跑
+//                   1-2 周、收集真实回馈后再决定优先顺序（914、
+//                   Rental、Mortgage 等）。
+//
+//   2026-07-29 (n)  完成先前未写完的 914_FinanceEngine Vertical Slice
+//                   更新（Category-in-Event、Reversal 类型重构），
+//                   ADR-P13（Event Completeness Principle）正式记录。
+//                   §1/§3/§4/§5/§6/§7/§12 全部对应更新：TransactionType
+//                   定案 Income/Expense/Adjustment/Reversal 四值，
+//                   拿掉多余的 IsReversal 布林（TransactionType 本身
+//                   已经能表达）；新增 findLedgerEntryToReverse_ 的
+//                   精确查找逻辑（比对 SourceEventType+
+//                   SourceReferenceId，取最近一笔尚未被抵销的），
+//                   处理 pay→reverse→pay again 这种 912 本来就支援的
+//                   循环；queryCashflowSummary 的加总逻辑更新为对每笔
+//                   Reversal 回头查原始分录所属桶别再扣减，不是简单
+//                   两桶加总。UEF 升到 v1.8（§2 新增 Event
+//                   Completeness Principle，D11 记录完整决策）。
+//                   FinanceEngine_VerticalSlice.md 状态改为 APPROVED，
+//                   无剩余待确认项，可以开始 914 Runtime。
+//
+//   2026-07-29 (m)  CC 确认：ensureSheetSchema_ 缓存修复后重跑，
+//                   真实 GAS 上 141/141 全数通过，无超时。TECH DEBT
+//                   #9 关闭。至此 990-996 全部 20 个文件都已在真实
+//                   GAS 环境验证过至少一次——从"逻辑对但没实跑过"到
+//                   "真的对着真实 Sheets/Lock/Cache 跑通"，两轮诊断
+//                   （文件同步、执行超时）都是真的抓到问题、真的
+//                   修好，不是含糊带过。
 //
 //   2026-07-29 (l)  CC 重跑 runAllPropertyOSTests()——文件同步问题
 //                   解决了（991/992/993 全过），但跑到 994 中途撞上

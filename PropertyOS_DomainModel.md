@@ -105,4 +105,16 @@ Value Object 的核心特征：无独立身份（no ID），两个字段相同�
 
 ---
 
+## 7. 已规划但尚未实现的扩展（见 `00_Product_Backlog.js` 完整设计草图）
+
+Property Aggregate 未来会扩充以下内容——这里只记它们如何融入本文件已有的骨架，完整设计理由见 Backlog 本身：
+
+- **LeaseExpiryYear**（BL-1）— `Property` Aggregate 自身新增栏位，不是新 Entity，不影响 §2 的 Aggregate 表。`RemainingLeaseYears` 不落库，查询时衍生（同 §5 Global Invariant 的 Derived State 精神）。
+- **PropertyInsurancePolicy**（BL-2）— 新 Entity，但**不是**独立管理排程的 Aggregate；透过 `ObligationID` 关联到 Obligation Aggregate 的一笔 `ObligationRule`（Category='Insurance'），复用 912 既有的 Reminder/Overdue/Payment 机制，只补充 Obligation Schema 装不下的保险专属描述资料（保险公司、保单号、承保类型/金额）。关联方向：`PropertyInsurancePolicy.ObligationID → ObligationRule`，符合本文件"ID 引用、不嵌套"的原则。
+- **PropertyManagementContact / PropertyManagementPhone**（BL-3）— 两个新 Entity，一对多关联（一个 Contact 可以有多个 Phone，各自标记类型），都透过 `PropertyID` 关联回 Property Aggregate，不新增 Value Object（电话号码就是字串+enum 类型栏位，不需要专门的 VO）。
+
+三者都不违反 §5 任一 Global Invariant，加入时本节需要同步更新为"已实现"并搬移细节到对应 Vertical Slice / File Map。
+
+---
+
 *本文件与 `ObligationEngine_VerticalSlice.md` §2（Truth Layer Schema）§3（Domain Model）互为细化关系：本文件是全局骨架，Vertical Slice 文件是 Obligation Aggregate 的完整落地示范。*

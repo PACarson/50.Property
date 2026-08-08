@@ -66,6 +66,11 @@ function withObligationLock_(fn) {
   try {
     return fn();
   } finally {
+    // Same fix as 910's withPropertyLock_, same day, same root cause
+    // (cross-execution read-after-write consistency) — see that
+    // comment for the full reasoning. Applied here too so 912's
+    // Commands get the identical guarantee, not just 910's.
+    SpreadsheetApp.flush();
     lock.releaseLock();
   }
 }

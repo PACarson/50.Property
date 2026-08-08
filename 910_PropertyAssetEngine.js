@@ -41,6 +41,21 @@ function withPropertyLock_(fn) {
   try {
     return fn();
   } finally {
+    // Added 2026-07-29 — real bug CC found: after createProperty(), a
+    // SEPARATE execution's listActiveProperties() sometimes didn't see
+    // the new row yet (Operator Console's property list/dropdown not
+    // refreshing after Save). Cross-execution reads in GAS aren't
+    // guaranteed to see a just-written row without an explicit flush —
+    // within a single execution it's usually fine, but the Operator
+    // Console's create-then-reload is deliberately two separate
+    // executions (google.script.run calls). flush() forces every
+    // pending Sheets write from fn() to actually commit before this
+    // lock releases, so anything that runs after (any execution,
+    // waiting on the same lock or not) sees a consistent state. Runs
+    // on the throw path too, on purpose — a partial-failure write
+    // (logPropertyPartialFailure_) should be immediately visible for
+    // manual reconciliation, not left in limbo.
+    SpreadsheetApp.flush();
     lock.releaseLock();
   }
 }
