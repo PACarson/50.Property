@@ -287,7 +287,11 @@ function createProperty(input) {
       Owner: input.owner || '',
       PropertyType: input.propertyType,
       CreatedAt: now,
-      UpdatedAt: now
+      UpdatedAt: now,
+      // ADR-P17 (Phase 1, 2026-08-16) — both optional, both blank by
+      // default; no PropertyType is required to fill these in.
+      DevelopmentName: input.developmentName || '',
+      UnitLabel: input.unitLabel || ''
     };
 
     propertySheet_().appendRow(objectToRowArray_(property, PROPERTY_SCHEMA.Property.columns));
@@ -331,6 +335,10 @@ function updateProperty(input) {
       throw propertyError_('PROPERTY_IMMUTABLE', 'Property ' + input.propertyId + ' is ' + property.Status + ' and cannot be updated.');
     }
     var changedFields = input.changedFields || {};
+    // deniedFields is a denylist, not an allowlist — DevelopmentName and
+    // UnitLabel (ADR-P17, Phase 1, 2026-08-16) are therefore already
+    // updatable through this Command with no code change needed here.
+    // Verified, not assumed — see Phase0 Audit / 997 tests.
     var deniedFields = ['PropertyID', 'Status', 'CreatedAt', 'SoldDate', 'SoldPrice'];
     for (var i = 0; i < deniedFields.length; i++) {
       if (Object.prototype.hasOwnProperty.call(changedFields, deniedFields[i])) {

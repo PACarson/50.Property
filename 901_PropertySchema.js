@@ -88,6 +88,9 @@ var PROPERTY_SCHEMA = Object.freeze({
 
   // 910_PropertyAssetEngine. Field list + Address VO decision:
   // PropertyAssetEngine_VerticalSlice.md §2 (Review Approval 2026-07-19).
+  // DevelopmentName/UnitLabel added Phase 1 of the 918_DefectEngine
+  // Vertical Slice (ADR-P17, Review Approval 2026-08-16) — see the
+  // MIGRATION NOTE below initPropertySchema_() before deploying this.
   Property: Object.freeze({
     sheetName: PROPERTY_CONFIG.SHEET_NAMES.PROPERTIES,
     columns: Object.freeze([
@@ -122,12 +125,224 @@ var PROPERTY_SCHEMA = Object.freeze({
       'Owner',
       'PropertyType',         // UPPER_SNAKE_CASE — see PROPERTY_CONFIG note
       'CreatedAt',
-      'UpdatedAt'
+      'UpdatedAt',
+      // ── ADR-P17 additions (Phase 1, 2026-08-16) — MUST stay appended
+      // at the end, never inserted earlier in this list. ensureSheetSchema_
+      // does a positional match against the real sheet's existing header;
+      // inserting mid-list would misalign every column after it and throw
+      // a false "Schema drift" for the whole table, not just these two.
+      'DevelopmentName',      // string, optional. Not required for non-strata
+                               // PropertyTypes. No separate Development entity
+                               // yet — only one real Property exists, so there
+                               // is no second example to justify normalizing
+                               // it out (Candidate Pattern discipline).
+      'UnitLabel'              // string, optional, e.g. "A-19-11"
     ]),
     dateColumns: Object.freeze([
       'PurchaseDate', 'CompletionDate', 'VPDate', 'DefectExpiry',
       'SoldDate', 'CreatedAt', 'UpdatedAt'
     ])
+  }),
+
+  // 911_DocumentEngine Vertical Slice — Phase 1 (Review Approval
+  // 2026-08-15/16, Phase0 Audit §3.2/§4.7). Deliberately minimal — not
+  // the full future Document Library (PII handling, full-text search,
+  // etc.), just what a PropertyCase needs. Reuses ID_PREFIXES.DOCUMENT
+  // ('DOC'), not a new prefix.
+  Evidence: Object.freeze({
+    sheetName: PROPERTY_CONFIG.SHEET_NAMES.EVIDENCE,
+    columns: Object.freeze([
+      'EvidenceID',          // string PK, DOC-...
+      'EvidenceType',         // enum, PROPERTY_CONFIG.EVIDENCE_TYPES
+      'DriveFileID',           // string
+      'CapturedAt',             // ISO datetime, optional
+      'UploadedAt',              // ISO datetime
+      'Source',                   // string
+      'Description',               // string, optional
+      'Phase',                      // enum, PROPERTY_CONFIG.EVIDENCE_PHASES
+      'RelatedCaseID',                // string FK, required
+      'RelatedDefectID',                // string FK, optional
+      'RelatedEntityType',                // enum, PROPERTY_CONFIG.EVIDENCE_RELATED_ENTITY_TYPES, optional
+      'RelatedEntityID',                    // string, optional
+      'CreatedAt'
+    ]),
+    // Unidirectional — Evidence never knows which rows reference it back
+    // (mirrors the planned Document -> Occurrence relationship already
+    // in PropertyOS_DomainModel.md §4, "avoid reverse dependency").
+    dateColumns: Object.freeze(['CapturedAt', 'UploadedAt', 'CreatedAt'])
+  }),
+
+  // 918_DefectEngine Vertical Slice — Phase 1 (Review Approval
+  // 2026-08-15/16, Phase0 Audit §4.1). Aggregate Root. CaseType is
+  // single-valued today ('DLP' only) — see PROPERTY_CONFIG.PROPERTY_CASE_TYPES.
+  // Deliberately does NOT store Developer or a DLP end date — both are
+  // read from the linked Property (Developer, DefectExpiry) at display
+  // time via getProperty(propertyId), single source of truth.
+  PropertyCase: Object.freeze({
+    sheetName: PROPERTY_CONFIG.SHEET_NAMES.PROPERTY_CASES,
+    columns: Object.freeze([
+      'CaseID',                    // string PK, CASE-...
+      'PropertyID',                 // string FK -> Property
+      'CaseType',                    // enum, PROPERTY_CONFIG.PROPERTY_CASE_TYPES
+      'CaseTitle',
+      'ManagementOffice',             // string, optional
+      'DlpStartDate',                  // ISO date
+      'OriginalSubmissionDate',         // ISO date
+      'OriginalSubmissionSource',        // string
+      'OriginalDefectCount',              // number, static snapshot — NOT count(DefectItem)
+      'Status',                            // enum, PROPERTY_CONFIG.PROPERTY_CASE_STATUSES
+      'CreatedAt',
+      'UpdatedAt'
+    ]),
+    dateColumns: Object.freeze(
+      ['DlpStartDate', 'OriginalSubmissionDate', 'CreatedAt', 'UpdatedAt']
+    )
+  }),
+
+  // Internal Entity of PropertyCase — created only via the Case's own
+  // Commands (addDefectItem etc.), never standalone. Mirrors how
+  // ObligationOccurrence relates to ObligationRule. DeveloperStatus and
+  // OwnerVerificationStatus are INDEPENDENT — no Command may write both
+  // (Phase0 Audit §4.2, CC Review Approval).
+  DefectItem: Object.freeze({
+    sheetName: PROPERTY_CONFIG.SHEET_NAMES.DEFECT_ITEMS,
+    columns: Object.freeze([
+      'DefectID',                        // string PK, reuses ID_PREFIXES.DEFECT
+      'CaseID',                           // string FK -> PropertyCase
+      'OriginalReference',                 // string, e.g. "88"
+      'Category',                           // enum, PROPERTY_CONFIG.DEFECT_CATEGORIES
+      'Location',                            // string
+      'Description',                          // string
+      'Priority',                              // enum, PROPERTY_CONFIG.DEFECT_PRIORITIES
+      'Status',                                 // enum, PROPERTY_CONFIG.DEFECT_ITEM_STATUSES
+      'DeveloperStatus',                         // enum, PROPERTY_CONFIG.DEVELOPER_STATUSES
+      'OwnerVerificationStatus',                  // enum, PROPERTY_CONFIG.OWNER_VERIFICATION_STATUSES
+      'SubmittedAt',                                // ISO date
+      'RectificationStartDate',                      // ISO date, optional
+      'DeveloperClaimedCompletedDate',                // ISO date, optional
+      'OwnerVerifiedDate',                              // ISO date, optional
+      'ClosedDate',                                      // ISO date, optional
+      'CreatedAt',
+      'UpdatedAt'
+    ]),
+    dateColumns: Object.freeze([
+      'SubmittedAt', 'RectificationStartDate', 'DeveloperClaimedCompletedDate',
+      'OwnerVerifiedDate', 'ClosedDate', 'CreatedAt', 'UpdatedAt'
+    ])
+  }),
+
+  DailyProgressCheck: Object.freeze({
+    sheetName: PROPERTY_CONFIG.SHEET_NAMES.DAILY_PROGRESS_CHECKS,
+    columns: Object.freeze([
+      'CheckID',                          // string PK, CHECK-...
+      'CaseID',                            // string FK -> PropertyCase
+      'DateTime',                           // ISO datetime
+      'CheckedBy',                           // string
+      'AccessObserved',                       // boolean
+      'ContractorObserved',                    // boolean
+      'DeveloperRepresentativeObserved',        // boolean
+      'WorkObserved',                            // string, optional, free text
+      'GeneralStatus',                            // string, optional
+      'Notes',                                     // string, optional
+      'CreatedAt'
+    ]),
+    dateColumns: Object.freeze(['DateTime', 'CreatedAt'])
+  }),
+
+  Correspondence: Object.freeze({
+    sheetName: PROPERTY_CONFIG.SHEET_NAMES.CORRESPONDENCES,
+    columns: Object.freeze([
+      'CorrespondenceID',        // string PK, CORR-...
+      'CaseID',                   // string FK -> PropertyCase
+      'Date',                      // ISO date
+      'Direction',                  // enum, PROPERTY_CONFIG.CORRESPONDENCE_DIRECTIONS
+      'Sender',                      // string
+      'Recipient',                    // string
+      'Subject',                       // string
+      'ResponseStatus',                 // enum, PROPERTY_CONFIG.CORRESPONDENCE_RESPONSE_STATUSES
+      'ResponseRequestedDate',           // ISO date, optional
+      'ResponseDueDate',                  // ISO date, optional — see addWorkingDays_ (Phase 6)
+      'ResponseReceivedDate',              // ISO date, optional
+      'CreatedAt',
+      'UpdatedAt'
+    ]),
+    dateColumns: Object.freeze([
+      'Date', 'ResponseRequestedDate', 'ResponseDueDate', 'ResponseReceivedDate',
+      'CreatedAt', 'UpdatedAt'
+    ])
+  }),
+
+  // Append-only (Phase0 Audit §4.5, CC Review Approval 2026-08-15) — a
+  // row is never updated after creation; each milestone is a new row,
+  // distinguished by EventType. PropertyCaseTimeline below is a
+  // separate, case-wide summary index that points back here — not a
+  // duplicate; see the reconciliation note in the Phase0 Audit doc.
+  RectificationEvent: Object.freeze({
+    sheetName: PROPERTY_CONFIG.SHEET_NAMES.RECTIFICATION_EVENTS,
+    columns: Object.freeze([
+      'RectificationEventID',   // string PK, RECT-...
+      'CaseID',                  // string FK -> PropertyCase
+      'DefectID',                 // string FK, optional (null = case-level)
+      'EventType',                 // enum, PROPERTY_CONFIG.RECTIFICATION_EVENT_TYPES
+      'EventDate',                  // ISO date
+      'EntryTime',                   // string, optional (HH:mm), mainly Access-type
+      'ExitTime',                     // string, optional (HH:mm)
+      'ContractorCompany',             // string, optional
+      'ContractorPersonnel',            // string, optional
+      'Notes',                           // string, optional
+      'Source',                           // enum, PROPERTY_CONFIG.RECTIFICATION_SOURCES
+      'CreatedAt'
+    ]),
+    dateColumns: Object.freeze(['EventDate', 'CreatedAt'])
+  }),
+
+  SecondaryDamage: Object.freeze({
+    sheetName: PROPERTY_CONFIG.SHEET_NAMES.SECONDARY_DAMAGES,
+    columns: Object.freeze([
+      'DamageID',                          // string PK, DMG-...
+      'CaseID',                             // string FK -> PropertyCase
+      'ParentDefectID',                      // string FK, optional
+      'RectificationEventID',                 // string FK, optional
+      'DamageType',                            // enum, PROPERTY_CONFIG.SECONDARY_DAMAGE_TYPES
+      'Description',                            // string
+      'ObservedDate',                            // ISO date
+      'ObservedBy',                                // string
+      'ResponsibleParty',                           // string, optional — neutral record
+                                                      // only, never a legal determination
+      'Status',                                       // enum, PROPERTY_CONFIG.SECONDARY_DAMAGE_STATUSES
+      'Resolution',                                     // string, optional
+      'AdministrativeSubmissionRequired',                // boolean
+      'SeparateSubmissionID',                              // string, optional
+      'DlpPrejudiceStatus',                                  // string, optional — neutral tag only
+      'ContractualBasis',                                      // string, optional — reference text only
+      'CreatedAt',
+      'UpdatedAt'
+    ]),
+    dateColumns: Object.freeze(['ObservedDate', 'CreatedAt', 'UpdatedAt'])
+  }),
+
+  // Append-only Case-wide summary index (Phase0 Audit §4.8) — the
+  // durable substitute for "replaying the EventBus", since
+  // publishPropertyEvent_ is a Logger-only placeholder today
+  // (ADR-P07/P12) and cannot itself serve this purpose. Every Command
+  // that writes to one of the tables above also appends exactly one
+  // summary row here, in the same try block (mirrors 912's
+  // appendObligationHistory_ pattern, generalized across entity types).
+  PropertyCaseTimeline: Object.freeze({
+    sheetName: PROPERTY_CONFIG.SHEET_NAMES.PROPERTY_CASE_TIMELINE,
+    columns: Object.freeze([
+      'TimelineEntryID',      // string PK, TLE-...
+      'CaseID',                // string FK -> PropertyCase
+      'EntryType',               // string, mirrors a PROPERTY_EVENTS type
+      'OccurredAt',                // ISO datetime
+      'Summary',                     // string, human-readable one-liner for UI
+      'RelatedDefectID',               // string, optional
+      'RelatedEntityType',               // string, optional
+      'RelatedEntityID',                   // string, optional
+      'TriggeredBy',                         // string — which Command produced this row
+      'CreatedAt'
+    ]),
+    dateColumns: Object.freeze(['OccurredAt', 'CreatedAt'])
   })
 
 });
@@ -255,12 +470,83 @@ function initObligationSchema_() {
  * Initializes the Properties sheet. Call once at project setup, and
  * defensively at the start of any 910 entry point — same self-healing
  * pattern as initObligationSchema_().
+ *
+ * ⚠ MIGRATION NOTE (ADR-P17, Phase 1, 2026-08-16) — read before deploying:
+ * ensureSheetSchema_ does an exact positional match between this file's
+ * `columns` array and the REAL sheet's row 1. It deliberately does NOT
+ * auto-patch a header that's short columns (see that function's own
+ * docstring: "refuses to fix a mismatched header automatically... must
+ * be resolved via Migration Strategy, not auto-corrected"). Property.columns
+ * now has two more entries (DevelopmentName, UnitLabel) than the real,
+ * already-deployed Properties sheet's header row does. Concretely: your
+ * real sheet's header row currently ends at column 29 (AC = UpdatedAt).
+ * Before running this updated code against your real spreadsheet, add
+ * two header cells by hand:
+ *   AD1 = DevelopmentName
+ *   AE1 = UnitLabel
+ * Do this once, directly in Sheets — no formula, no data-row changes.
+ * Skipping this step means the next call to any 910 function throws
+ * "Schema drift detected on sheet Properties" (by design — see above).
  */
 function initPropertySchema_() {
   ensureSheetSchema_(
     PROPERTY_SCHEMA.Property.sheetName,
     PROPERTY_SCHEMA.Property.columns,
     PROPERTY_SCHEMA.Property.dateColumns
+  );
+}
+
+/**
+ * Initializes the Evidence sheet (911_DocumentEngine). Brand-new sheet —
+ * no existing header to migrate, ensureSheetSchema_ creates it fresh.
+ */
+function initDocumentEngineSchema_() {
+  ensureSheetSchema_(
+    PROPERTY_SCHEMA.Evidence.sheetName,
+    PROPERTY_SCHEMA.Evidence.columns,
+    PROPERTY_SCHEMA.Evidence.dateColumns
+  );
+}
+
+/**
+ * Initializes all seven 918_DefectEngine sheets. Brand-new sheets — no
+ * existing headers to migrate, ensureSheetSchema_ creates each fresh.
+ */
+function initDefectEngineSchema_() {
+  ensureSheetSchema_(
+    PROPERTY_SCHEMA.PropertyCase.sheetName,
+    PROPERTY_SCHEMA.PropertyCase.columns,
+    PROPERTY_SCHEMA.PropertyCase.dateColumns
+  );
+  ensureSheetSchema_(
+    PROPERTY_SCHEMA.DefectItem.sheetName,
+    PROPERTY_SCHEMA.DefectItem.columns,
+    PROPERTY_SCHEMA.DefectItem.dateColumns
+  );
+  ensureSheetSchema_(
+    PROPERTY_SCHEMA.DailyProgressCheck.sheetName,
+    PROPERTY_SCHEMA.DailyProgressCheck.columns,
+    PROPERTY_SCHEMA.DailyProgressCheck.dateColumns
+  );
+  ensureSheetSchema_(
+    PROPERTY_SCHEMA.Correspondence.sheetName,
+    PROPERTY_SCHEMA.Correspondence.columns,
+    PROPERTY_SCHEMA.Correspondence.dateColumns
+  );
+  ensureSheetSchema_(
+    PROPERTY_SCHEMA.RectificationEvent.sheetName,
+    PROPERTY_SCHEMA.RectificationEvent.columns,
+    PROPERTY_SCHEMA.RectificationEvent.dateColumns
+  );
+  ensureSheetSchema_(
+    PROPERTY_SCHEMA.SecondaryDamage.sheetName,
+    PROPERTY_SCHEMA.SecondaryDamage.columns,
+    PROPERTY_SCHEMA.SecondaryDamage.dateColumns
+  );
+  ensureSheetSchema_(
+    PROPERTY_SCHEMA.PropertyCaseTimeline.sheetName,
+    PROPERTY_SCHEMA.PropertyCaseTimeline.columns,
+    PROPERTY_SCHEMA.PropertyCaseTimeline.dateColumns
   );
 }
 

@@ -48,6 +48,43 @@ function generatePropertyId_() {
   return generateId_(PROPERTY_CONFIG.ID_PREFIXES.PROPERTY);
 }
 
+// ── 918_DefectEngine / 911_DocumentEngine Vertical Slice — Phase 1 ──
+// (Review Approval 2026-08-15/16). generateEvidenceId_ deliberately
+// reuses ID_PREFIXES.DOCUMENT ('DOC') rather than a new prefix — see
+// Phase0 Audit §3.2/§4.7.
+
+function generateCaseId_() {
+  return generateId_(PROPERTY_CONFIG.ID_PREFIXES.CASE);
+}
+
+function generateDefectId_() {
+  return generateId_(PROPERTY_CONFIG.ID_PREFIXES.DEFECT);
+}
+
+function generateProgressCheckId_() {
+  return generateId_(PROPERTY_CONFIG.ID_PREFIXES.PROGRESS_CHECK);
+}
+
+function generateCorrespondenceId_() {
+  return generateId_(PROPERTY_CONFIG.ID_PREFIXES.CORRESPONDENCE);
+}
+
+function generateRectificationEventId_() {
+  return generateId_(PROPERTY_CONFIG.ID_PREFIXES.RECTIFICATION_EVENT);
+}
+
+function generateSecondaryDamageId_() {
+  return generateId_(PROPERTY_CONFIG.ID_PREFIXES.SECONDARY_DAMAGE);
+}
+
+function generateTimelineEntryId_() {
+  return generateId_(PROPERTY_CONFIG.ID_PREFIXES.TIMELINE_ENTRY);
+}
+
+function generateEvidenceId_() {
+  return generateId_(PROPERTY_CONFIG.ID_PREFIXES.DOCUMENT);
+}
+
 /**
  * Validates that an ID matches an expected prefix. Throws if not — used
  * at Command entry points to fail fast on caller mistakes (e.g. passing
