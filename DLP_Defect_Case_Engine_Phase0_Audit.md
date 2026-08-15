@@ -8,18 +8,18 @@
 
 ## 0. 摘要：需要你决定的事项
 
-**status: 5/6 CONFIRMED（2026-08-15，CC Review）。第 6 项是唯一还没解决、会阻塞 Phase 1 开工的问题。**
+**status: 6/6 CONFIRMED（2026-08-16，真实 Property 记录已核对）。设计层级的 Audit 到此完整结束，Phase 1 Runtime 实作前，等你最后一句"开始"。**
 
 | # | 问题 | 决定 | 章节 |
 |---|---|---|---|
 | 1 | 新模块用几号？| ✅ CONFIRMED — 单一文件 `918_DefectEngine.js`，`CaseType` 栏位留扩展口，不另开通用 Case Engine | §3.1 |
 | 2 | Evidence 怎么做？| ✅ CONFIRMED — 提前实现 `911_DocumentEngine.js` 最小版 | §3.2 |
-| 3 | RectificationEvent 拆不拆？| ✅ CONFIRMED，且设计更新——单表、append-only、`EventType` 枚举驱动（不是我原先设想的"一列多个可选日期栏位"）| §4.5（已改写） |
+| 3 | RectificationEvent 拆不拆？| ✅ CONFIRMED，且设计更新——单表、append-only、`EventType` 枚举驱动 | §4.5（已改写） |
 | 4 | Timeline 怎么存？| ✅ CONFIRMED — 新建 append-only `PropertyCaseTimeline` | §5 / §6 |
 | 5 | `Property.Developer`/`DefectExpiry` 要不要在 Case 重复存？| ✅ CONFIRMED — 不重复存 | §4.1 |
-| 6 | **PropertyName 现在到底怎么填？**| ⏳ **待你回答**（我没有真实数据可查，见 §4.0）| §4.0（新增） |
+| 6 | PropertyName 现在到底怎么填？| ✅ CONFIRMED（真实数据核对）— `PropertyName='Est8 Seputeh'`（发展项目层级，无单位号），Unit 目前只嵌在 `AddressLine1` 里，无独立栏位 | §4.0（已更新） |
 
-第 6 项解决后，我就照 Implementation Order 从 Phase 1 开始动手。
+按 Constitution §10 的规则——"完成 Contract Design 层级的 Vertical Slice 后，须停止并等待 Review Approval，不得自行进入 Runtime 实作"——设计到这里全部确认完毕，我在这里停下来，等你明确说"开始"，才动手写 Phase 1 的实际代码。
 
 ---
 
@@ -142,12 +142,51 @@
 
 > 命名依 Constitution §6：Sheet 用 PascalCase 复数（或 History/Ledger 类的集合名词单数），私有函式底线结尾，Entity ID 前缀集中在 900_PropertyConfig.ID_PREFIXES。
 
+### 4.0 Development / Property / Unit（这不属于 918，是对既有 `910_PropertyAssetEngine` 的修改）— 已用真实数据核对
+
+你上传的 Property OS 导出文件，我核对了实际那一行 `Property` 记录（`PROP-mshs0wca-skrq`）：
+
+```
+PropertyName    = "Est8 Seputeh"          ← 发展项目层级，没有单位号
+Developer       = "Eupe Corporation Berhad"
+AddressLine1    = "A-19-11, Residensi Estetik 8, No 6, Jalan Syed Putra"  ← 单位号目前只嵌在这里
+AddressCity     = "Kuala Lumpur"
+AddressState    = （空）
+AddressPostcode = "58000"
+VPDate          = （空）
+DefectExpiry    = （空）
+CompletionDate  = （空）
+Status          = "Active"
+Owner           = "Carson Tay"
+PropertyType    = "RESIDENTIAL_CONDO"
+```
+
+**回答你的问题：`PropertyName` 现在填的是 `"Est8 Seputeh"`，不是"EST8 A-19-11"，也不只是"EST8"。单位号完全没有自己的栏位，只是 `AddressLine1` 字符串的一部分。** `DevelopmentName`/`UnitLabel` 这两个栏位在现有表头里确实不存在（跟表头逐字比对过），确认是真正的新增，§4.0 原本的 Additive 方案不用改。
+
+**顺带发现一个跟这次设计有直接关系的缺口：`VPDate` 和 `DefectExpiry` 是既有栏位（不是我要新增的），但这一行目前都是空的。** §4.1 让 `PropertyCase.DlpEndDate` 直接读 `Property.DefectExpiry`——这个设计本身没问题，只是现在读到的会是空值，Case 页面上 DLP 到期日会先显示空白，直到你把这两个日期填上。你知道实际 VP 日期的话，可以直接告诉我或自己填进 Sheet；如果 `VPDate` 有值但 `DefectExpiry` 一直没填，我会在 §6 Projection 加一个"≈ VPDate + 24 个月"的估算显示（清楚标注是估算，不写回 Sheet，不冒充官方日期）。
+
+**具体新增栏位与建议值（Additive，`PropertyName` 完全不动）：**
+
+在 `901_PropertySchema.js` 的 `PROPERTY_SCHEMA.Property.columns` 里新增两个可选栏位（`910_PropertyAssetEngine.js` 的 `createProperty`/`updateProperty` 跟着开放即可，State Machine、Lock、Command 结构完全不变）：
+
+```
+DevelopmentName    string, optional   建议值："Est8 Seputeh"（沿用现有 PropertyName）
+UnitLabel          string, optional   建议值："A-19-11"（新增，AddressLine1 本身不动）
+```
+
+`PropertyName` 保持 `"Est8 Seputeh"` 不变。这两个新栏位的值，等你确认没问题，我可以把对应的 `updateProperty` 调用写好——但要说清楚：我没有办法直接对你真实的 Google Sheet 执行代码，只能把代码交给你，由你在自己的 Apps Script / clasp 环境里跑，或者你直接手动在 Sheet 里填这两格更快（现在就一行记录）。
+
+**为什么不现在就把 `Development` 拆成独立实体：** 你信里已经预见到"以后一个 Development 有很多 Unit"这件事有价值，但目前 Property OS 里就你这一户，还没有第二个真实案例能证明"独立 Development 表"这个抽象是必要的——这正是你们自己在 UEF/ADR 里反复用的 Candidate Pattern 纪律（两个独立案例才promote一个模式），我不想在只有一个例子的情况下抢先做。`DevelopmentName` 先当作 `Property` 上的一个**扁平字符串栏位**，哪天你真的名下多了一户同个 Development 的单位，再决定要不要把它拆成正式的 `Development` 实体（那时候两笔 `Property` 记录 FK 到同一个 `Development` 行）——这是一次 Additive 的重构，不是推翻重做，现在不用为它预留复杂结构。
+
+**对 918_DefectEngine 的连带影响：** 我在原设计里给 `PropertyCase` 加了一个 `UnitLabel` 备用栏位（怕 Property 那层没有 Unit 概念）。现在 Unit 明确归 `Property` 拥有了，`PropertyCase` 不需要自己的 `UnitLabel`——跟 `Developer`/`DefectExpiry` 一样，Case 显示时直接读 `getProperty(propertyId).UnitLabel`，见 §4.1 的修改。
+
+**建议新增 ADR-P17**（跟 918/911 的 ADR-P15/P16 分开记，因为这是对既有 910 的修改，不是 918 专属决定）：Property 实体拆分 PropertyName / DevelopmentName / UnitLabel 三个概念，Additive-only，不改动既有资料。
+
 ### 4.1 `PropertyCase`（Aggregate Root，Sheet: `PropertyCases`，前缀 `CASE-`）
 
 ```
 CaseID              string PK, CASE-
 PropertyID          string FK -> Property
-UnitLabel           string, optional（见下方说明）
 CaseType            enum, 目前只有 'DLP'
 CaseTitle           string
 ManagementOffice    string, optional（管理处名称，纯文字，不等 BL-3 做完）
@@ -159,10 +198,10 @@ Status              enum: Open / InProgress / Closed
 CreatedAt / UpdatedAt
 ```
 
-**两处刻意不照你原始清单的地方，需要你确认：**
-1. **不存 `Developer`**：`Property` 表已经有 `Developer` 栏位。显示 Case 时直接 `getProperty(propertyId).Developer` 读取，不在 Case 上重复存一份——两份真相如果不同步会比对不上。如果你遇到过"这个 Case 的负责方跟 Property 登记的 Developer 不是同一间公司"的情况，请告诉我，我会改成允许 Case 层级覆写。
-2. **不存 `DlpEndDate`**：`Property` 已有 `DefectExpiry` 栏位，语意就是 DLP 到期日。同样直接读取，不重复存。
-3. **`UnitID`**：你的真实案例是 Property=`EST8`、Unit=`A-19-11`。这里有个需要你确认的前提问题——**你现有 Property OS 里，这个单位的 `Property` 记录，`PropertyName` 填的是"EST8"（整个发展项目）还是已经是"EST8 A-19-11"（这一户）？** 如果后者，`UnitLabel` 就是多余栏位，可以拿掉；如果前者，`UnitLabel` 就有必要保留，作为 Case 层级的补充资讯。我先按"保留但可留空"的保守做法设计，等你确认后再调整。
+**两处刻意不照你原始清单字面的地方，均已 CONFIRMED：**
+1. **不存 `Developer`**——`getProperty(propertyId).Developer` 显示时读取，不在 Case 重复存
+2. **不存 `DlpEndDate`**——`getProperty(propertyId).DefectExpiry` 显示时读取
+3. **不存 `UnitLabel`**——Unit 现在明确归 `Property` 拥有（见 §4.0），显示时读 `getProperty(propertyId).UnitLabel`；`PropertyCase` 完全不重复这份资料
 
 ### 4.2 `DefectItem`（Case 内部 Entity，Sheet: `DefectItems`，复用既有前缀 `DEFECT-`）
 
@@ -233,31 +272,36 @@ CreatedAt / UpdatedAt
 
 **Response Due Date 计算：** 新增一个 `addWorkingDays_(date, n)` 纯函式（周六日不计入，暂不处理马来西亚公共假期——你任务书没要求，先按 Speculative Design 原则不预先做，需要的话之后再加）。这个函式先放在 918 自己的文件里（目前只有这一个消费者），不预先塞进 901 共用层——等真的有第二个地方要用到"工作日"概念时，再比照 UEF 的 Candidate Pattern 精神移过去，不提前搬。
 
-### 4.5 `RectificationEvent`（决策点 3，见下）（Sheet: `RectificationEvents`，前缀 `RECT-`）
+### 4.5 `RectificationEvent` — CONFIRMED 设计（Sheet: `RectificationEvents`，前缀 `RECT-`，append-only）
 
-**问题：** 你的任务书 §十（Before/During/After）、§十一（Contractor Access）、§十四（Rectification Schedule）、§十五（Reinspection）描述的其实是同一个"一次现场处理"的不同切面。如果严格拆开会变成 Access Event（到访层级）+ Rectification Event（单一 defect 层级）两张表，一次多个 defect 的处理会需要跨表关联。
-
-**建议（Phase 1 先合并）：**
+你的方向比我原先设想的（一列多个可选日期栏位）更干净：比照 `ObligationHistory` 的 append-only 精神——每个里程碑都是新的一行，用 `EventType` 区分，不是回头更新既有列。
 
 ```
 RectificationEventID    string PK, RECT-
 CaseID                  string FK
-DefectID                string FK, optional（null = 案件层级的一般到访，未绑定单一 defect）
-Date                    ISO date
-EntryTime / ExitTime    string, optional
-ContractorCompany       string
-ContractorPersonnel     string
-Purpose                 string
-AreaAccessed            string
+DefectID                string FK, optional（null = 案件层级、未绑定单一 defect 的一般到访）
+EventType               enum: AccessRequested / AccessGranted / RectificationStarted /
+                          RectificationCompleted / RectificationRejected /
+                          ReinspectionRequired / DeveloperClaimedCompleted（可再扩充）
+EventDate               ISO date
+EntryTime / ExitTime    string, optional（主要用在 Access 类的 EventType）
+ContractorCompany       string, optional
+ContractorPersonnel     string, optional
+Notes                   string, optional
 Source                  enum: DeveloperProvided / OwnerObserved
-InspectionDate / EstimatedRepairDate / ExpectedCompletionDate / ReinspectionDate   ISO date, optional
-ConditionBeforeNotes / ConditionDuringNotes / ConditionAfterNotes   string, optional
-CreatedAt / UpdatedAt
+CreatedAt
 ```
 
-一次到访处理多个 defect 时，允许建立多笔 `RectificationEvent`（`ContractorCompany`/`EntryTime` 等到访层级栏位会重复）——这是刻意的、有纪录的取舍：先用真实案例跑一段时间，如果重复到访栏位这件事真的造成困扰（例如你发现自己常常要为同一次到访填五次一样的 Contractor 资讯），再拆成 AccessEvent + RectificationEvent 两张表，这本身就是 Additive 重构，不是推翻重来。这个做法直接对应你们自己在 Product Backlog 结尾写的那句话——"新实体+新 Command，仍建议先走一次精简版设计再动手，避免像 Operator Console 那样实战后才发现设计缺口"，但反过来也说明：**不需要在还没有真实使用数据之前，就把设计做到完美对称**。
+**这会不会跟 `DefectItem.DeveloperStatus` 与 `PropertyCaseTimeline` 重复记录同一件事？不会，三者角色不同，讲清楚避免你之后疑惑：**
+- `DefectItem.DeveloperStatus` 是**当下状态**（mutable，"现在是什么状态"的快照）
+- `RectificationEvent` 是**这个 defect 维修过程的详细、append-only 日志**（每一次具体发生了什么，含 Contractor/时间等细节）——`EventType='DeveloperClaimedCompleted'` 那一行，正是触发 `DefectItem.DeveloperStatus` 更新成 `'ClaimedCompleted'` 的事实依据
+- `PropertyCaseTimeline` 是**整个 Case 的跨实体摘要索引**（一行一句话），不重复细节，只用 `RelatedEntityType='RectificationEvent'` + `RelatedEntityID` 指回这里
 
-Before/During/After 的照片本身不存在这张表上，而是 Evidence 记录带一个 `Phase` 标签（见 §4.7）。
+也就是同一个 Command（例如 `recordRectificationEvent`）在同一个 try 区块里做三件事：写 `RectificationEvent` 一行（细节）→ 依 `EventType` 决定是否连带更新 `DefectItem` 的当下状态栏位 → 写 `PropertyCaseTimeline` 一行（摘要）——跟 912 的 `createOccurrence_` 同时维护 Truth + History 的模式一致，只是多了一层摘要索引。
+
+一次到访处理多个 defect 时，同一个 `EventType`（如 `AccessGranted`）会对每个受影响的 `DefectID` 各写一行——`ContractorCompany`/`EntryTime` 等到访层级栏位因此会重复，这是刻意、有记录的取舍（Phase 1 先这样，真实使用后如果重复让你困扰，再拆 AccessEvent 出来，属于 Additive 重构）。
+
+Before/During/After 的照片本身不存在这张表上，而是 Evidence 记录带一个 `Phase` 标签、`RelatedEntityType='RectificationEvent'` 指回具体是哪一次事件（见 §4.7）。
 
 ### 4.6 `SecondaryDamage`（Sheet: `SecondaryDamages`，前缀 `DMG-`）
 
@@ -355,7 +399,7 @@ Dashboard 需要的**数字**（Open Defects: 7 之类）不经过这张表，�
 
 - `getDlpCaseDashboard(caseId)` — 一次性打包：各 Status 的 Defect 计数、Overdue Correspondence（Lazy Computation，比照 `isOccurrenceOverdue_` 的模式，查询时用 `addWorkingDays_` 现算，不落库）、即将到来的 Rectification/Reinspection 日期、Secondary Damage 计数、最近 N 条 Timeline
 - `getCaseTimeline(caseId, limit)` — 读 `PropertyCaseTimeline`，按 `OccurredAt` 倒序
-- `enrichDefectForDisplay_(defect)` — 比照 `enrichOccurrenceForDisplay_`，join Case/Property 显示用栏位
+- `enrichDefectForDisplay_(defect)` — 比照 `enrichOccurrenceForDisplay_`，join Case/Property 显示用栏位；`DlpEndDate` 优先读 `Property.DefectExpiry`，若为空但 `Property.VPDate` 有值，现算一个「≈ VPDate + 24 个月」的估算值并标注 `isEstimated: true`（纯显示用途，不落库，不冒充官方日期——见 §4.0 关于目前这行记录两个栏位都是空的说明）
 
 ---
 
@@ -371,7 +415,7 @@ Dashboard 需要的**数字**（Open Defects: 7 之类）不经过这张表，�
 
 | Phase | 文件 | 内容 |
 |---|---|---|
-| 1 数据模型 | 900（改）/901（改）/902（改） | 新枚举、SHEET_NAMES、ID_PREFIXES、PROPERTY_SCHEMA 条目、generateXId_ 函式 |
+| 1 数据模型 | 900（改）/901（改）/902（改）/**910（改）** | 新枚举、SHEET_NAMES、ID_PREFIXES、PROPERTY_SCHEMA 条目、generateXId_ 函式；**910 新增 `DevelopmentName`/`UnitLabel` 到 `Property`（§4.0，ADR-P17）** |
 | 2 Repository/Service | 918（新）内部 | Sheet accessor + row helper（沿用 901 既有工具，比照 910 的 `propertySheet_()` 模式） |
 | 3 Case+Defect 生命周期 | 918（新） | `createPropertyCase` / `addDefectItem` / `updateDefectItem` / `recordDeveloperStatus` / `recordOwnerVerification` / `closeCase` / `reopenDefectItem` |
 | 4 Daily Progress Event | 918（新） | `logDailyProgressCheck` |
@@ -394,7 +438,7 @@ Dashboard 需要的**数字**（Open Defects: 7 之类）不经过这张表，�
 4. **需同步哪些治理文件？** `00_File_Map.js`（918/911 状态从 Planned 改为对应进度，同时借机修正已经过期的 Deployment Manifest）、`00_Project_Constitution.js §7`（新增 PropertyCase/DefectItem/Evidence 的 Owning Engine 行）、`PropertyOS_DomainModel.md`（新增 Aggregate + ERD 边、回答本文件 §6 自己列的检查清单——见下）、新建 `DlpDefectEngine_VerticalSlice.md`（比照 ObligationEngine/PropertyAssetEngine 的既有格式）
 5. **是否引入技术债？** 一项，明确记录：RectificationEvent 合并設計（§4.5）在多 defect 同次到访时会重复到访层级栏位，先用真实数据验证再决定是否拆分
 6. **是否引入架构漂移？** 不会——Evidence 提前实现（911）是 File Map 自己规划的依赖顺序，不是绕过规划
-7. **是否需要 ADR？** 建议新增：**ADR-P15**（Case 模块的号段与切分决策，§3.1 的 Option A/B 选择）、**ADR-P16**（Evidence/911 提前实现的决定，§3.2）
+7. **是否需要 ADR？** 三条，前两条已随 §0 的决定 CONFIRMED，第三条是新增：**ADR-P15**（Case 模块单一文件、不拆通用 Case Engine，§3.1）、**ADR-P16**（Evidence/911 提前实现，§3.2）、**ADR-P17**（`Property` 拆分 PropertyName/DevelopmentName/UnitLabel，Additive-only，§4.0）
 8. **是否影响向后兼容？** 不影响，全部 Additive
 9. **是否需要 migration？** 不需要，全部是新 Sheet/新枚举值，没有修改任何既有栏位定义
 
@@ -410,8 +454,8 @@ Dashboard 需要的**数字**（Open Defects: 7 之类）不经过这张表，�
 
 | 风险 | 等级 | 说明 |
 |---|---|---|
-| §3.1 Case 切分方式未决 | 中 | 影响所有后续文件的具体形状，需要你先确认 |
-| §4.5 RectificationEvent 合并设计 | 低 | 已记录为已知取舍，非阻塞 |
+| `Property.VPDate`/`DefectExpiry` 目前是空的 | 低 | 不阻塞 Phase 1；只影响 `PropertyCase.DlpEndDate` 显示是否有值，见 §4.0 |
+| §4.5 RectificationEvent 多 defect 同次到访会重复到访层级栏位 | 低 | 已记录为已知取舍，非阻塞 |
 | Evidence 上传的执行时间 | 低 | 单次 Daily Check 若一次上传大量照片，需注意 GAS 6 分钟上限；v1 先不做批次上传优化，观察真实使用量 |
 | Working Day 计算不含马来西亚公共假期 | 低 | 按你任务书字面要求先只做工作日（跳过周末），未来若需要可加假期表 |
 | 治理文档滞后（§1.1 已发现的既有落差）| 低 | 与本次工作无直接关系，建议 Phase 12 一并处理 |
