@@ -186,18 +186,20 @@ function appendCaseTimelineEntry_(caseId, entryType, summary, options) {
  * of keeping the two fields independent. Only when OwnerVerificationStatus
  * is still 'NotChecked' does DeveloperStatus drive the result.
  *
- * Open question flagged for review, NOT yet implemented: after a
+ * Known Domain Model limitation, decided and recorded — NOT an open
+ * question anymore (ADR-P15, CC Review Approval 2026-08-16): after a
  * FailedVerification, if the Developer submits a FRESH 'ClaimedCompleted'
- * claim, this still returns 'InProgress' (OwnerVerificationStatus is
- * untouched, still 'FailedVerification') rather than 'PendingVerification'
+ * claim, this still returns 'InProgress' rather than 'PendingVerification'
  * — because recordDeveloperStatus deliberately never writes
- * OwnerVerificationStatus, per the independence rule agreed for this
- * Vertical Slice. An alternative design would have recordDeveloperStatus
- * reset OwnerVerificationStatus back to 'NotChecked' on every fresh
- * ClaimedCompleted claim (arguably more intuitive — a new claim really
- * does need a fresh check) but that would mean the Developer Command
- * writes an Owner-side field, which is a bigger boundary change than
- * this phase's Review Approval covers. Left as-is until confirmed.
+ * OwnerVerificationStatus, and CC explicitly decided NOT to loosen that
+ * independence for this case, even though it's well-motivated. The
+ * correctly-scoped fix is a future Repair Cycle / Verification Cycle
+ * concept (OwnerVerificationStatus scoped to a specific repair attempt,
+ * not a permanent DefectItem field) — a genuine Domain Model change,
+ * deferred, tracked in ADR-P15. Do not "fix" this by having
+ * recordDeveloperStatus touch OwnerVerificationStatus, even to reset it
+ * to a neutral value — that reopens exactly the boundary this ADR
+ * confirms should stay closed.
  */
 function deriveDefectItemStatus_(developerStatus, ownerVerificationStatus) {
   if (ownerVerificationStatus === 'Verified') return 'Verified';

@@ -23,6 +23,17 @@
 
 ---
 
+---
+
+## 0.5 Phase 1-3 Review Outcomes（追加，2026-08-16）
+
+- Phase 1（900/901/902/910 Schema+ID+Property栏位）：CC 已部署，`runAllPropertyAssetEngineTests`（21/21）与 `runAllPropertyOSTests`（141/141）全过，AD1/AE1 手动迁移已完成。
+- Phase 2/3（新文件 `918_DefectEngine.js` + `903` 新增8个事件）：本地 GasShim 61/61 全过，过程中真的抓到并修复一个 `deriveDefectItemStatus_` 判断顺序 bug（细节见 §4.2 与 `00_ADR_Log.js` ADR-P15）。**部署 + 真实 GAS 验证尚未进行，是继续 Phase 4 前的明确前置条件。**
+- 测试中发现的边界情况（Failed Verification 之后 Developer 重新宣称完成，`OwnerVerificationStatus` 该如何反映）：CC 拍板——**不修改 `recordDeveloperStatus`，两个栏位继续独立**；正确解法是未来的 **Repair Cycle / Verification Cycle** 概念（`OwnerVerificationStatus` 应该归属某一次维修周期，而不是 `DefectItem` 上的永久栏位），现阶段不实现，正式记录为 **ADR-P15** 的 Domain Model follow-up，`MANUAL_VERIFICATION_CHECKLIST.md` 已同步新增对应章节。
+- 在 Phase 4 之前，下一步是 CC 自己的 **Deployment Verification**：部署 918+903 → 跑 `runAllPropertyOSTests` 确认 141 项无 regression → 确认 918 真实 GAS 下的 Lock/Cache/Sheet 行为 → 勾选 `MANUAL_VERIFICATION_CHECKLIST.md` 里新增的对应项目。
+
+---
+
 ## 1. Current Architecture Audit（现状）
 
 ### 1.1 文件结构与号段

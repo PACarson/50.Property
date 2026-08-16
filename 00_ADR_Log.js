@@ -591,3 +591,87 @@
 //
 // Related ADRs: ADR-P02 (clarified, not contradicted), ADR-P07 (pattern
 //   extended once more, this time to a Query rather than a publish).
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ADR-P15 — 918_DefectEngine Vertical Slice: Case Module Scope,
+// DeveloperStatus/OwnerVerificationStatus Independence, and the Repair
+// Cycle Follow-up (Review Decision)
+// STATUS: APPROVED (2026-08-15/16) — NEW
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// Question (1): The DLP Defect Case & Rectification Tracking Vertical
+//   Slice needs a Case concept wrapping multiple DefectItems, Daily
+//   Progress Checks, Correspondence, and RectificationEvents.
+//   00_File_Map.js already reserves 918_DefectEngine specifically for
+//   "Defect Liability Period 追踪" — does this Case concept get its own,
+//   separate, more generic Engine (e.g. a new 906/907 PropertyCaseEngine),
+//   or does it live inside 918 alongside DefectItem?
+//
+// Decision (1): Single file, 918_DefectEngine.js — no separate generic
+//   Case Engine. PropertyCase carries a CaseType field (currently only
+//   'DLP') so a genuinely different second Case type could reuse the same
+//   table later without a rename, but that split is deferred until such a
+//   type actually exists. Rationale: Property OS's own established
+//   Candidate Pattern discipline (ADR-P10/P12/P13) requires two
+//   independent examples before promoting a shared abstraction; DLP is
+//   the only real Case type today, so a generic Case Engine now would be
+//   Speculative Design against the project's own stated bar — same
+//   "start concrete, generalize only once forced by evidence" precedent
+//   as 912_ObligationEngine predating any generic Recurring Entity
+//   framework.
+//
+// Question (2): DefectItem needs two independent status dimensions —
+//   DeveloperStatus and OwnerVerificationStatus — so a Developer's
+//   completion claim and an Owner's verification result can coexist and
+//   contradict each other without either silently erasing the other
+//   (this Vertical Slice's core requirement). Phase 3's local test suite
+//   (61/61, local_precheck_test_918.js) surfaced a real edge case: after
+//   OwnerVerificationStatus reaches 'FailedVerification', a fresh
+//   Developer 'ClaimedCompleted' claim leaves the stale
+//   'FailedVerification' sitting on the row, since recordDeveloperStatus
+//   deliberately never writes OwnerVerificationStatus. The derived overall
+//   Status correctly shows 'InProgress' (not a false 'PendingVerification'
+//   — that was an actual precedence bug in deriveDefectItemStatus_,
+//   caught by the same test run and fixed), but the Owner has no
+//   field-level signal that "the Developer re-claimed completion since my
+//   last failed check, go look again" — the failed check and the new
+//   claim aren't scoped to distinguishable repair attempts.
+//
+// Decision (2): Do NOT have recordDeveloperStatus write or reset
+//   OwnerVerificationStatus, even for this specific, well-motivated case.
+//   The independence of the two fields is the guarantee this Vertical
+//   Slice exists to provide, not a display nicety — letting one Command
+//   implicitly touch the other's field, even by resetting to a neutral
+//   value rather than forcing a positive one, erodes that guarantee for
+//   convenience. The correctly-scoped fix is a future **Repair Cycle /
+//   Verification Cycle** concept: OwnerVerificationStatus, DeveloperStatus,
+//   and their dates would belong to a specific repair attempt, not sit as
+//   permanent fields directly on DefectItem — e.g.
+//     Repair Cycle 1: Developer -> ClaimedCompleted, Owner -> FailedVerification
+//     Repair Cycle 2: Developer -> ClaimedCompleted, Owner -> NotChecked
+//   with each cycle's verification independent of every other cycle's.
+//   This is a genuine Domain Model change (a new Aggregate-internal
+//   Entity, a new Schema, DefectItem's two status fields becoming derived
+//   from "the latest cycle" rather than stored directly) and is
+//   explicitly NOT implemented in this Vertical Slice — recorded here as
+//   a known, accepted Domain Model limitation, not a bug, and not
+//   silently patched around by loosening the independence rule this ADR
+//   exists to protect. 918's Runtime is unchanged from Phase 3 as
+//   reviewed and approved (CC, 2026-08-16).
+//
+// Impact: No Schema or Runtime change from this ADR by itself — it
+//   formally records two decisions already reflected in
+//   918_DefectEngine.js as delivered (Phase 3), and commits the Repair
+//   Cycle concept to a future Domain Model enhancement rather than
+//   Phase 4+ of this Vertical Slice. PropertyOS_DomainModel.md should
+//   gain a Follow-ups note referencing this ADR at Phase 12 (Documentation).
+//   MANUAL_VERIFICATION_CHECKLIST.md updated 2026-08-16 with the
+//   accompanying "Known Domain Model limitation" note.
+//
+// Related ADRs: ADR-P10/P12/P13 (Candidate Pattern discipline, applied
+//   here to justify not building a generic Case Engine yet); ADR-P06
+//   (Event Immutability — the same "don't silently rewrite an existing
+//   fact" spirit that makes even a neutral reset of OwnerVerificationStatus
+//   feel wrong, though it's technically not an overwrite of a positive
+//   claim).
