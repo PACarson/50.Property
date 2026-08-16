@@ -4,10 +4,10 @@
  * Runtime Layer — DLP Defect Case & Rectification Tracking
  * ═══════════════════════════════════════════════════════════════════════
  *
- * Vertical Slice, Phase 2 + Phase 3 (Review Approval 2026-08-15/16 — see
- * the standalone Phase0 Audit doc for the full design rationale, and
- * 00_ADR_Log.js ADR-P15 for the "single engine, no separate generic
- * Case Engine" decision this file embodies).
+ * Vertical Slice, Phase 2 + Phase 3 + Phase 4 (Review Approval
+ * 2026-08-15/16 — see the standalone Phase0 Audit doc for the full
+ * design rationale, and 00_ADR_Log.js ADR-P15 for the "single engine,
+ * no separate generic Case Engine" decision this file embodies).
  *
  * This phase delivers:
  *   Phase 2 — shared infra (Lock, idempotency cache, partial-failure
@@ -17,9 +17,14 @@
  *             this section IS the Repository/Service layer for 918,
  *             exactly as 910/912 are for their own domains.
  *   Phase 3 — PropertyCase + DefectItem lifecycle Commands.
+ *   Phase 4 — DailyProgressCheck (logDailyProgressCheck). Deployed and
+ *             smoke-tested for real 2026-08-16 (141/141 regression-free,
+ *             DeveloperStatus/OwnerVerificationStatus independence
+ *             confirmed against real GAS — see MANUAL_VERIFICATION_
+ *             CHECKLIST.md) before this phase started, per CC's explicit
+ *             Deployment Verification gate.
  *
  * NOT in this phase (later phases, per the agreed Implementation Order):
- *   Phase 4  DailyProgressCheck (logDailyProgressCheck)
  *   Phase 5  Evidence (911_DocumentEngine.js — separate file)
  *   Phase 6  Correspondence + addWorkingDays_
  *   Phase 7  RectificationEvent + SecondaryDamage
@@ -135,6 +140,16 @@ function propertyCaseTimelineSheet_() {
     PROPERTY_SCHEMA.PropertyCaseTimeline.dateColumns
   );
   return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(PROPERTY_SCHEMA.PropertyCaseTimeline.sheetName);
+}
+
+// Phase 4 (2026-08-16).
+function dailyProgressCheckSheet_() {
+  ensureSheetSchema_(
+    PROPERTY_SCHEMA.DailyProgressCheck.sheetName,
+    PROPERTY_SCHEMA.DailyProgressCheck.columns,
+    PROPERTY_SCHEMA.DailyProgressCheck.dateColumns
+  );
+  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(PROPERTY_SCHEMA.DailyProgressCheck.sheetName);
 }
 
 /**
@@ -278,6 +293,46 @@ function listDefectItemsForCase(caseId) {
       columns.forEach(function (col, i) { obj[col] = row[i]; });
       return obj;
     });
+}
+
+// Phase 4 (2026-08-16).
+function getDailyProgressCheck(checkId) {
+  var sheet = dailyProgressCheckSheet_();
+  var rowIndex = findRowIndexByFirstColumn_(sheet, checkId);
+  if (rowIndex === -1) return null;
+  return readRowAsObject_(sheet, rowIndex, PROPERTY_SCHEMA.DailyProgressCheck.columns);
+}
+
+function listDailyChecksForCase(caseId) {
+  var sheet = dailyProgressCheckSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var columns = PROPERTY_SCHEMA.DailyProgressCheck.columns;
+  var values = sheet.getRange(2, 1, lastRow - 1, columns.length).getValues();
+  var caseIdIndex = columns.indexOf('CaseID');
+  return values
+    .filter(function (row) { return row[caseIdIndex] === caseId; })
+    .map(function (row) {
+      var obj = {};
+      columns.forEach(function (col, i) { obj[col] = row[i]; });
+      return obj;
+    });
+}
+
+/**
+ * Builds the human-readable Timeline one-liner for a Daily Progress
+ * Check. Pure function — no Sheet access.
+ */
+function buildDailyCheckSummary_(dailyCheck) {
+  if (!dailyCheck.AccessObserved) {
+    return 'Daily check — no access observed' + (dailyCheck.Notes ? ('. ' + dailyCheck.Notes) : '.');
+  }
+  var parts = [];
+  if (dailyCheck.ContractorObserved) parts.push('contractor on site');
+  if (dailyCheck.DeveloperRepresentativeObserved) parts.push('developer rep present');
+  if (dailyCheck.WorkObserved) parts.push(dailyCheck.WorkObserved);
+  return 'Daily check — access granted' + (parts.length ? ('; ' + parts.join(', ')) : '') +
+    (dailyCheck.Notes ? ('. ' + dailyCheck.Notes) : '.');
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -823,5 +878,83 @@ function closeCase(input) {
     }
 
     return { success: true, caseId: input.caseId, closedDate: closedDate };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Phase 4 — Daily Progress Check (2026-08-16)
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Logs one Daily Progress Check against a Case. Deliberately minimal —
+ * only caseId is required, every observation field defaults to
+ * false/blank — matching the task's own 30-60-second-on-a-phone design
+ * goal (Phase0 Audit §7/§18): the person should be able to log "no
+ * access observed today" in one tap without filling in anything else.
+ *
+ * @param {Object} input {caseId, checkedBy, dateTime, accessObserved,
+ *   contractorObserved, developerRepresentativeObserved, workObserved,
+ *   generalStatus, notes, clientRequestId}
+ */
+function logDailyProgressCheck(input) {
+  return withDefectEngineLock_(function () {
+    input = input || {};
+
+    if (input.clientRequestId) {
+      var cached = getCachedDefectEngineCommandResult_(input.clientRequestId);
+      if (cached) return cached;
+    }
+
+    if (!input.caseId) {
+      throw propertyError_('DAILY_CHECK_INVALID_INPUT', 'caseId is required.');
+    }
+    var propertyCase = getPropertyCase(input.caseId);
+    if (!propertyCase) {
+      throw propertyError_('DAILY_CHECK_CASE_NOT_FOUND', 'No PropertyCase found for caseId ' + input.caseId + '.');
+    }
+    if (propertyCase.Status === 'Closed') {
+      throw propertyError_('DAILY_CHECK_CASE_CLOSED', 'Cannot log a Daily Check against a Closed Case (' + input.caseId + ').');
+    }
+
+    var now = new Date().toISOString();
+    var checkId = generateProgressCheckId_();
+    var dateTime = input.dateTime ? new Date(input.dateTime).toISOString() : now;
+
+    var dailyCheck = {
+      CheckID: checkId,
+      CaseID: input.caseId,
+      DateTime: dateTime,
+      CheckedBy: input.checkedBy || '',
+      AccessObserved: !!input.accessObserved,
+      ContractorObserved: !!input.contractorObserved,
+      DeveloperRepresentativeObserved: !!input.developerRepresentativeObserved,
+      WorkObserved: input.workObserved || '',
+      GeneralStatus: input.generalStatus || '',
+      Notes: input.notes || '',
+      CreatedAt: now
+    };
+
+    dailyProgressCheckSheet_().appendRow(
+      objectToRowArray_(dailyCheck, PROPERTY_SCHEMA.DailyProgressCheck.columns)
+    );
+
+    try {
+      appendCaseTimelineEntry_(
+        input.caseId, 'DAILY_CHECK_LOGGED', buildDailyCheckSummary_(dailyCheck),
+        { triggeredBy: 'logDailyProgressCheck' }
+      );
+      publishPropertyEvent_(PROPERTY_EVENTS.DAILY_CHECK_LOGGED, propertyCase.PropertyID, null, {
+        caseId: input.caseId, checkId: checkId, dateTime: dateTime, accessObserved: !!input.accessObserved
+      });
+    } catch (e) {
+      logDefectEnginePartialFailure_(
+        'logDailyProgressCheck', 'DailyProgressCheck ' + checkId + ' row was written; Timeline/Event publish failed.', e
+      );
+      throw e;
+    }
+
+    var result = { success: true, checkId: checkId, dailyCheck: dailyCheck };
+    if (input.clientRequestId) cacheDefectEngineCommandResult_(input.clientRequestId, result);
+    return result;
   });
 }

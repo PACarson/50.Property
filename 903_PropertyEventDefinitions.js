@@ -57,7 +57,10 @@ var PROPERTY_EVENTS = Object.freeze({
   OWNER_VERIFICATION_RECORDED: 'OWNER_VERIFICATION_RECORDED',
   DEFECT_ITEM_CLOSED: 'DEFECT_ITEM_CLOSED',
   DEFECT_ITEM_REOPENED: 'DEFECT_ITEM_REOPENED',       // compensating event, mirrors ADR-P06 spirit
-  CASE_CLOSED: 'CASE_CLOSED'
+  CASE_CLOSED: 'CASE_CLOSED',
+  // Phase 4 (2026-08-16) — added now because logDailyProgressCheck needs
+  // it, not speculatively during Phase 3.
+  DAILY_CHECK_LOGGED: 'DAILY_CHECK_LOGGED'
 });
 
 // Required payload fields per event type (Vertical Slice §4). Publishing
@@ -100,6 +103,7 @@ var PROPERTY_EVENT_REQUIRED_FIELDS = (function () {
   m[PROPERTY_EVENTS.DEFECT_ITEM_CLOSED] = ['caseId', 'defectId', 'closedDate'];
   m[PROPERTY_EVENTS.DEFECT_ITEM_REOPENED] = ['caseId', 'defectId', 'reason'];
   m[PROPERTY_EVENTS.CASE_CLOSED] = ['caseId', 'closedDate'];
+  m[PROPERTY_EVENTS.DAILY_CHECK_LOGGED] = ['caseId', 'checkId', 'dateTime', 'accessObserved'];
   return Object.freeze(m);
 })();
 

@@ -200,6 +200,55 @@ console.log('\\n═══ Invalid IDs fail safely (test scenario 20) ═══')
   throws('closeCase on unknown caseId throws cleanly', () => run(ctx, `closeCase({ caseId: 'CASE-nope' });`));
 }
 
+console.log('\\n═══ Phase 4: logDailyProgressCheck ═══');
+{
+  const ctx = fresh(); const propertyId = seedProperty(ctx);
+  const c = run(ctx, `createPropertyCase({ propertyId: '${propertyId}', originalSubmissionDate: '2026-08-13' });`);
+  const caseId = c.caseId;
+
+  const noAccess = run(ctx, `logDailyProgressCheck({ caseId: '${caseId}', notes: 'No rectification activity observed.' });`);
+  check('minimal input succeeds (caseId only + notes)', noAccess.success === true);
+  check('CheckID has CHECK- prefix', noAccess.checkId.indexOf('CHECK-') === 0);
+  check('booleans default false when omitted', noAccess.dailyCheck.AccessObserved === false && noAccess.dailyCheck.ContractorObserved === false);
+  check('summary for a no-access day reads naturally',
+    run(ctx, `getCaseTimelineRaw_ = function(caseId) {
+      var sheet = propertyCaseTimelineSheet_(); var last = sheet.getLastRow();
+      if (last < 2) return [];
+      var cols = PROPERTY_SCHEMA.PropertyCaseTimeline.columns;
+      return sheet.getRange(2,1,last-1,cols.length).getValues()
+        .map(function(row){ var o={}; cols.forEach(function(c,i){o[c]=row[i];}); return o; })
+        .filter(function(e){ return e.CaseID === caseId; });
+    }; getCaseTimelineRaw_('${caseId}').slice(-1)[0].Summary;`).indexOf('no access observed') !== -1
+  );
+
+  const withAccess = run(ctx, `logDailyProgressCheck({
+    caseId: '${caseId}', checkedBy: 'Carson', accessObserved: true, contractorObserved: true,
+    workObserved: 'Air-conditioner inspection', notes: 'ABC M&E on site, Bedroom 1/2'
+  });`);
+  check('full input succeeds', withAccess.success === true);
+  const accessSummary = run(ctx, `getCaseTimelineRaw_('${caseId}').slice(-1)[0].Summary;`);
+  check('summary for an access day mentions contractor + work observed',
+    accessSummary.indexOf('contractor on site') !== -1 && accessSummary.indexOf('Air-conditioner inspection') !== -1);
+
+  check('listDailyChecksForCase returns both entries in order', run(ctx, `listDailyChecksForCase('${caseId}').length`) === 2);
+  check('getDailyProgressCheck round-trips a single check', run(ctx, `getDailyProgressCheck('${withAccess.checkId}').CheckedBy`) === 'Carson');
+
+  throws('unknown caseId rejected', () => run(ctx, `logDailyProgressCheck({ caseId: 'CASE-nope' });`));
+
+  // Idempotency
+  const dup1 = run(ctx, `logDailyProgressCheck({ caseId: '${caseId}', notes: 'dup test', clientRequestId: 'check-req-1' });`);
+  const dup2 = run(ctx, `logDailyProgressCheck({ caseId: '${caseId}', notes: 'dup test', clientRequestId: 'check-req-1' });`);
+  check('same clientRequestId returns the SAME checkId (idempotent)', dup1.checkId === dup2.checkId);
+  check('idempotent replay did not create an extra row (3 real checks, not 4)', run(ctx, `listDailyChecksForCase('${caseId}').length`) === 3);
+
+  // Refuses once Case is Closed
+  const d = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'x' });`);
+  run(ctx, `recordOwnerVerification({ defectId: '${d.defectId}', ownerVerificationStatus: 'Verified' });`);
+  run(ctx, `closeDefectItem({ defectId: '${d.defectId}' });`);
+  run(ctx, `closeCase({ caseId: '${caseId}' });`);
+  throws('logDailyProgressCheck refuses once the Case is Closed', () => run(ctx, `logDailyProgressCheck({ caseId: '${caseId}' });`));
+}
+
 console.log('\\n' + '═'.repeat(60));
 console.log(fail === 0 ? `ALL ${pass} CHECKS PASSED (0 failures)` : `${pass} passed, ${fail} FAILED`);
 process.exit(fail === 0 ? 0 : 1);
