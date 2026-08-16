@@ -42,7 +42,22 @@ var PROPERTY_EVENTS = Object.freeze({
   PROPERTY_CREATED: 'PROPERTY_CREATED',
   PROPERTY_UPDATED: 'PROPERTY_UPDATED',
   PROPERTY_SOLD: 'PROPERTY_SOLD',
-  PROPERTY_SALE_REVERSED: 'PROPERTY_SALE_REVERSED'  // ADR-P06 compensating event
+  PROPERTY_SALE_REVERSED: 'PROPERTY_SALE_REVERSED',  // ADR-P06 compensating event
+  // 918_DefectEngine Vertical Slice — Phase 3 (Review Approval
+  // 2026-08-15/16). Only the events Phase 3's Commands actually publish
+  // are added here now — DAILY_CHECK_LOGGED / EVIDENCE_ATTACHED /
+  // CORRESPONDENCE_LOGGED / RECTIFICATION_EVENT_LOGGED /
+  // SECONDARY_DAMAGE_LOGGED are added when Phases 4-7 actually need
+  // them, not speculatively now (same convention as this file's own
+  // header comment above).
+  CASE_CREATED: 'CASE_CREATED',
+  DEFECT_ITEM_ADDED: 'DEFECT_ITEM_ADDED',
+  DEFECT_ITEM_UPDATED: 'DEFECT_ITEM_UPDATED',
+  DEVELOPER_STATUS_UPDATED: 'DEVELOPER_STATUS_UPDATED',
+  OWNER_VERIFICATION_RECORDED: 'OWNER_VERIFICATION_RECORDED',
+  DEFECT_ITEM_CLOSED: 'DEFECT_ITEM_CLOSED',
+  DEFECT_ITEM_REOPENED: 'DEFECT_ITEM_REOPENED',       // compensating event, mirrors ADR-P06 spirit
+  CASE_CLOSED: 'CASE_CLOSED'
 });
 
 // Required payload fields per event type (Vertical Slice §4). Publishing
@@ -76,6 +91,15 @@ var PROPERTY_EVENT_REQUIRED_FIELDS = (function () {
   m[PROPERTY_EVENTS.PROPERTY_UPDATED] = ['propertyId', 'changedFields'];
   m[PROPERTY_EVENTS.PROPERTY_SOLD] = ['propertyId', 'soldDate', 'soldPrice'];
   m[PROPERTY_EVENTS.PROPERTY_SALE_REVERSED] = ['propertyId', 'originalEventId', 'reason'];
+  // 918_DefectEngine Vertical Slice — Phase 3.
+  m[PROPERTY_EVENTS.CASE_CREATED] = ['caseId', 'propertyId', 'caseType', 'status'];
+  m[PROPERTY_EVENTS.DEFECT_ITEM_ADDED] = ['caseId', 'defectId', 'category', 'priority', 'status'];
+  m[PROPERTY_EVENTS.DEFECT_ITEM_UPDATED] = ['caseId', 'defectId', 'changedFields'];
+  m[PROPERTY_EVENTS.DEVELOPER_STATUS_UPDATED] = ['caseId', 'defectId', 'developerStatus'];
+  m[PROPERTY_EVENTS.OWNER_VERIFICATION_RECORDED] = ['caseId', 'defectId', 'ownerVerificationStatus'];
+  m[PROPERTY_EVENTS.DEFECT_ITEM_CLOSED] = ['caseId', 'defectId', 'closedDate'];
+  m[PROPERTY_EVENTS.DEFECT_ITEM_REOPENED] = ['caseId', 'defectId', 'reason'];
+  m[PROPERTY_EVENTS.CASE_CLOSED] = ['caseId', 'closedDate'];
   return Object.freeze(m);
 })();
 
