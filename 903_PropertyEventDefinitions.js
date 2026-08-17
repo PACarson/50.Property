@@ -60,7 +60,9 @@ var PROPERTY_EVENTS = Object.freeze({
   CASE_CLOSED: 'CASE_CLOSED',
   // Phase 4 (2026-08-16) — added now because logDailyProgressCheck needs
   // it, not speculatively during Phase 3.
-  DAILY_CHECK_LOGGED: 'DAILY_CHECK_LOGGED'
+  DAILY_CHECK_LOGGED: 'DAILY_CHECK_LOGGED',
+  // Phase 5 (2026-08-16) — 911_DocumentEngine's attachEvidence needs it now.
+  EVIDENCE_ATTACHED: 'EVIDENCE_ATTACHED'
 });
 
 // Required payload fields per event type (Vertical Slice §4). Publishing
@@ -104,6 +106,7 @@ var PROPERTY_EVENT_REQUIRED_FIELDS = (function () {
   m[PROPERTY_EVENTS.DEFECT_ITEM_REOPENED] = ['caseId', 'defectId', 'reason'];
   m[PROPERTY_EVENTS.CASE_CLOSED] = ['caseId', 'closedDate'];
   m[PROPERTY_EVENTS.DAILY_CHECK_LOGGED] = ['caseId', 'checkId', 'dateTime', 'accessObserved'];
+  m[PROPERTY_EVENTS.EVIDENCE_ATTACHED] = ['evidenceId', 'evidenceType', 'relatedCaseId'];
   return Object.freeze(m);
 })();
 
