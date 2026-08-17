@@ -249,6 +249,83 @@ console.log('\\n═══ Phase 4: logDailyProgressCheck ═══');
   throws('logDailyProgressCheck refuses once the Case is Closed', () => run(ctx, `logDailyProgressCheck({ caseId: '${caseId}' });`));
 }
 
+console.log("\n=== Phase 6: addWorkingDays_ (pure function) ===");
+{
+  const ctx = fresh();
+  check('the real task scenario: 14 Aug 2026 (Fri) + 3 working days = 19 Aug 2026 (Wed), skipping the weekend',
+    run(ctx, `addWorkingDays_('2026-08-14', 3)`) === '2026-08-19');
+  check('Monday + 1 working day = Tuesday', run(ctx, `addWorkingDays_('2026-08-17', 1)`) === '2026-08-18');
+  check('Friday + 1 working day = Monday (skips Sat/Sun)', run(ctx, `addWorkingDays_('2026-08-21', 1)`) === '2026-08-24');
+  check('+0 working days returns the same date unchanged', run(ctx, `addWorkingDays_('2026-08-17', 0)`) === '2026-08-17');
+}
+
+console.log("\n=== Phase 6: logCorrespondence ===");
+{
+  const ctx = fresh(); const propertyId = seedProperty(ctx);
+  const c = run(ctx, `createPropertyCase({ propertyId: '${propertyId}', originalSubmissionDate: '2026-08-13' });`);
+  const caseId = c.caseId;
+
+  const r1 = run(ctx, `logCorrespondence({
+    caseId: '${caseId}', direction: 'Sent', sender: 'Carson', recipient: 'Eupe Corporation Berhad',
+    subject: 'Official DLP Defect Rectification Requirements, Access Control and Technical Clarifications Unit A-19-11',
+    date: '2026-08-14', responseRequestedDate: '2026-08-14', responseWorkingDays: 3
+  });`);
+  check('succeeds', r1.success === true);
+  check('CorrespondenceID has CORR- prefix', r1.correspondenceId.indexOf('CORR-') === 0);
+  check('ResponseDueDate correctly computed via addWorkingDays_', r1.correspondence.ResponseDueDate === '2026-08-19');
+  check('ResponseStatus defaults to Pending', r1.correspondence.ResponseStatus === 'Pending');
+
+  const r2 = run(ctx, `logCorrespondence({ caseId: '${caseId}', direction: 'Received', subject: 'Noted with thanks', responseDueDate: '2026-09-01' });`);
+  check('explicit responseDueDate override respected (bypasses addWorkingDays_)', r2.correspondence.ResponseDueDate === '2026-09-01');
+
+  const r3 = run(ctx, `logCorrespondence({ caseId: '${caseId}', direction: 'Sent', subject: 'FYI only, no reply needed' });`);
+  check('no deadline info given, ResponseDueDate stays blank (not defaulted to anything)', r3.correspondence.ResponseDueDate === '');
+
+  throws('caseId required', () => run(ctx, `logCorrespondence({ direction: 'Sent', subject: 'x' });`));
+  throws('unknown Direction rejected', () => run(ctx, `logCorrespondence({ caseId: '${caseId}', direction: 'Sideways', subject: 'x' });`));
+  throws('subject required', () => run(ctx, `logCorrespondence({ caseId: '${caseId}', direction: 'Sent' });`));
+  throws('unknown caseId rejected', () => run(ctx, `logCorrespondence({ caseId: 'CASE-nope', direction: 'Sent', subject: 'x' });`));
+
+  check('listCorrespondenceForCase returns all 3', run(ctx, `listCorrespondenceForCase('${caseId}').length`) === 3);
+  check('getCorrespondence round-trips', run(ctx, `getCorrespondence('${r1.correspondenceId}').Subject`).indexOf('Official DLP') === 0);
+}
+
+console.log("\n=== Phase 6: recordCorrespondenceResponse, NotedOnly is never auto-upgraded (scenario 13) ===");
+{
+  const ctx = fresh(); const propertyId = seedProperty(ctx);
+  const caseId = run(ctx, `createPropertyCase({ propertyId: '${propertyId}', originalSubmissionDate: '2026-08-13' }).caseId`);
+  const corr = run(ctx, `logCorrespondence({ caseId: '${caseId}', direction: 'Sent', subject: 'Formal DLP requirements email' });`);
+
+  const noted = run(ctx, `recordCorrespondenceResponse({ correspondenceId: '${corr.correspondenceId}', responseStatus: 'NotedOnly' });`);
+  check('recordCorrespondenceResponse succeeds', noted.success === true);
+  const afterNoted = run(ctx, `getCorrespondence('${corr.correspondenceId}');`);
+  check('CORE RULE: ResponseStatus is exactly NotedOnly, not silently upgraded to Answered', afterNoted.ResponseStatus === 'NotedOnly');
+  check('ResponseReceivedDate got set even though it is not a substantive response', !!afterNoted.ResponseReceivedDate);
+
+  throws('unknown ResponseStatus rejected', () => run(ctx, `recordCorrespondenceResponse({ correspondenceId: '${corr.correspondenceId}', responseStatus: 'Ignored' });`));
+  throws('unknown correspondenceId rejected', () => run(ctx, `recordCorrespondenceResponse({ correspondenceId: 'CORR-nope', responseStatus: 'Answered' });`));
+
+  run(ctx, `recordCorrespondenceResponse({ correspondenceId: '${corr.correspondenceId}', responseStatus: 'Answered' });`);
+  check('a LATER explicit call CAN move it to Answered (still not automatic)', run(ctx, `getCorrespondence('${corr.correspondenceId}').ResponseStatus`) === 'Answered');
+}
+
+console.log("\n=== Phase 6: isCorrespondenceOverdue_ (Lazy Computation) ===");
+{
+  const ctx = fresh();
+  check('no ResponseDueDate at all -> never overdue',
+    run(ctx, `isCorrespondenceOverdue_({ ResponseDueDate: '', ResponseStatus: 'Pending' })`) === false);
+  check('due date in the far past + still Pending -> overdue',
+    run(ctx, `isCorrespondenceOverdue_({ ResponseDueDate: '2020-01-01', ResponseStatus: 'Pending' })`) === true);
+  check('due date in the far past + NotedOnly -> STILL overdue (scenario 13 extends to the dashboard too)',
+    run(ctx, `isCorrespondenceOverdue_({ ResponseDueDate: '2020-01-01', ResponseStatus: 'NotedOnly' })`) === true);
+  check('due date in the far past + Answered -> resolved, not overdue',
+    run(ctx, `isCorrespondenceOverdue_({ ResponseDueDate: '2020-01-01', ResponseStatus: 'Answered' })`) === false);
+  check('due date in the far past + Rejected -> resolved (a definitive no is still resolved), not overdue',
+    run(ctx, `isCorrespondenceOverdue_({ ResponseDueDate: '2020-01-01', ResponseStatus: 'Rejected' })`) === false);
+  check('due date far in the future + Pending -> not yet overdue',
+    run(ctx, `isCorrespondenceOverdue_({ ResponseDueDate: '2099-01-01', ResponseStatus: 'Pending' })`) === false);
+}
+
 console.log('\\n' + '═'.repeat(60));
 console.log(fail === 0 ? `ALL ${pass} CHECKS PASSED (0 failures)` : `${pass} passed, ${fail} FAILED`);
 process.exit(fail === 0 ? 0 : 1);

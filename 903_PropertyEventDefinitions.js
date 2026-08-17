@@ -62,7 +62,10 @@ var PROPERTY_EVENTS = Object.freeze({
   // it, not speculatively during Phase 3.
   DAILY_CHECK_LOGGED: 'DAILY_CHECK_LOGGED',
   // Phase 5 (2026-08-16) — 911_DocumentEngine's attachEvidence needs it now.
-  EVIDENCE_ATTACHED: 'EVIDENCE_ATTACHED'
+  EVIDENCE_ATTACHED: 'EVIDENCE_ATTACHED',
+  // Phase 6 (2026-08-17) — logCorrespondence / recordCorrespondenceResponse need these now.
+  CORRESPONDENCE_LOGGED: 'CORRESPONDENCE_LOGGED',
+  CORRESPONDENCE_RESPONSE_RECORDED: 'CORRESPONDENCE_RESPONSE_RECORDED'
 });
 
 // Required payload fields per event type (Vertical Slice §4). Publishing
@@ -107,6 +110,8 @@ var PROPERTY_EVENT_REQUIRED_FIELDS = (function () {
   m[PROPERTY_EVENTS.CASE_CLOSED] = ['caseId', 'closedDate'];
   m[PROPERTY_EVENTS.DAILY_CHECK_LOGGED] = ['caseId', 'checkId', 'dateTime', 'accessObserved'];
   m[PROPERTY_EVENTS.EVIDENCE_ATTACHED] = ['evidenceId', 'evidenceType', 'relatedCaseId'];
+  m[PROPERTY_EVENTS.CORRESPONDENCE_LOGGED] = ['caseId', 'correspondenceId', 'direction', 'subject'];
+  m[PROPERTY_EVENTS.CORRESPONDENCE_RESPONSE_RECORDED] = ['caseId', 'correspondenceId', 'responseStatus'];
   return Object.freeze(m);
 })();
 

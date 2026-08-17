@@ -23,10 +23,12 @@
  *             confirmed against real GAS — see MANUAL_VERIFICATION_
  *             CHECKLIST.md) before this phase started, per CC's explicit
  *             Deployment Verification gate.
+ *   Phase 6 — Correspondence + addWorkingDays_ (Response Deadline).
+ *             911_DocumentEngine.js (Phase 5, Evidence) deployed and
+ *             smoke-tested for real against real Drive 2026-08-17
+ *             before this phase started, same gate.
  *
  * NOT in this phase (later phases, per the agreed Implementation Order):
- *   Phase 5  Evidence (911_DocumentEngine.js — separate file)
- *   Phase 6  Correspondence + addWorkingDays_
  *   Phase 7  RectificationEvent + SecondaryDamage
  *   Phase 8  Dashboard/Projection additions to 922_DashboardAdapter.js
  *
@@ -152,6 +154,16 @@ function dailyProgressCheckSheet_() {
   return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(PROPERTY_SCHEMA.DailyProgressCheck.sheetName);
 }
 
+// Phase 6 (2026-08-17).
+function correspondenceSheet_() {
+  ensureSheetSchema_(
+    PROPERTY_SCHEMA.Correspondence.sheetName,
+    PROPERTY_SCHEMA.Correspondence.columns,
+    PROPERTY_SCHEMA.Correspondence.dateColumns
+  );
+  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(PROPERTY_SCHEMA.Correspondence.sheetName);
+}
+
 /**
  * Appends exactly one row to PropertyCaseTimeline. Called by every
  * Command below, in the same try block as publishPropertyEvent_.
@@ -225,6 +237,54 @@ function deriveDefectItemStatus_(developerStatus, ownerVerificationStatus) {
   if (developerStatus === 'ClaimedCompleted') return 'PendingVerification';
   if (developerStatus === 'Scheduled' || developerStatus === 'InProgress') return 'InProgress';
   return 'Open';
+}
+
+/**
+ * Adds N working days (Mon-Fri, weekends skipped) to a date. Public
+ * holidays are NOT accounted for — task's literal ask was "working
+ * day", not "business day incl. holiday calendar"; adding holiday
+ * awareness later is Additive, not a redesign, if it's ever needed.
+ *
+ * Only consumer today is logCorrespondence below — kept here rather
+ * than promoted to 901's shared date utilities, per the project's own
+ * two-independent-consumers bar before generalizing (Phase0 Audit §4.4).
+ *
+ * Uses parseIsoDate_/toIsoDate_ (901), the same local-midnight-safe
+ * utilities every other date calc in this project uses — never
+ * `new Date(isoString)` directly, which parses as UTC and is the
+ * project's own documented off-by-one-day hazard.
+ *
+ * @param {string|Date} isoDateOrDate start date, 'yyyy-MM-dd' or Date
+ * @param {number} numWorkingDays
+ * @return {string} 'yyyy-MM-dd'
+ */
+function addWorkingDays_(isoDateOrDate, numWorkingDays) {
+  var date = parseIsoDate_(coerceToIsoDateString_(isoDateOrDate));
+  var added = 0;
+  while (added < numWorkingDays) {
+    date.setDate(date.getDate() + 1);
+    var dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      added++;
+    }
+  }
+  return toIsoDate_(date);
+}
+
+/**
+ * Lazy Computation (never stored) — same principle as
+ * deriveDefectItemStatus_ and 913's isOccurrenceOverdue_. 'NotedOnly'
+ * is deliberately NOT treated as resolved — a "noted with thanks" reply
+ * still leaves the real response outstanding (task's explicit ask,
+ * Test Plan scenario 13).
+ */
+function isCorrespondenceOverdue_(correspondence) {
+  if (!correspondence.ResponseDueDate) return false;
+  var resolvedStatuses = ['Answered', 'Rejected'];
+  if (resolvedStatuses.indexOf(correspondence.ResponseStatus) !== -1) return false;
+  var due = parseIsoDate_(correspondence.ResponseDueDate);
+  var today = parseIsoDate_(toIsoDate_(new Date()));
+  return today > due;
 }
 
 var PROPERTY_CASE_TRANSITIONS_ = Object.freeze({
@@ -333,6 +393,30 @@ function buildDailyCheckSummary_(dailyCheck) {
   if (dailyCheck.WorkObserved) parts.push(dailyCheck.WorkObserved);
   return 'Daily check — access granted' + (parts.length ? ('; ' + parts.join(', ')) : '') +
     (dailyCheck.Notes ? ('. ' + dailyCheck.Notes) : '.');
+}
+
+// Phase 6 (2026-08-17).
+function getCorrespondence(correspondenceId) {
+  var sheet = correspondenceSheet_();
+  var rowIndex = findRowIndexByFirstColumn_(sheet, correspondenceId);
+  if (rowIndex === -1) return null;
+  return readRowAsObject_(sheet, rowIndex, PROPERTY_SCHEMA.Correspondence.columns);
+}
+
+function listCorrespondenceForCase(caseId) {
+  var sheet = correspondenceSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var columns = PROPERTY_SCHEMA.Correspondence.columns;
+  var values = sheet.getRange(2, 1, lastRow - 1, columns.length).getValues();
+  var caseIdIndex = columns.indexOf('CaseID');
+  return values
+    .filter(function (row) { return row[caseIdIndex] === caseId; })
+    .map(function (row) {
+      var obj = {};
+      columns.forEach(function (col, i) { obj[col] = row[i]; });
+      return obj;
+    });
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -956,5 +1040,159 @@ function logDailyProgressCheck(input) {
     var result = { success: true, checkId: checkId, dailyCheck: dailyCheck };
     if (input.clientRequestId) cacheDefectEngineCommandResult_(input.clientRequestId, result);
     return result;
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Phase 6 — Correspondence + Response Deadline (2026-08-17)
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Logs a piece of correspondence (sent or received). ResponseDueDate is
+ * computed via addWorkingDays_ if responseRequestedDate + responseWorkingDays
+ * are given; can also be set directly via responseDueDate; left blank
+ * otherwise. Neither path forces a value — a lot of correspondence
+ * (e.g. a routine update, or something received with no reply expected)
+ * has no deadline at all, and that's a legitimate, common case, not
+ * something to paper over with a default.
+ *
+ * @param {Object} input {caseId, date, direction, sender, recipient,
+ *   subject, responseStatus, responseRequestedDate, responseWorkingDays,
+ *   responseDueDate, clientRequestId}
+ */
+function logCorrespondence(input) {
+  return withDefectEngineLock_(function () {
+    input = input || {};
+
+    if (input.clientRequestId) {
+      var cached = getCachedDefectEngineCommandResult_(input.clientRequestId);
+      if (cached) return cached;
+    }
+
+    if (!input.caseId) {
+      throw propertyError_('CORRESPONDENCE_INVALID_INPUT', 'caseId is required.');
+    }
+    var propertyCase = getPropertyCase(input.caseId);
+    if (!propertyCase) {
+      throw propertyError_('CORRESPONDENCE_CASE_NOT_FOUND', 'No PropertyCase found for caseId ' + input.caseId + '.');
+    }
+    if (propertyCase.Status === 'Closed') {
+      throw propertyError_('CORRESPONDENCE_CASE_CLOSED', 'Cannot log Correspondence against a Closed Case (' + input.caseId + ').');
+    }
+    if (!input.direction || PROPERTY_CONFIG.CORRESPONDENCE_DIRECTIONS.indexOf(input.direction) === -1) {
+      throw propertyError_('CORRESPONDENCE_INVALID_DIRECTION', 'Unknown Direction: ' + input.direction + '.');
+    }
+    if (!input.subject) {
+      throw propertyError_('CORRESPONDENCE_INVALID_INPUT', 'subject is required.');
+    }
+    var responseStatus = input.responseStatus || 'Pending';
+    if (PROPERTY_CONFIG.CORRESPONDENCE_RESPONSE_STATUSES.indexOf(responseStatus) === -1) {
+      throw propertyError_('CORRESPONDENCE_INVALID_RESPONSE_STATUS', 'Unknown ResponseStatus: ' + responseStatus + '.');
+    }
+
+    var responseDueDate = '';
+    if (input.responseDueDate) {
+      responseDueDate = coerceToIsoDateString_(input.responseDueDate);
+    } else if (input.responseRequestedDate && input.responseWorkingDays) {
+      responseDueDate = addWorkingDays_(input.responseRequestedDate, input.responseWorkingDays);
+    }
+
+    var now = new Date().toISOString();
+    var correspondenceId = generateCorrespondenceId_();
+    var correspondence = {
+      CorrespondenceID: correspondenceId,
+      CaseID: input.caseId,
+      Date: coerceToIsoDateString_(input.date || now),
+      Direction: input.direction,
+      Sender: input.sender || '',
+      Recipient: input.recipient || '',
+      Subject: input.subject,
+      ResponseStatus: responseStatus,
+      ResponseRequestedDate: input.responseRequestedDate ? coerceToIsoDateString_(input.responseRequestedDate) : '',
+      ResponseDueDate: responseDueDate,
+      ResponseReceivedDate: '',
+      CreatedAt: now,
+      UpdatedAt: now
+    };
+
+    correspondenceSheet_().appendRow(objectToRowArray_(correspondence, PROPERTY_SCHEMA.Correspondence.columns));
+
+    try {
+      appendCaseTimelineEntry_(
+        input.caseId, 'CORRESPONDENCE_LOGGED',
+        'Correspondence ' + input.direction.toLowerCase() + ': ' + input.subject +
+        (responseDueDate ? (' (response due ' + responseDueDate + ')') : ''),
+        { triggeredBy: 'logCorrespondence' }
+      );
+      publishPropertyEvent_(PROPERTY_EVENTS.CORRESPONDENCE_LOGGED, propertyCase.PropertyID, null, {
+        caseId: input.caseId, correspondenceId: correspondenceId, direction: input.direction, subject: input.subject
+      });
+    } catch (e) {
+      logDefectEnginePartialFailure_(
+        'logCorrespondence', 'Correspondence ' + correspondenceId + ' row was written; Timeline/Event publish failed.', e
+      );
+      throw e;
+    }
+
+    var result = { success: true, correspondenceId: correspondenceId, correspondence: correspondence };
+    if (input.clientRequestId) cacheDefectEngineCommandResult_(input.clientRequestId, result);
+    return result;
+  });
+}
+
+/**
+ * Records a response outcome for an existing Correspondence. A
+ * 'NotedOnly' outcome is recorded exactly as given — this Command never
+ * infers or upgrades it to 'Answered' on its own; that distinction is
+ * the entire point of the ResponseStatus enum (task's explicit ask,
+ * Test Plan scenario 13).
+ *
+ * @param {Object} input {correspondenceId, responseStatus, responseReceivedDate, note}
+ */
+function recordCorrespondenceResponse(input) {
+  return withDefectEngineLock_(function () {
+    input = input || {};
+    if (!input.correspondenceId) {
+      throw propertyError_('CORRESPONDENCE_INVALID_INPUT', 'correspondenceId is required.');
+    }
+    if (!input.responseStatus || PROPERTY_CONFIG.CORRESPONDENCE_RESPONSE_STATUSES.indexOf(input.responseStatus) === -1) {
+      throw propertyError_('CORRESPONDENCE_INVALID_RESPONSE_STATUS', 'Unknown ResponseStatus: ' + input.responseStatus + '.');
+    }
+
+    var sheet = correspondenceSheet_();
+    var rowIndex = findRowIndexByFirstColumn_(sheet, input.correspondenceId);
+    if (rowIndex === -1) {
+      throw propertyError_(
+        'CORRESPONDENCE_NOT_FOUND', 'No Correspondence found for correspondenceId ' + input.correspondenceId + '.'
+      );
+    }
+    var existing = readRowAsObject_(sheet, rowIndex, PROPERTY_SCHEMA.Correspondence.columns);
+
+    var now = new Date().toISOString();
+    updateRowFields_(sheet, rowIndex, PROPERTY_SCHEMA.Correspondence.columns, {
+      ResponseStatus: input.responseStatus,
+      ResponseReceivedDate: coerceToIsoDateString_(input.responseReceivedDate || now),
+      UpdatedAt: now
+    });
+
+    try {
+      appendCaseTimelineEntry_(
+        existing.CaseID, 'CORRESPONDENCE_RESPONSE_RECORDED',
+        'Correspondence response (' + existing.Subject + '): ' + input.responseStatus +
+        (input.note ? (' — ' + input.note) : ''),
+        { triggeredBy: 'recordCorrespondenceResponse' }
+      );
+      publishPropertyEvent_(PROPERTY_EVENTS.CORRESPONDENCE_RESPONSE_RECORDED, null, null, {
+        caseId: existing.CaseID, correspondenceId: input.correspondenceId, responseStatus: input.responseStatus
+      });
+    } catch (e) {
+      logDefectEnginePartialFailure_(
+        'recordCorrespondenceResponse',
+        'Correspondence ' + input.correspondenceId + ' ResponseStatus was updated; Timeline/Event publish failed.', e
+      );
+      throw e;
+    }
+
+    return { success: true, correspondenceId: input.correspondenceId, responseStatus: input.responseStatus };
   });
 }
