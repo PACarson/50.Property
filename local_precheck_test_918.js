@@ -326,6 +326,117 @@ console.log("\n=== Phase 6: isCorrespondenceOverdue_ (Lazy Computation) ===");
     run(ctx, `isCorrespondenceOverdue_({ ResponseDueDate: '2099-01-01', ResponseStatus: 'Pending' })`) === false);
 }
 
+console.log("\n=== Phase 7: logRectificationEvent ===");
+{
+  const ctx = fresh(); const propertyId = seedProperty(ctx);
+  const caseId = run(ctx, `createPropertyCase({ propertyId: '${propertyId}', originalSubmissionDate: '2026-08-13' }).caseId`);
+  const d = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'AC not cooling', category: 'AirConditioning' });`);
+  const otherCase = run(ctx, `createPropertyCase({ propertyId: '${propertyId}', originalSubmissionDate: '2026-08-14' }).caseId`);
+
+  const r1 = run(ctx, `logRectificationEvent({
+    caseId: '${caseId}', defectId: '${d.defectId}', eventType: 'AccessGranted',
+    eventDate: '2026-08-16', entryTime: '10:00', exitTime: '12:00',
+    contractorCompany: 'ABC M&E', contractorPersonnel: '2 technicians',
+    notes: 'Inspected AC unit', source: 'OwnerObserved'
+  });`);
+  check('succeeds', r1.success === true);
+  check('RectificationEventID has RECT- prefix', r1.rectificationEventId.indexOf('RECT-') === 0);
+  check('Source defaults correctly when given explicitly', r1.rectificationEvent.Source === 'OwnerObserved');
+
+  const r2 = run(ctx, `logRectificationEvent({ caseId: '${caseId}', eventType: 'AccessRequested' });`);
+  check('case-level event (no defectId) succeeds', r2.success === true);
+  check('DefectID blank for a case-level event', r2.rectificationEvent.DefectID === '');
+  check('Source defaults to OwnerObserved when omitted', r2.rectificationEvent.Source === 'OwnerObserved');
+
+  throws('caseId required', () => run(ctx, `logRectificationEvent({ eventType: 'AccessGranted' });`));
+  throws('unknown eventType rejected', () => run(ctx, `logRectificationEvent({ caseId: '${caseId}', eventType: 'DidAThing' });`));
+  throws('unknown defectId rejected', () => run(ctx, `logRectificationEvent({ caseId: '${caseId}', defectId: 'DEFECT-nope', eventType: 'AccessGranted' });`));
+  throws('defect belonging to a different case rejected', () => run(ctx, `logRectificationEvent({ caseId: '${otherCase}', defectId: '${d.defectId}', eventType: 'AccessGranted' });`));
+  throws('unknown Source rejected', () => run(ctx, `logRectificationEvent({ caseId: '${caseId}', eventType: 'AccessGranted', source: 'Telepathy' });`));
+
+  check('listRectificationEventsForCase returns both', run(ctx, `listRectificationEventsForCase('${caseId}').length`) === 2);
+  check('listRectificationEventsForDefect returns only the one scoped to that defect', run(ctx, `listRectificationEventsForDefect('${d.defectId}').length`) === 1);
+  check('getRectificationEvent round-trips', run(ctx, `getRectificationEvent('${r1.rectificationEventId}').ContractorCompany`) === 'ABC M&E');
+
+  const timeline = run(ctx, `
+    var sheet = propertyCaseTimelineSheet_(); var last = sheet.getLastRow();
+    var cols = PROPERTY_SCHEMA.PropertyCaseTimeline.columns;
+    sheet.getRange(2,1,last-1,cols.length).getValues()
+      .map(function(row){ var o={}; cols.forEach(function(c,i){o[c]=row[i];}); return o; })
+      .filter(function(e){ return e.EntryType === 'RECTIFICATION_EVENT_LOGGED'; });
+  `);
+  check('Timeline summary humanizes the EventType naturally', timeline[0].Summary.indexOf('Access Granted') !== -1);
+  check('Timeline summary includes the contractor company', timeline[0].Summary.indexOf('ABC M&E') !== -1);
+
+  // Idempotency
+  const dup1 = run(ctx, `logRectificationEvent({ caseId: '${caseId}', eventType: 'RectificationStarted', clientRequestId: 'rect-req-1' });`);
+  const dup2 = run(ctx, `logRectificationEvent({ caseId: '${caseId}', eventType: 'RectificationStarted', clientRequestId: 'rect-req-1' });`);
+  check('same clientRequestId returns the SAME rectificationEventId', dup1.rectificationEventId === dup2.rectificationEventId);
+  check('idempotent replay did not create an extra row', run(ctx, `listRectificationEventsForCase('${caseId}').length`) === 3);
+
+  // Case-closed guard
+  run(ctx, `recordOwnerVerification({ defectId: '${d.defectId}', ownerVerificationStatus: 'Verified' });`);
+  run(ctx, `closeDefectItem({ defectId: '${d.defectId}' });`);
+  run(ctx, `closeCase({ caseId: '${caseId}' });`);
+  throws('logRectificationEvent refuses once the Case is Closed', () => run(ctx, `logRectificationEvent({ caseId: '${caseId}', eventType: 'AccessGranted' });`));
+}
+
+console.log("\n=== Phase 7: humanizeEventType_ ===");
+{
+  const ctx = fresh();
+  check("'AccessGranted' -> 'Access Granted'", run(ctx, `humanizeEventType_('AccessGranted')`) === 'Access Granted');
+  check("'DeveloperClaimedCompleted' -> 'Developer Claimed Completed'",
+    run(ctx, `humanizeEventType_('DeveloperClaimedCompleted')`) === 'Developer Claimed Completed');
+  check("'ReinspectionRequired' -> 'Reinspection Required'", run(ctx, `humanizeEventType_('ReinspectionRequired')`) === 'Reinspection Required');
+}
+
+console.log("\n=== Phase 7: logSecondaryDamage + updateSecondaryDamageStatus ===");
+{
+  const ctx = fresh(); const propertyId = seedProperty(ctx);
+  const caseId = run(ctx, `createPropertyCase({ propertyId: '${propertyId}', originalSubmissionDate: '2026-08-13' }).caseId`);
+  const d = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'Kitchen cabinet leak', category: 'Plumbing' });`);
+  const rect = run(ctx, `logRectificationEvent({ caseId: '${caseId}', defectId: '${d.defectId}', eventType: 'RectificationStarted' });`);
+  const otherCase = run(ctx, `createPropertyCase({ propertyId: '${propertyId}', originalSubmissionDate: '2026-08-14' }).caseId`);
+
+  const dmg = run(ctx, `logSecondaryDamage({
+    caseId: '${caseId}', parentDefectId: '${d.defectId}', rectificationEventId: '${rect.rectificationEventId}',
+    damageType: 'Cabinet', description: 'Lower cabinet panel damaged during pipe access',
+    observedBy: 'Carson', responsibleParty: 'Contractor (as reported)'
+  });`);
+  check('succeeds', dmg.success === true);
+  check('DamageID has DMG- prefix', dmg.damageId.indexOf('DMG-') === 0);
+  check('Status starts Reported', dmg.damage.Status === 'Reported');
+  check('AdministrativeSubmissionRequired defaults false', dmg.damage.AdministrativeSubmissionRequired === false);
+  check('ResponsibleParty stored as plain text, no legal judgment made by the system', dmg.damage.ResponsibleParty === 'Contractor (as reported)');
+
+  const minimalDmg = run(ctx, `logSecondaryDamage({ caseId: '${caseId}', description: 'Scratched flooring' });`);
+  check('minimal input succeeds (caseId + description only)', minimalDmg.success === true);
+  check('DamageType defaults to Other', minimalDmg.damage.DamageType === 'Other');
+
+  throws('caseId required', () => run(ctx, `logSecondaryDamage({ description: 'x' });`));
+  throws('description required', () => run(ctx, `logSecondaryDamage({ caseId: '${caseId}' });`));
+  throws('unknown damageType rejected', () => run(ctx, `logSecondaryDamage({ caseId: '${caseId}', description: 'x', damageType: 'Volcano' });`));
+  throws('unknown parentDefectId rejected', () => run(ctx, `logSecondaryDamage({ caseId: '${caseId}', description: 'x', parentDefectId: 'DEFECT-nope' });`));
+  throws('defect belonging to a different case rejected', () => run(ctx, `logSecondaryDamage({ caseId: '${otherCase}', description: 'x', parentDefectId: '${d.defectId}' });`));
+  throws('unknown rectificationEventId rejected', () => run(ctx, `logSecondaryDamage({ caseId: '${caseId}', description: 'x', rectificationEventId: 'RECT-nope' });`));
+
+  const updated = run(ctx, `updateSecondaryDamageStatus({ damageId: '${dmg.damageId}', status: 'Acknowledged' });`);
+  check('updateSecondaryDamageStatus succeeds', updated.success === true);
+  check('Status persisted', run(ctx, `getSecondaryDamage('${dmg.damageId}').Status`) === 'Acknowledged');
+
+  run(ctx, `updateSecondaryDamageStatus({ damageId: '${dmg.damageId}', status: 'Rectified', resolution: 'Cabinet panel replaced by contractor at no cost' });`);
+  const resolved = run(ctx, `getSecondaryDamage('${dmg.damageId}');`);
+  check('Resolution persisted alongside a later status update', resolved.Resolution === 'Cabinet panel replaced by contractor at no cost');
+  check('Disputed is a reachable status too (no strict transition graph)',
+    run(ctx, `updateSecondaryDamageStatus({ damageId: '${dmg.damageId}', status: 'Disputed' }).success`) === true);
+
+  throws('unknown Status rejected', () => run(ctx, `updateSecondaryDamageStatus({ damageId: '${dmg.damageId}', status: 'OnFire' });`));
+  throws('unknown damageId rejected', () => run(ctx, `updateSecondaryDamageStatus({ damageId: 'DMG-nope', status: 'Reported' });`));
+
+  check('listSecondaryDamageForCase returns both', run(ctx, `listSecondaryDamageForCase('${caseId}').length`) === 2);
+  check('listSecondaryDamageForDefect returns only the one scoped to that defect', run(ctx, `listSecondaryDamageForDefect('${d.defectId}').length`) === 1);
+}
+
 console.log('\\n' + '═'.repeat(60));
 console.log(fail === 0 ? `ALL ${pass} CHECKS PASSED (0 failures)` : `${pass} passed, ${fail} FAILED`);
 process.exit(fail === 0 ? 0 : 1);

@@ -52,6 +52,9 @@
 
 
 
+## Phase 6 (Correspondence + addWorkingDays_) — confirmed 2026-08-17
+`runAllPropertyOSTests()` 141/141 + a Phase 6 smoke test reported as passed (banner only this time, not the full step-by-step log the earlier phases got). Accepted without the detailed log because Phase 6's only genuinely new surface area, `addWorkingDays_`, is a pure function — no `SpreadsheetApp`/`LockService`/`DriveApp` calls at all — so the local pre-check (101/101, including the exact real 14→19 Aug 2026 case from the task's own seed data) is already fully dispositive for it; everything else in Phase 6 reuses Sheet-write/Timeline/Event patterns already independently confirmed real in Phases 2-5. Will go back to asking for full logs on anything that touches genuinely new GAS surface area (as Phase 5's Drive integration did).
+
 ## Not yet applicable (blocked on other Phases, not on this checklist)
 - Real `publishPropertyEvent_()` wiring (ADR-P07 — deliberately still a placeholder)
 - Real Reminder OS integration (`ReminderConnector` API coverage — TECH DEBT #1)

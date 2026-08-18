@@ -27,9 +27,11 @@
  *             911_DocumentEngine.js (Phase 5, Evidence) deployed and
  *             smoke-tested for real against real Drive 2026-08-17
  *             before this phase started, same gate.
+ *   Phase 7 — RectificationEvent (append-only, EventType-driven per CC
+ *             Review Approval 2026-08-15) + SecondaryDamage. Phase 6
+ *             confirmed 141/141 + smoke test before this phase started.
  *
  * NOT in this phase (later phases, per the agreed Implementation Order):
- *   Phase 7  RectificationEvent + SecondaryDamage
  *   Phase 8  Dashboard/Projection additions to 922_DashboardAdapter.js
  *
  * Two independent status dimensions on DefectItem (Phase0 Audit §4.2):
@@ -164,6 +166,25 @@ function correspondenceSheet_() {
   return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(PROPERTY_SCHEMA.Correspondence.sheetName);
 }
 
+// Phase 7 (2026-08-17).
+function rectificationEventSheet_() {
+  ensureSheetSchema_(
+    PROPERTY_SCHEMA.RectificationEvent.sheetName,
+    PROPERTY_SCHEMA.RectificationEvent.columns,
+    PROPERTY_SCHEMA.RectificationEvent.dateColumns
+  );
+  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(PROPERTY_SCHEMA.RectificationEvent.sheetName);
+}
+
+function secondaryDamageSheet_() {
+  ensureSheetSchema_(
+    PROPERTY_SCHEMA.SecondaryDamage.sheetName,
+    PROPERTY_SCHEMA.SecondaryDamage.columns,
+    PROPERTY_SCHEMA.SecondaryDamage.dateColumns
+  );
+  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(PROPERTY_SCHEMA.SecondaryDamage.sheetName);
+}
+
 /**
  * Appends exactly one row to PropertyCaseTimeline. Called by every
  * Command below, in the same try block as publishPropertyEvent_.
@@ -285,6 +306,27 @@ function isCorrespondenceOverdue_(correspondence) {
   var due = parseIsoDate_(correspondence.ResponseDueDate);
   var today = parseIsoDate_(toIsoDate_(new Date()));
   return today > due;
+}
+
+/**
+ * 'AccessGranted' -> 'Access Granted', 'DeveloperClaimedCompleted' ->
+ * 'Developer Claimed Completed'. General PascalCase-to-spaced-words
+ * transform so new RECTIFICATION_EVENT_TYPES values read naturally in
+ * the Timeline without a manual lookup table needing upkeep.
+ */
+function humanizeEventType_(eventType) {
+  return String(eventType).replace(/([A-Z])/g, ' $1').trim();
+}
+
+/**
+ * Builds the human-readable Timeline one-liner for a RectificationEvent.
+ * Pure function — no Sheet access.
+ */
+function buildRectificationEventSummary_(rectificationEvent) {
+  var summary = humanizeEventType_(rectificationEvent.EventType);
+  if (rectificationEvent.ContractorCompany) summary += ' — ' + rectificationEvent.ContractorCompany;
+  if (rectificationEvent.Notes) summary += ': ' + rectificationEvent.Notes;
+  return summary;
 }
 
 var PROPERTY_CASE_TRANSITIONS_ = Object.freeze({
@@ -412,6 +454,85 @@ function listCorrespondenceForCase(caseId) {
   var caseIdIndex = columns.indexOf('CaseID');
   return values
     .filter(function (row) { return row[caseIdIndex] === caseId; })
+    .map(function (row) {
+      var obj = {};
+      columns.forEach(function (col, i) { obj[col] = row[i]; });
+      return obj;
+    });
+}
+
+// Phase 7 (2026-08-17).
+function getRectificationEvent(rectificationEventId) {
+  var sheet = rectificationEventSheet_();
+  var rowIndex = findRowIndexByFirstColumn_(sheet, rectificationEventId);
+  if (rowIndex === -1) return null;
+  return readRowAsObject_(sheet, rowIndex, PROPERTY_SCHEMA.RectificationEvent.columns);
+}
+
+function listRectificationEventsForCase(caseId) {
+  var sheet = rectificationEventSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var columns = PROPERTY_SCHEMA.RectificationEvent.columns;
+  var values = sheet.getRange(2, 1, lastRow - 1, columns.length).getValues();
+  var caseIdIndex = columns.indexOf('CaseID');
+  return values
+    .filter(function (row) { return row[caseIdIndex] === caseId; })
+    .map(function (row) {
+      var obj = {};
+      columns.forEach(function (col, i) { obj[col] = row[i]; });
+      return obj;
+    });
+}
+
+function listRectificationEventsForDefect(defectId) {
+  var sheet = rectificationEventSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var columns = PROPERTY_SCHEMA.RectificationEvent.columns;
+  var values = sheet.getRange(2, 1, lastRow - 1, columns.length).getValues();
+  var defectIdIndex = columns.indexOf('DefectID');
+  return values
+    .filter(function (row) { return row[defectIdIndex] === defectId; })
+    .map(function (row) {
+      var obj = {};
+      columns.forEach(function (col, i) { obj[col] = row[i]; });
+      return obj;
+    });
+}
+
+function getSecondaryDamage(damageId) {
+  var sheet = secondaryDamageSheet_();
+  var rowIndex = findRowIndexByFirstColumn_(sheet, damageId);
+  if (rowIndex === -1) return null;
+  return readRowAsObject_(sheet, rowIndex, PROPERTY_SCHEMA.SecondaryDamage.columns);
+}
+
+function listSecondaryDamageForCase(caseId) {
+  var sheet = secondaryDamageSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var columns = PROPERTY_SCHEMA.SecondaryDamage.columns;
+  var values = sheet.getRange(2, 1, lastRow - 1, columns.length).getValues();
+  var caseIdIndex = columns.indexOf('CaseID');
+  return values
+    .filter(function (row) { return row[caseIdIndex] === caseId; })
+    .map(function (row) {
+      var obj = {};
+      columns.forEach(function (col, i) { obj[col] = row[i]; });
+      return obj;
+    });
+}
+
+function listSecondaryDamageForDefect(defectId) {
+  var sheet = secondaryDamageSheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var columns = PROPERTY_SCHEMA.SecondaryDamage.columns;
+  var values = sheet.getRange(2, 1, lastRow - 1, columns.length).getValues();
+  var parentDefectIdIndex = columns.indexOf('ParentDefectID');
+  return values
+    .filter(function (row) { return row[parentDefectIdIndex] === defectId; })
     .map(function (row) {
       var obj = {};
       columns.forEach(function (col, i) { obj[col] = row[i]; });
@@ -1194,5 +1315,265 @@ function recordCorrespondenceResponse(input) {
     }
 
     return { success: true, correspondenceId: input.correspondenceId, responseStatus: input.responseStatus };
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Phase 7 — RectificationEvent + SecondaryDamage (2026-08-17)
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Appends one milestone to a defect's (or the case's) rectification
+ * history. Append-only by design (CC Review Approval 2026-08-15,
+ * Phase0 Audit §4.5) — never call this to "correct" a past entry,
+ * log a new one.
+ *
+ * Deliberately does NOT touch DefectItem.DeveloperStatus even when
+ * eventType is 'DeveloperClaimedCompleted' — that's a separate,
+ * explicit recordDeveloperStatus call. Coupling a free-text EventType
+ * to an automatic mutation of a different entity's controlled enum
+ * would be exactly the kind of implicit, surprising side effect this
+ * Vertical Slice has avoided everywhere else (same reasoning as
+ * reopenDefectItem not also accepting a new verification in one call).
+ *
+ * @param {Object} input {caseId, defectId, eventType, eventDate, entryTime,
+ *   exitTime, contractorCompany, contractorPersonnel, notes, source, clientRequestId}
+ */
+function logRectificationEvent(input) {
+  return withDefectEngineLock_(function () {
+    input = input || {};
+
+    if (input.clientRequestId) {
+      var cached = getCachedDefectEngineCommandResult_(input.clientRequestId);
+      if (cached) return cached;
+    }
+
+    if (!input.caseId) {
+      throw propertyError_('RECTIFICATION_EVENT_INVALID_INPUT', 'caseId is required.');
+    }
+    var propertyCase = getPropertyCase(input.caseId);
+    if (!propertyCase) {
+      throw propertyError_('RECTIFICATION_EVENT_CASE_NOT_FOUND', 'No PropertyCase found for caseId ' + input.caseId + '.');
+    }
+    if (propertyCase.Status === 'Closed') {
+      throw propertyError_('RECTIFICATION_EVENT_CASE_CLOSED', 'Cannot log a RectificationEvent against a Closed Case (' + input.caseId + ').');
+    }
+    if (!input.eventType || PROPERTY_CONFIG.RECTIFICATION_EVENT_TYPES.indexOf(input.eventType) === -1) {
+      throw propertyError_('RECTIFICATION_EVENT_INVALID_TYPE', 'Unknown EventType: ' + input.eventType + '.');
+    }
+    if (input.defectId) {
+      var defect = getDefectItem(input.defectId);
+      if (!defect) {
+        throw propertyError_('RECTIFICATION_EVENT_DEFECT_NOT_FOUND', 'No DefectItem found for defectId ' + input.defectId + '.');
+      }
+      if (defect.CaseID !== input.caseId) {
+        throw propertyError_(
+          'RECTIFICATION_EVENT_DEFECT_CASE_MISMATCH',
+          'DefectItem ' + input.defectId + ' belongs to Case ' + defect.CaseID + ', not ' + input.caseId + '.'
+        );
+      }
+    }
+    var source = input.source || 'OwnerObserved';
+    if (PROPERTY_CONFIG.RECTIFICATION_SOURCES.indexOf(source) === -1) {
+      throw propertyError_('RECTIFICATION_EVENT_INVALID_SOURCE', 'Unknown Source: ' + source + '.');
+    }
+
+    var now = new Date().toISOString();
+    var rectificationEventId = generateRectificationEventId_();
+    var rectificationEvent = {
+      RectificationEventID: rectificationEventId,
+      CaseID: input.caseId,
+      DefectID: input.defectId || '',
+      EventType: input.eventType,
+      EventDate: coerceToIsoDateString_(input.eventDate || now),
+      EntryTime: input.entryTime || '',
+      ExitTime: input.exitTime || '',
+      ContractorCompany: input.contractorCompany || '',
+      ContractorPersonnel: input.contractorPersonnel || '',
+      Notes: input.notes || '',
+      Source: source,
+      CreatedAt: now
+    };
+
+    rectificationEventSheet_().appendRow(
+      objectToRowArray_(rectificationEvent, PROPERTY_SCHEMA.RectificationEvent.columns)
+    );
+
+    try {
+      appendCaseTimelineEntry_(
+        input.caseId, 'RECTIFICATION_EVENT_LOGGED', buildRectificationEventSummary_(rectificationEvent),
+        { relatedDefectId: input.defectId, triggeredBy: 'logRectificationEvent' }
+      );
+      publishPropertyEvent_(PROPERTY_EVENTS.RECTIFICATION_EVENT_LOGGED, propertyCase.PropertyID, null, {
+        caseId: input.caseId, rectificationEventId: rectificationEventId,
+        eventType: input.eventType, eventDate: rectificationEvent.EventDate
+      });
+    } catch (e) {
+      logDefectEnginePartialFailure_(
+        'logRectificationEvent',
+        'RectificationEvent ' + rectificationEventId + ' row was written; Timeline/Event publish failed.', e
+      );
+      throw e;
+    }
+
+    var result = { success: true, rectificationEventId: rectificationEventId, rectificationEvent: rectificationEvent };
+    if (input.clientRequestId) cacheDefectEngineCommandResult_(input.clientRequestId, result);
+    return result;
+  });
+}
+
+/**
+ * Logs a new Secondary Damage record. The system deliberately never
+ * infers legal responsibility — responsibleParty / dlpPrejudiceStatus /
+ * contractualBasis are all plain, neutral free-text fields, never
+ * computed or judged by this Command (task §六, Phase0 Audit §4.6).
+ *
+ * @param {Object} input {caseId, parentDefectId, rectificationEventId,
+ *   damageType, description, observedDate, observedBy, responsibleParty,
+ *   administrativeSubmissionRequired, separateSubmissionId,
+ *   dlpPrejudiceStatus, contractualBasis, clientRequestId}
+ */
+function logSecondaryDamage(input) {
+  return withDefectEngineLock_(function () {
+    input = input || {};
+
+    if (input.clientRequestId) {
+      var cached = getCachedDefectEngineCommandResult_(input.clientRequestId);
+      if (cached) return cached;
+    }
+
+    if (!input.caseId) {
+      throw propertyError_('SECONDARY_DAMAGE_INVALID_INPUT', 'caseId is required.');
+    }
+    var propertyCase = getPropertyCase(input.caseId);
+    if (!propertyCase) {
+      throw propertyError_('SECONDARY_DAMAGE_CASE_NOT_FOUND', 'No PropertyCase found for caseId ' + input.caseId + '.');
+    }
+    if (propertyCase.Status === 'Closed') {
+      throw propertyError_('SECONDARY_DAMAGE_CASE_CLOSED', 'Cannot log SecondaryDamage against a Closed Case (' + input.caseId + ').');
+    }
+    if (!input.description) {
+      throw propertyError_('SECONDARY_DAMAGE_INVALID_INPUT', 'description is required.');
+    }
+    var damageType = input.damageType || 'Other';
+    if (PROPERTY_CONFIG.SECONDARY_DAMAGE_TYPES.indexOf(damageType) === -1) {
+      throw propertyError_('SECONDARY_DAMAGE_INVALID_TYPE', 'Unknown DamageType: ' + damageType + '.');
+    }
+    if (input.parentDefectId) {
+      var defect = getDefectItem(input.parentDefectId);
+      if (!defect) {
+        throw propertyError_('SECONDARY_DAMAGE_DEFECT_NOT_FOUND', 'No DefectItem found for parentDefectId ' + input.parentDefectId + '.');
+      }
+      if (defect.CaseID !== input.caseId) {
+        throw propertyError_(
+          'SECONDARY_DAMAGE_DEFECT_CASE_MISMATCH',
+          'DefectItem ' + input.parentDefectId + ' belongs to Case ' + defect.CaseID + ', not ' + input.caseId + '.'
+        );
+      }
+    }
+    if (input.rectificationEventId && !getRectificationEvent(input.rectificationEventId)) {
+      throw propertyError_(
+        'SECONDARY_DAMAGE_RECTIFICATION_EVENT_NOT_FOUND',
+        'No RectificationEvent found for rectificationEventId ' + input.rectificationEventId + '.'
+      );
+    }
+
+    var now = new Date().toISOString();
+    var damageId = generateSecondaryDamageId_();
+    var damage = {
+      DamageID: damageId,
+      CaseID: input.caseId,
+      ParentDefectID: input.parentDefectId || '',
+      RectificationEventID: input.rectificationEventId || '',
+      DamageType: damageType,
+      Description: input.description,
+      ObservedDate: coerceToIsoDateString_(input.observedDate || now),
+      ObservedBy: input.observedBy || '',
+      ResponsibleParty: input.responsibleParty || '',
+      Status: 'Reported',
+      Resolution: '',
+      AdministrativeSubmissionRequired: !!input.administrativeSubmissionRequired,
+      SeparateSubmissionID: input.separateSubmissionId || '',
+      DlpPrejudiceStatus: input.dlpPrejudiceStatus || '',
+      ContractualBasis: input.contractualBasis || '',
+      CreatedAt: now,
+      UpdatedAt: now
+    };
+
+    secondaryDamageSheet_().appendRow(objectToRowArray_(damage, PROPERTY_SCHEMA.SecondaryDamage.columns));
+
+    try {
+      appendCaseTimelineEntry_(
+        input.caseId, 'SECONDARY_DAMAGE_LOGGED', 'Secondary damage (' + damageType + '): ' + input.description,
+        { relatedDefectId: input.parentDefectId, triggeredBy: 'logSecondaryDamage' }
+      );
+      publishPropertyEvent_(PROPERTY_EVENTS.SECONDARY_DAMAGE_LOGGED, propertyCase.PropertyID, null, {
+        caseId: input.caseId, damageId: damageId, damageType: damageType
+      });
+    } catch (e) {
+      logDefectEnginePartialFailure_(
+        'logSecondaryDamage', 'SecondaryDamage ' + damageId + ' row was written; Timeline/Event publish failed.', e
+      );
+      throw e;
+    }
+
+    var result = { success: true, damageId: damageId, damage: damage };
+    if (input.clientRequestId) cacheDefectEngineCommandResult_(input.clientRequestId, result);
+    return result;
+  });
+}
+
+/**
+ * Updates a SecondaryDamage's Status (and optionally Resolution). No
+ * transition guard — Reported/Acknowledged/Rectified/Disputed can
+ * legitimately move in more than one direction (e.g. Disputed back to
+ * Acknowledged if the developer later accepts responsibility), same
+ * reasoning as DeveloperStatus/OwnerVerificationStatus not having a
+ * strict transition map.
+ *
+ * @param {Object} input {damageId, status, resolution}
+ */
+function updateSecondaryDamageStatus(input) {
+  return withDefectEngineLock_(function () {
+    input = input || {};
+    if (!input.damageId) {
+      throw propertyError_('SECONDARY_DAMAGE_INVALID_INPUT', 'damageId is required.');
+    }
+    if (!input.status || PROPERTY_CONFIG.SECONDARY_DAMAGE_STATUSES.indexOf(input.status) === -1) {
+      throw propertyError_('SECONDARY_DAMAGE_INVALID_STATUS', 'Unknown Status: ' + input.status + '.');
+    }
+
+    var sheet = secondaryDamageSheet_();
+    var rowIndex = findRowIndexByFirstColumn_(sheet, input.damageId);
+    if (rowIndex === -1) {
+      throw propertyError_('SECONDARY_DAMAGE_NOT_FOUND', 'No SecondaryDamage found for damageId ' + input.damageId + '.');
+    }
+    var existing = readRowAsObject_(sheet, rowIndex, PROPERTY_SCHEMA.SecondaryDamage.columns);
+
+    var now = new Date().toISOString();
+    var fieldUpdates = { Status: input.status, UpdatedAt: now };
+    if (input.resolution !== undefined) {
+      fieldUpdates.Resolution = input.resolution;
+    }
+    updateRowFields_(sheet, rowIndex, PROPERTY_SCHEMA.SecondaryDamage.columns, fieldUpdates);
+
+    try {
+      appendCaseTimelineEntry_(
+        existing.CaseID, 'SECONDARY_DAMAGE_STATUS_UPDATED',
+        'Secondary damage status: ' + input.status + (input.resolution ? (' — ' + input.resolution) : ''),
+        { relatedDefectId: existing.ParentDefectID, triggeredBy: 'updateSecondaryDamageStatus' }
+      );
+      publishPropertyEvent_(PROPERTY_EVENTS.SECONDARY_DAMAGE_STATUS_UPDATED, null, null, {
+        caseId: existing.CaseID, damageId: input.damageId, status: input.status
+      });
+    } catch (e) {
+      logDefectEnginePartialFailure_(
+        'updateSecondaryDamageStatus',
+        'SecondaryDamage ' + input.damageId + ' Status was updated; Timeline/Event publish failed.', e
+      );
+      throw e;
+    }
+
+    return { success: true, damageId: input.damageId, status: input.status };
   });
 }

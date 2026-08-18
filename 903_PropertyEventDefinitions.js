@@ -65,7 +65,11 @@ var PROPERTY_EVENTS = Object.freeze({
   EVIDENCE_ATTACHED: 'EVIDENCE_ATTACHED',
   // Phase 6 (2026-08-17) — logCorrespondence / recordCorrespondenceResponse need these now.
   CORRESPONDENCE_LOGGED: 'CORRESPONDENCE_LOGGED',
-  CORRESPONDENCE_RESPONSE_RECORDED: 'CORRESPONDENCE_RESPONSE_RECORDED'
+  CORRESPONDENCE_RESPONSE_RECORDED: 'CORRESPONDENCE_RESPONSE_RECORDED',
+  // Phase 7 (2026-08-17).
+  RECTIFICATION_EVENT_LOGGED: 'RECTIFICATION_EVENT_LOGGED',
+  SECONDARY_DAMAGE_LOGGED: 'SECONDARY_DAMAGE_LOGGED',
+  SECONDARY_DAMAGE_STATUS_UPDATED: 'SECONDARY_DAMAGE_STATUS_UPDATED'
 });
 
 // Required payload fields per event type (Vertical Slice §4). Publishing
@@ -112,6 +116,9 @@ var PROPERTY_EVENT_REQUIRED_FIELDS = (function () {
   m[PROPERTY_EVENTS.EVIDENCE_ATTACHED] = ['evidenceId', 'evidenceType', 'relatedCaseId'];
   m[PROPERTY_EVENTS.CORRESPONDENCE_LOGGED] = ['caseId', 'correspondenceId', 'direction', 'subject'];
   m[PROPERTY_EVENTS.CORRESPONDENCE_RESPONSE_RECORDED] = ['caseId', 'correspondenceId', 'responseStatus'];
+  m[PROPERTY_EVENTS.RECTIFICATION_EVENT_LOGGED] = ['caseId', 'rectificationEventId', 'eventType', 'eventDate'];
+  m[PROPERTY_EVENTS.SECONDARY_DAMAGE_LOGGED] = ['caseId', 'damageId', 'damageType'];
+  m[PROPERTY_EVENTS.SECONDARY_DAMAGE_STATUS_UPDATED] = ['caseId', 'damageId', 'status'];
   return Object.freeze(m);
 })();
 
