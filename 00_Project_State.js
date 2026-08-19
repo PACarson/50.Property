@@ -10,21 +10,37 @@
 // PROJECT VERSION
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-//   Current Version : v1.3.1-flush-fix-and-backlog
+//   Current Version : v1.4.0-dlp-defect-engine-phase1-8
 //   Current Branch  : （待 CC 指定，建议 property-os/session1-obligation-engine）
 //   Blueprint 合规  : Universal Domain OS Blueprint ✓ | UEF v1.6 ✓
-//   ADR 状态        : ADR-P01, P02, P04, P05, P06, P07, P08, P10 APPROVED；
-//                     ADR-P03 RESERVED（非 Locked）；P09 未使用（跳号）
+//   ADR 状态        : ADR-P01, P02, P04, P05, P06, P07, P08, P10, P15,
+//                     P16, P17 APPROVED；ADR-P03 RESERVED（非 Locked）；
+//                     P09 未使用（跳号）
 //   Review 状态      : Architecture Review Approval GRANTED (2026-07-19)；
 //                     Foundation 层（900-903）APPROVED (2026-07-19)；
 //                     REVIEW-001 Production Readiness Audit
-//                     Conditional Go（00_Review_History.js）
-//   Runtime 代码     : Foundation（900-903）+ 912_ObligationEngine +
-//                     913_ObligationScheduler 全部完成，已部署到 CC
-//                     实际 GAS 项目并确认跑通。测试：99 个纯 GAS-native
-//                     测试（990-995），全部已对真实 GAS 专用测试
-//                     spreadsheet 跑过确认，99/99 通过。EventBus 仍是
-//                     Logger 占位（ADR-P07，刻意如此）
+//                     Conditional Go（00_Review_History.js）；
+//                     DLP Defect Engine Phase 0 Audit APPROVED
+//                     (2026-08-15/16，见独立 DlpDefectEngine_
+//                     VerticalSlice.md)
+//   Runtime 代码     : Foundation（900-903）+ 910_PropertyAssetEngine +
+//                     911_DocumentEngine（Evidence，最小范围）+
+//                     912_ObligationEngine + 913_ObligationScheduler +
+//                     918_DefectEngine（PropertyCase/DefectItem/
+//                     DailyProgressCheck/Correspondence/
+//                     RectificationEvent/SecondaryDamage/
+//                     PropertyCaseTimeline）+ 922_DashboardAdapter
+//                     （含 DLP Dashboard）+ 945/946 Operator Console，
+//                     全部完成，已部署到 CC 实际 GAS 项目并逐 Phase
+//                     确认跑通。测试：141 个纯 GAS-native 测试
+//                     （990-996）全数通过；918/911/922 的 DLP 新增
+//                     部分另有 210+ 项本地 GasShim 预检（含一次真实
+//                     抓到并修复的逻辑 bug，见 ADR-P15），逐 Phase
+//                     真实部署 smoke test 确认（Phase 5 含真实 Drive
+//                     文件/资料夹 URL）。EventBus 仍是 Logger 占位
+//                     （ADR-P07，刻意如此）。997_Tests_DefectEngine.js
+//                     （GAS-native 正式测试文件）尚未建立——Phase 11，
+//                     未开始。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -78,15 +94,33 @@
 //     这里不重复，property-os-tests/ 已不存在
 
 
+//   - 910_PropertyAssetEngine Runtime 完成并批准，真实 GAS 确认通过
+//     （不再是 IN PROGRESS，见下方新的 IN PROGRESS 内容）
+//   - DLP Defect Case & Rectification Tracking Vertical Slice，
+//     Phase 0-8 全部完成，逐 Phase 真实部署确认（细节见上方
+//     CHANGELOG 2026-08-17 条目、独立的
+//     DlpDefectEngine_VerticalSlice.md、00_ADR_Log.js ADR-P15/P16/P17）：
+//     - 911_DocumentEngine（Evidence，最小范围，Phase 5）
+//     - 918_DefectEngine（PropertyCase/DefectItem/DailyProgressCheck/
+//       Correspondence/RectificationEvent/SecondaryDamage/
+//       PropertyCaseTimeline，Phase 2-3-4-6-7）
+//     - 922_DashboardAdapter DLP Dashboard 新增（Phase 8）
+//     - Property 新增 DevelopmentName/UnitLabel（ADR-P17）
+
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // IN PROGRESS 开发中模块
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-//   - 910_PropertyAssetEngine Vertical Slice 交付，等待 Review
-//     Approval（比照 Obligation Engine 流程，但份量更轻——单一
-//     Aggregate，无 Rule/Occurrence 分裂、无 Scheduler）。两项
-//     [NEEDS CONFIRMATION]：PropertyType 枚举值、Address 用结构化
-//     VO 还是 doc1 原本的扁平字串。
+//   - DLP Defect Engine Phase 9-11：HtmlService Mobile Web Console
+//     （doGet() 入口，专案目前完全没有——现在唯一入口是 Sidebar，必须
+//     先打开 Google Sheet 才能叫出）、Sidebar 新增 DLP Tab、
+//     997_Tests_DefectEngine.js（GAS-native 正式测试）。尚未动笔——
+//     Phase 9/10 涉及具体 UI/版面这类主观决定，下次开始前先跟 CC
+//     谈清楚要长什么样，不是直接比照 Phase 1-8 后端模式动手写。
+//   - 待 CC 决定：Phase 4 真实 smoke test 用了真实 Property
+//     （PROP-mshs0wca-skrq）而非丢弃用测试 Property，产生的那笔真实
+//     Case/Daily Check 要保留还是清掉重新开始追踪。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -173,17 +207,24 @@
 // NEXT PRIORITY 下一步开发
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-//   顺序已由 CC 确认（ADR-P14 更新了排序）：
+//   顺序已由 CC 确认（DLP Defect Engine 插队到 914 之前——真实 DLP
+//   期限比 Finance Engine 更急迫，ADR-P15 记录了这个决定）：
 //   1. ✓ Test Plan 落地——完成，141 个纯 GAS-native 测试（990-996），
 //      已对真实 GAS 项目跑过确认，141/141 全数通过
 //   2. ✓ 910_PropertyAssetEngine——Runtime 完成，Review Approved，
 //      真实 GAS 确认通过
 //   3. ✓ 914_FinanceEngine——Vertical Slice APPROVED（ADR-P13）
-//   4. ⏸ 914_FinanceEngine Runtime——暂停（ADR-P14）
-//   5. ✅ Operator Console（922/945/946）已建好，逻辑面已自我检查
-//      ← 目前在此，待 CC 实际部署 + 打开来用
-//   6. CC 实战使用 1-2 周，收集真实回馈
-//   7. 依回馈决定下一步优先顺序（914 恢复 / Rental / Mortgage 等）
+//   4. ⏸ 914_FinanceEngine Runtime——暂停（ADR-P14），DLP Defect
+//      Engine 插队完成后仍未恢复
+//   5. ✓ Operator Console（922/945/946）已建好并实战使用
+//   6. ✓ DLP Defect Case & Rectification Tracking Vertical Slice
+//      Phase 0-8——完成，逐 Phase 真实部署确认（见上方 CHANGELOG）
+//   7. ← 目前在此：DLP Defect Engine Phase 9-11（Mobile Web Console +
+//      Sidebar DLP Tab + 997 GAS-native 测试），先跟 CC 谈 UI 要长
+//      什么样再动手
+//   8. 依 Phase 9-11 后的真实使用回馈，决定下一步（914 恢复 / Repair
+//      Cycle Domain Model 演进（ADR-P15 follow-up）/ Rental / Mortgage
+//      等）
 //
 //   Operator Console 部署步骤（CC 需要做的）：
 //   a. Apps Script 编辑器「+ → HTML」新增文件，命名 945_
@@ -221,6 +262,143 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+//   2026-08-17      DLP Defect Case & Rectification Tracking Vertical
+//                   Slice，Phase 0-8 全部完成并逐阶段部署确认，913 之后
+//                   最大一次真实 Runtime 新增。真实起因：CC 名下 Est8
+//                   Seputeh A-19-11 单位进入实际 DLP 流程（原始申报
+//                   140+ 项，13 Aug 2026 提交），不是练习案例。
+//
+//                   ★ Phase 0 Audit：完整读过 Constitution/ADR Log/
+//                   File Map/Business Rules/Domain Model/Project State/
+//                   Product Backlog/Review History 全文，加上 901/902/
+//                   903/910（全文）/912/913/922/945/946，才动笔设计。
+//                   发现 00_File_Map.js 早已预留 918_DefectEngine（VP/
+//                   Defect Liability Period 追踪）与 911_DocumentEngine
+//                   （Evidence 附件来源）两个号段，用途描述跟这次需求
+//                   几乎完全对上——不是新增模块，是把既有规划填上。
+//                   同时发现 publishPropertyEvent_ 目前只是 Logger 占位
+//                   （ADR-P07/P12 刻意设计），不是真正持久化、可查询的
+//                   Event Store——Timeline 因此不能靠"重放 EventBus"，
+//                   改为比照既有 ObligationHistory 的 append-only 模式，
+//                   新增专属的 PropertyCaseTimeline。
+//
+//                   ★ 关键决策（正式记入 ADR-P15/P16/P17，见
+//                   00_ADR_Log.js）：
+//                   (1) Case 模块不拆通用 Case Engine，单一
+//                   918_DefectEngine.js，PropertyCase.CaseType 留扩展口
+//                   （目前只有 'DLP'）——Property OS 自己的 Candidate
+//                   Pattern 纪律（两个独立案例才 promote 抽象），现在
+//                   只有一个真实 Case 类型，不做 Speculative Design。
+//                   (2) 911_DocumentEngine 从原定 Phase 3 提前实现，但
+//                   只做这次用得到的最小范围（Evidence 附件），不是
+//                   完整 Document Library。复用既有 DOC- 前缀。
+//                   (3) DefectItem.DeveloperStatus 与
+//                   OwnerVerificationStatus 严格独立，任一 Command 不得
+//                   写对方栏位。本地测试（GasShim）第一次跑就抓到一个
+//                   真实逻辑 bug——deriveDefectItemStatus_ 判断顺序错误，
+//                   导致 Developer 一旦 ClaimedCompleted，Owner 的
+//                   FailedVerification 判定会被总览 Status 吃掉，改判断
+//                   顺序后修复，随后在真实 GAS 上独立复现确认修复有效
+//                   （执行 log：Dev=ClaimedCompleted, Owner=
+//                   FailedVerification, Overall=InProgress，三者同时
+//                   成立）。过程中浮现一个已知限制：Failed 之后 Developer
+//                   重新宣称完成，OwnerVerificationStatus 不会自动重置
+//                   （因为两栏位独立的原则不能为了这个 edge case 破例），
+//                   CC 拍板正确解法是未来的 Repair Cycle / Verification
+//                   Cycle 概念（每次维修周期各自独立的 verification 结果），
+//                   这次不实现，正式记入 ADR-P15 作为 Domain Model
+//                   follow-up，不是现在就做。
+//
+//                   ★ Property 实体新增 DevelopmentName/UnitLabel（ADR-
+//                   P17）——真实数据核对（CC 提供的 Property OS 导出）
+//                   显示 PropertyName 现在填的是 "Est8 Seputeh"（发展
+//                   项目层级，无单位号），单位号只嵌在 AddressLine1 里。
+//                   两个新栏位 Additive 追加在 Property.columns 最后
+//                   （不可插入中间——ensureSheetSchema_ 逐位置比对既有
+//                   表头，插入中间会让后面所有栏位位置错位，false
+//                   positive drift）。真实 Properties 表因此需要一次性
+//                   手动加两个表头（AD1/AE1），CC 已完成并跑通
+//                   runAllPropertyAssetEngineTests(21/21)+
+//                   runAllPropertyOSTests(141/141)。
+//
+//                   ★ Phase 1-8 交付内容：
+//                   Phase 1  900/901/902/910 新增全部 DLP/Evidence 枚举、
+//                            8 张新表 Schema、8 个新 ID 前缀（DEFECT 复用
+//                            既有保留前缀，Evidence 复用 DOCUMENT 前缀）。
+//                   Phase 2/3 新文件 918_DefectEngine.js：PropertyCase+
+//                            DefectItem 生命周期，createPropertyCase/
+//                            addDefectItem/updateDefectItem/
+//                            recordDeveloperStatus/recordOwnerVerification/
+//                            closeDefectItem/reopenDefectItem/closeCase。
+//                   Phase 4  logDailyProgressCheck，30-60 秒快速记录，
+//                            Timeline 摘要区分有无 access 两种自然语句。
+//                   Phase 5  新文件 911_DocumentEngine.js：attachEvidence，
+//                            Drive Adapter 隔离在 saveEvidenceFile_ 一处
+//                            （ADR-P07/P11），资料夹结构 Property OS
+//                            Evidence/<CaseID>/<fileName>，真实 Drive 上
+//                            部署确认（真实资料夹/文件 URL，含真实上传
+//                            耗时约 6 秒 vs 纯 Sheet 操作约 1-1.3 秒的
+//                            timing 差异记录）。
+//                   Phase 6  logCorrespondence/recordCorrespondenceResponse
+//                            + addWorkingDays_（工作日计算，只放在 918，
+//                            不预先塞进 901 共用层，符合两个独立消费者
+//                            才 promote 的既有纪律）。用任务书本身的真实
+//                            案例验证：14 Aug 2026（五）+3 工作日=19 Aug
+//                            2026（三），跳过周末。NotedOnly 绝不自动
+//                            升级为 Answered。
+//                   Phase 7  logRectificationEvent（严格 append-only，
+//                            EventType 驱动，CC 拍板设计）+
+//                            logSecondaryDamage/updateSecondaryDamageStatus。
+//                            ResponsibleParty/DlpPrejudiceStatus/
+//                            ContractualBasis 全部中性文字栏位，系统不
+//                            做法律责任判断。
+//                   Phase 8  922_DashboardAdapter.js 新增 getDlpCaseDashboard/
+//                            getCaseTimeline/listDefectItemsForDashboard/
+//                            enrichPropertyCaseForDisplay_/
+//                            enrichDefectForDisplay_（既有文件纯新增，
+//                            没删改任何既有内容，getDashboardSnapshot/
+//                            getMonthlyExpenseSummary 回归测试另外重跑
+//                            确认无影响）。DlpEndDate 读 Property.
+//                            DefectExpiry，为空则用 VPDate+24个月估算
+//                            并标注 dlpEndDateIsEstimated。
+//
+//                   ★ 验证方式：每个 Phase 先用本地 GasShim（Node vm 加载
+//                   真实原始码，非纸上模拟）跑过（累计 210+ 项本地检查
+//                   全过，含上述那次真实抓到的 bug），CC 逐 Phase 部署
+//                   到真实 GAS 后跑 runAllPropertyOSTests 确认 141 项
+//                   无 regression，多个 Phase 附真实 execution log 核对
+//                   （Phase 2/3/4 两次独立重跑、Phase 5 真实 Drive URL）。
+//                   911 是专案第一次碰 DriveApp，GasShim 本身也第一次
+//                   加了 fake DriveApp/PropertiesService（僅存在本机，
+//                   不影响部署，.claspignore 本就排除 GasShim.js）。
+//                   MANUAL_VERIFICATION_CHECKLIST.md 逐 Phase 同步更新，
+//                   诚实区分"本地验证过"与"真实 GAS 已确认"两种状态，
+//                   不混为一谈。
+//
+//                   ★ 现状：Phase 1-8（数据模型→Case/Defect 生命周期→
+//                   Daily Check→Evidence→Correspondence→Rectification/
+//                   SecondaryDamage→Dashboard）全部完成并部署确认。
+//                   Phase 9-11（HtmlService Mobile Web Console、Sidebar
+//                   新分頁、GAS-native 997 测试文件、正式文档整理）
+//                   尚未开始——Phase 9/10 涉及具体 UI/版面等主观决定，
+//                   下一次开始前应先跟 CC 谈清楚要长什么样，不是直接
+//                   比照 Phase 1-8 的模式动手写。
+//
+//                   ★ 待处理事项：(1) Phase 4 真实 smoke test 用了 CC
+//                   的真实 Property（PROP-mshs0wca-skrq）而非丢弃用测试
+//                   Property，产生了至少一个真实 CASE-msw...
+//                   （连同 2 笔 DailyProgressCheck），尚未确认这是否
+//                   要保留为正式开始追踪的第一笔真实资料，还是要清掉
+//                   重新开始——CC 尚未回覆。(2) 00_Project_Constitution.js
+//                   §7 Data Ownership 表与 PropertyOS_DomainModel.md
+//                   的 ERD/Aggregate 清单需要补上这次新增的 7 个实体，
+//                   本次一并处理（见下方对应 CHANGELOG 位置与档案本身）。
+//                   (3) 新增 DlpDefectEngine_VerticalSlice.md，比照
+//                   ObligationEngine_VerticalSlice.md/
+//                   PropertyAssetEngine_VerticalSlice.md 既有格式，
+//                   整理这次 Phase 0-8 的完整设计与决策记录，供下次
+//                   session 或其他人不需要重读整段对话就能接手。
 //
 //   2026-07-29 (p)  CC 真实使用 Operator Console 的第一手回馈——
 //                   ADR-P14 的目标（Real Usage Feedback）第一天就

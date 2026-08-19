@@ -329,7 +329,9 @@
 //   ─────────────────────────────────────────────────────
 //   Property                      Property Asset Engine
 //   Loan / Mortgage 条款           Mortgage Engine
-//   Document + Metadata           Document Engine
+//   Document + Metadata           Document Engine（Evidence 已实作，
+//                                 最小范围——见 918 一併說明；完整
+//                                 PII 文件库/全文检索仍未做）
 //   ObligationRules/Occurrences/  Obligation Engine（ADR-P01：唯一真相来源，
 //     History                     含 Mortgage/Electricity/Water/Maintenance
 //                                 Fee/Sinking Fund/Quit Rent/Assessment/
@@ -343,15 +345,34 @@
 //                                 ADR-P01 明文禁止"第二份 Schedule"）
 //   Tenant / Lease                Rental Engine
 //   Maintenance Record            Maintenance Engine
-//   Defect / VP Record            Defect Engine
+//   PropertyCase / DefectItem /   Defect Engine（918，Runtime Complete
+//     DailyProgressCheck /        2026-08-17）。PropertyCase 是
+//     Correspondence /            Aggregate Root，其余为其内部 Entity，
+//     RectificationEvent /        只能透过 PropertyCase 的 Command 建立，
+//     SecondaryDamage /           不可脱离独立存在（比照
+//     PropertyCaseTimeline        ObligationOccurrence 之于
+//                                 ObligationRule 的既有模式）。
+//                                 DeveloperStatus 与
+//                                 OwnerVerificationStatus 严格独立，
+//                                 见 ADR-P15。
 //   Renovation Record             Renovation Engine
 //   Insurance Policy              Insurance Engine
 //   Tax Record                    Tax Engine
-//   Dashboard 聚合视图              （无 Truth 表，纯 Projection）
+//   Dashboard 聚合视图              （无 Truth 表，纯 Projection，含 DLP
+//                                 Case Dashboard，922，Phase 8）
 //   Knowledge Graph                （无 Truth 表，由事件重建的索引）
 //   AI Insight / Score / 建议      （无 Truth 表，advisory-only，见 P5）
-//   Audit Trail                    EventBus 持久化事件日志 ＋
-//                                 ObligationHistory（域内投影，append-only）
+//   Audit Trail                    ObligationHistory（域内投影，
+//                                 append-only）＋ PropertyCaseTimeline
+//                                 （918 的同类实作，Phase 0-8 期间新增
+//                                 第二个独立案例——2026-08-17 订正：
+//                                 "EventBus 持久化事件日志"这个描述
+//                                 不准确，publishPropertyEvent_ 目前
+//                                 只是 Logger 占位（ADR-P07/P12 刻意
+//                                 设计），不是真正可查询的持久化存储；
+//                                 真正的 Audit Trail 靠这两个
+//                                 append-only 域内投影表，不是 EventBus
+//                                 本身）
 //
 //   规则：一个 Entity 只能有一个 owning Engine 写入；其余 Engine
 //   只能透过事件订阅或 Connector Query 读取，不得直写。

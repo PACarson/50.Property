@@ -16,29 +16,60 @@
  *   - PropertyOS_DomainModel.md           — 跨 Engine 共用领域模型
  *   - ObligationEngine_VerticalSlice.md   — 912/913 完整 Vertical Slice
  *
- * ★ CURRENT DEPLOYMENT MANIFEST（2026-07-29，每次同步真实 GAS 项目时
+ * ★ CURRENT DEPLOYMENT MANIFEST（2026-08-17，每次同步真实 GAS 项目时
  * 核对这份清单，逐一比对——散落在各次对话记录里的"这个文件改了"很
  * 容易漏掉，这份清单才是当下应该存在于 GAS 项目里的完整文件集）：
  *
- *   00_ADR_Log.js
- *   00_Business_Rules.js
- *   00_File_Map.js（本文件，纯文档，不影响 Runtime 但建议一并同步）
- *   00_Project_Constitution.js
- *   00_Project_State.js
- *   00_Review_History.js
- *   900_PropertyConfig.js
+ *   实际推送到 GAS 的文件（.claspignore 排除治理 .js/.md 与 Node-only
+ *   测试文件，见该文件本身）：
+ *   900_PropertyConfig.js            ← 含全部 DLP/Evidence 枚举、8 张
+ *                                       新表 SHEET_NAMES、8 个新
+ *                                       ID_PREFIXES（DEFECT 复用既有
+ *                                       保留前缀，Evidence 复用
+ *                                       DOCUMENT 前缀）
  *   901_PropertySchema.js            ← ensureSheetSchema_ 现有
- *                                       per-execution 缓存（见下方
- *                                       CHANGELOG，修真实执行超时用）
- *   902_PropertyIdentity.js          ← 含 generatePropertyId_（910 新增）
- *   903_PropertyEventDefinitions.js  ← 含 4 个 PROPERTY_* Event +
- *                                       PAYMENT_COMPLETED/REVERSED 的
- *                                       category 栏位（两次不同批次
- *                                       新增，都在这份里）
- *   910_PropertyAssetEngine.js
+ *                                       per-execution 缓存；Property
+ *                                       新增 DevelopmentName/UnitLabel
+ *                                       （ADR-P17，Additive 追加在
+ *                                       columns 最后）；8 张 DLP/
+ *                                       Evidence 新表 Schema +
+ *                                       initDefectEngineSchema_/
+ *                                       initDocumentEngineSchema_
+ *   902_PropertyIdentity.js          ← 含 generatePropertyId_（910）+
+ *                                       8 个 DLP/Evidence 用途的
+ *                                       generateXId_
+ *   903_PropertyEventDefinitions.js  ← 含 Property/Obligation 既有
+ *                                       事件 + 12 个 DLP/Evidence 新
+ *                                       事件（逐 Phase 新增，非一次性
+ *                                       预先列出）
+ *   910_PropertyAssetEngine.js       ← createProperty/updateProperty
+ *                                       开放 DevelopmentName/UnitLabel
+ *                                       （ADR-P17；updateProperty 本身
+ *                                       用 denylist 不用 allowlist，
+ *                                       不需要改逻辑）
+ *   911_DocumentEngine.js            ← 新文件（Phase 5，2026-08-17）。
+ *                                       Evidence 最小范围，非完整
+ *                                       Document Library。Drive
+ *                                       Adapter 隔离在
+ *                                       saveEvidenceFile_ 一处
  *   912_ObligationEngine.js          ← recordPayment/reversePayment 的
  *                                       Event Payload 含 category
  *   913_ObligationScheduler.js
+ *   918_DefectEngine.js              ← 新文件（Phase 2-3-4-6-7，
+ *                                       2026-08-17）。PropertyCase +
+ *                                       DefectItem + DailyProgressCheck
+ *                                       + Correspondence +
+ *                                       RectificationEvent +
+ *                                       SecondaryDamage +
+ *                                       PropertyCaseTimeline 全部
+ *                                       Command/Query
+ *   922_DashboardAdapter.js          ← Phase 8（2026-08-17）新增
+ *                                       getDlpCaseDashboard/
+ *                                       getCaseTimeline/
+ *                                       listDefectItemsForDashboard，
+ *                                       既有 Obligation 相关函式未动
+ *   945_OperatorConsole.html
+ *   946_OperatorConsoleServer.js
  *   990_TestKit.js
  *   991_Tests_ObligationEngine.js
  *   992_Tests_PureLogic.js
@@ -47,9 +78,21 @@
  *   995_RunAllTests.js
  *   996_Tests_PropertyAssetEngine.js
  *
- *   （共 20 个 .js 文件。若真实 GAS 专案的文件数量或任一文件内容与此
- *   不符，先同步再跑测试——大部分"莫名其妙的 undefined"报错都是
- *   这里没对齐，不是逻辑真的错了。）
+ *   （共 19 个 .js/.html 文件推送到真实 GAS。997_Tests_DefectEngine.js
+ *   ——DLP 新增部分的正式 GAS-native 测试——尚未建立，Phase 11，未开始；
+ *   目前 DLP 相关验证是本地 GasShim 预检 + CC 逐 Phase 真实部署 smoke
+ *   test，非正式测试套件的一部分，见 MANUAL_VERIFICATION_CHECKLIST.md。
+ *   若真实 GAS 专案的文件数量或任一文件内容与此不符，先同步再跑
+ *   测试——大部分"莫名其妙的 undefined"报错都是这里没对齐，不是逻辑
+ *   真的错了。）
+ *
+ *   纯治理文件（.claspignore 排除，不推送到 GAS，仅供参考/审计）：
+ *   00_ADR_Log.js / 00_Business_Rules.js / 00_File_Map.js（本文件）/
+ *   00_Product_Backlog.js / 00_Project_Constitution.js /
+ *   00_Project_State.js / 00_Review_History.js /
+ *   DlpDefectEngine_VerticalSlice.md（新，Phase 0-8 完整设计记录）/
+ *   MANUAL_VERIFICATION_CHECKLIST.md / ObligationEngine_VerticalSlice.md /
+ *   PropertyAssetEngine_VerticalSlice.md / PropertyOS_DomainModel.md
  *
  * Foundation 层（900-903）Runtime 已完成并批准（2026-07-19）。903 的
  * publishPropertyEvent_() 是 ADR-P07 的 Infrastructure Adapter，其
@@ -201,11 +244,23 @@
 //   就有的 PROPERTY_NOT_SOLD 检查即可。待 CC 对真实 GAS 项目实际跑
 //   一次确认（TECH DEBT）。
 
-// 911_DocumentEngine
-// Purpose: Document Library + Metadata；Evidence 附件来源
-// Dependencies: 901, 902, 903；未来依赖 945_DocumentImportAdapter
-// Called By: 912（Evidence）, 930_PropertyKnowledgeGraph（Future）
-// Status: Planned — Phase 3
+// 911_DocumentEngine  ★ Runtime Complete (minimal scope)
+// Purpose: Evidence 附件——DLP Defect Case Vertical Slice 需要的最小
+//   范围（attachEvidence/getEvidence/listEvidenceForCase/
+//   listEvidenceForDefect），不是原先设想的完整 Document Library（PII
+//   文件、全文检索等仍未做，未来若真的要做完整版，从这里长出去，
+//   不需要重新命名或换 ID 前缀）。Drive Adapter 隔离在
+//   saveEvidenceFile_ 一处（ADR-P07/P11），资料夹结构 Property OS
+//   Evidence/<CaseID>/<fileName>。
+// Dependencies: 901, 902, 903, 918（caseExists_/defectItemExists_/
+//   getDefectItem/appendCaseTimelineEntry_ — 单向依赖，918 不反过来
+//   呼叫 911）
+// Called By: 918（透过 UI/Console 层协同使用，非直接函式呼叫）,
+//   930_PropertyKnowledgeGraph（Future）
+// Status: ✅ Runtime Complete，最小范围 (2026-08-17, Phase 5)。真实
+//   Drive 上部署确认（真实资料夹/文件 URL，见 MANUAL_VERIFICATION_
+//   CHECKLIST.md）。原定的完整 Document Library（PII、全文检索）仍是
+//   Planned，未开始。
 
 // 912_ObligationEngine  ★ 核心新模块 — Runtime Complete
 // Purpose: ADR-P01 之 Single Source of Truth 实作。七个 Command
@@ -272,10 +327,29 @@
 // Dependencies: 901, 902, 903, 910
 // Status: Planned — Phase 2
 
-// 918_DefectEngine (VP/Defect)
-// Purpose: Defect Liability Period 追踪
-// Dependencies: 901, 902, 903, 910, 911
-// Status: Planned — Phase 3
+// 918_DefectEngine (VP/Defect)  ★ 核心新模块 — Runtime Complete (Phase 1-8)
+// Purpose: DLP Defect Case & Rectification Tracking——完整 Case→
+//   DefectItem→DailyProgressCheck/Correspondence/RectificationEvent/
+//   SecondaryDamage→PropertyCaseTimeline 生命周期。ADR-P15 记录了不拆
+//   通用 Case Engine 的决定：PropertyCase.CaseType 目前只有 'DLP'，
+//   留扩展口但不预先做 Speculative Design。DeveloperStatus 与
+//   OwnerVerificationStatus 严格独立（ADR-P15），DefectItem.Status
+//   透过 deriveDefectItemStatus_ 从两者衍生（Lazy Computation），
+//   Closed 边界只有 closeDefectItem/reopenDefectItem 能跨越。
+// Dependencies: 901, 902, 903, 910（propertyExists_/getProperty，
+//   Runtime→Runtime，比照 912 依赖 910 的既有模式）
+// Called By: 911（caseExists_/defectItemExists_/getDefectItem/
+//   appendCaseTimelineEntry_ 反向被呼叫）, 922（getCaseTimeline 透过
+//   propertyCaseTimelineSheet_ 私有函式直接呼叫，比照 922 原本呼叫
+//   912 私有函式的既有模式）
+// Status: ✅ Runtime Complete，Phase 1-8 (2026-08-17)。真实 GAS 部署
+//   逐 Phase 确认（细节见 00_Project_State.js CHANGELOG、
+//   DlpDefectEngine_VerticalSlice.md）。Phase 9-11（Mobile Web
+//   Console、Sidebar DLP Tab、997_Tests_DefectEngine.js 正式 GAS-
+//   native 测试）未开始。已知 Domain Model limitation（非 bug，
+//   ADR-P15）：OwnerVerificationStatus 目前是 DefectItem 上的单一
+//   栏位，未来若要正确处理"Failed 之后 Developer 重新宣称完成"这种
+//   情况，需要 Repair Cycle / Verification Cycle 概念，这次没做。
 
 // 919_RenovationEngine
 // Purpose: Quotation/Budget/Timeline/Progress
@@ -289,11 +363,19 @@
 // Purpose: RPGT/Rental Income Tax/Tax Summary（输出须标注非专业税务意见）
 // Status: Planned — Phase 3
 
-// 922_DashboardEngine
+// 922_DashboardAdapter  ★ Runtime Complete（文件名与原规划的
+//   "922_DashboardEngine" 不同——ADR-P14 实际建立时定名
+//   922_DashboardAdapter.js，purpose 跟这里原本的规划相符，只是
+//   filename 当时没同步回这份 File Map，一并订正）
 // Purpose: 纯 Projection/Query 组合层，不拥有任何 Truth 表
-// Dependencies: 910, 912, 914, 915, 916, 917
-// Called By: Telegram Layer, 944_PropertyTelegramCommands
-// Status: Planned — Phase 1（基础版）
+// Dependencies: 910, 912, 918（getDlpCaseDashboard 等 DLP 新增部分）
+// Called By: 945/946 Operator Console
+// Status: ✅ Runtime Complete。Obligation 相关部分 (ADR-P14,
+//   2026-07-29)；DLP Dashboard 部分 (Phase 8, 2026-08-17) —
+//   getDlpCaseDashboard/getCaseTimeline/listDefectItemsForDashboard/
+//   enrichPropertyCaseForDisplay_/enrichDefectForDisplay_/
+//   isRectificationEventUpcoming_。914/915/916/917 尚未建，届时若
+//   要加对应 Dashboard 数据，比照同一组合模式扩充，不需要重新设计。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -359,21 +441,42 @@
 // 944_PropertyTelegramCommands
 // Purpose: /property_due [week|month]、/property_paid <category>
 //   <args> 指令解析与转发
-// Dependencies: 912_ObligationEngine, 922_DashboardEngine
+// Dependencies: 912_ObligationEngine, 922_DashboardAdapter
 // Called By: Telegram Layer（共用路由器）
 // Status: Planned — Phase 1
 
-// 945_DocumentImportAdapter
+// ⚠ 号码冲突记录（2026-08-17 发现，订正）：945/946 原本规划给下面两个
+// Deferred 概念，但 Operator Console（945_OperatorConsole.html /
+// 946_OperatorConsoleServer.js）实际建立时占用了这两个号，当时没有
+// 同步回这份 File Map。这两个 Deferred 概念本身没有变，等真的要做
+// 时需要挑其他空号（例如 947+ 或 94x 里其他未占用的），不是现在的
+// 待办，先如实记录冲突存在。
+
+// 945_DocumentImportAdapter（号码待重新分配，见上方冲突说明）
 // Purpose: [ADR-P05] 未来 OCR/Email/PDF 账单摄入，统一转换为
 //   UTILITY_BILL_RECEIVED 事件 → 912 消费转为 OBLIGATION_UPDATED；
 //   不主动 Poll 任何外部系统（Manual Input/Email OCR/PDF OCR/API/
 //   Import 皆汇入同一事件管道）
 // Status: Deferred — Phase 5（预留接口，不实作）
 
-// 946_BankReconciliationAdapter
+// 946_BankReconciliationAdapter（号码待重新分配，见上方冲突说明）
 // Purpose: [ADR-P05] 未来银行对账，同样汇入 UTILITY_BILL_RECEIVED
 //   管道，不主动 Poll
 // Status: Deferred — Phase 5
+
+// 945_OperatorConsole.html + 946_OperatorConsoleServer.js
+//   ★ 实际部署的 945/946（Runtime Complete）
+// Purpose: HtmlService Sidebar，Tab 式单页应用，透过
+//   google.script.run.withSuccessHandler() 呼叫 946 的 console_* thin
+//   wrapper（console_wrap_ 统一 try/catch），业务逻辑 0% 留在这两个
+//   文件里，全部转发给 Domain 层（910/912/918/922）。ADR-P14 建立。
+// Dependencies: 910, 912, 918（透过后续 DLP Tab，尚未加）, 922
+// Status: ✅ Runtime Complete，实战使用中 (2026-07-29 起)。DLP 专属
+//   Tab（Phase 9-10）尚未加入，目前只有 Obligation/Property 相关
+//   Tab。doGet() Web App 入口尚不存在——现在唯一 UI 入口必须先打开
+//   Google Sheet 才能叫出这个 Sidebar，手机上无法直接开网址进入
+//   （task 明确要的 Mobile Web Console 需要另外的 doGet()，Phase
+//   9-10 尚未开始）。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
