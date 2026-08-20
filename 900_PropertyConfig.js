@@ -239,6 +239,34 @@ var PROPERTY_CONFIG = Object.freeze({
     TIMELINE_ENTRY: 'TLE'
     // [NEEDS CONFIRMATION — Constitution §6] format not yet cross-checked
     // against Reminder OS / Inventory OS's actual existing ID scheme.
-  })
+  }),
+
+  // ─────────────────────────────────────────────────────────────────
+  // Mobile Console (Phase 9/10) — MVP Configuration, NOT Domain Model.
+  // Full rationale: DlpMobileConsole_UIContract.md §9.1/§9.2
+  // (CC Final Approval 2026-08-19). Both keys are read only by
+  // 947_DlpConsoleServer.js — 918/911/922 remain unaware they exist.
+  // ─────────────────────────────────────────────────────────────────
+
+  // UI/Operator Context only — NOT Case Entity data, NOT Truth Layer.
+  // Domain Logic must never treat this as the canonical source of "the"
+  // Case; every 918/911/922 call still takes caseId explicitly exactly
+  // as before. Exists purely so Mobile Console's bootstrap step has a
+  // caseId to start from without a Case Selector UI. Deliberately NOT
+  // paired with a new listActiveCases() Query — seeing a real second
+  // Case is the trigger for building that, not this config existing.
+  // REMOVE this key once a real Case Selector / listActiveCases()
+  // exists.
+  // [NEEDS CONFIRMATION] placeholder below — replace with the real
+  // active PropertyCases row's CaseID (format: CASE-<ts36>-<rand4>,
+  // see 902_PropertyIdentity.js generateCaseId_) before deploying 948.
+  ACTIVE_DLP_CASE_ID: 'CASE-REPLACE-WITH-REAL-ID',
+
+  // Single-user MVP identity source for DailyProgressCheck.CheckedBy
+  // auto-fill (Mobile Console). Config today, swappable for a real
+  // Identity Provider later without any change to the UI Contract, the
+  // dlp_logDailyCheck wrapper, or the CheckedBy field in the Truth
+  // Layer itself.
+  OPERATOR_NAME: 'CC'
 
 });

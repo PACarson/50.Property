@@ -1,0 +1,522 @@
+<!--
+  PROPERTY OS — 948_MobileConsole.html
+  DLP Mobile Console (Phase 9/10) — standalone doGet() Web App page.
+
+  Every write here goes through google.script.run to a dlp_* wrapper in
+  947_DlpConsoleServer.js, which delegates to the real 918/911 Command —
+  this file contains zero business logic, same boundary 945 already
+  respects for the Sidebar. Full design contract:
+  DlpMobileConsole_UIContract.md (CC Final Approval 2026-08-19).
+
+  Scope, per Contract §1/§9 (final approval): Daily Check is the only
+  write surface. Case Overview is read-only (Dashboard summary + Defect
+  List + Timeline) — no Correspondence, no Secondary Damage, not even
+  read-only. Keep it that way; don't grow this into a full Property OS
+  Dashboard without a real usage-driven reason to.
+-->
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size: 15px;
+    color: #202124;
+    margin: 0;
+    padding: 0;
+    background: #f8f9fa;
+  }
+  #topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+    padding: 10px 8px 10px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  #topbarTitle { font-size: 14px; font-weight: 600; }
+  #menuBtn {
+    background: none; border: none; font-size: 22px; color: #5f6368;
+    cursor: pointer; padding: 6px 12px; min-height: 44px; min-width: 44px;
+  }
+  .view { display: none; padding: 14px; }
+  .view.active { display: block; }
+  h2 { font-size: 17px; margin: 0 0 14px 0; }
+  h3 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+    color: #5f6368; margin: 18px 0 8px 2px;
+  }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; color: #5f6368; margin-bottom: 5px; }
+  textarea, input[type=text], input[type=datetime-local] {
+    width: 100%; padding: 10px; border: 1px solid #dadce0; border-radius: 8px;
+    font-size: 15px; background: #fff; font-family: inherit;
+  }
+  textarea { min-height: 56px; resize: vertical; }
+  .check-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 4px; min-height: 48px;
+    border-bottom: 1px solid #f1f3f4;
+    cursor: pointer;
+  }
+  .check-row input[type=checkbox] { width: 22px; height: 22px; flex-shrink: 0; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .chip {
+    padding: 6px 12px; border-radius: 14px; border: 1px solid #dadce0;
+    background: #fff; font-size: 12px; color: #5f6368; cursor: pointer;
+  }
+  .chip.selected { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; }
+  .datetime-display { font-size: 13px; color: #5f6368; margin-bottom: 18px; cursor: pointer; }
+  .datetime-display .edit-hint { color: #1a73e8; text-decoration: underline; }
+  .btn-primary {
+    width: 100%; min-height: 52px; border: none; border-radius: 10px;
+    background: #1a73e8; color: #fff; font-size: 16px; font-weight: 600;
+    cursor: pointer; margin-top: 10px;
+  }
+  .btn-primary:disabled { opacity: .5; }
+  .btn-secondary {
+    width: 100%; min-height: 48px; border: 1px solid #dadce0; border-radius: 10px;
+    background: #fff; color: #1a73e8; font-size: 15px; font-weight: 600;
+    cursor: pointer; margin-top: 10px;
+  }
+  .saved-state { text-align: center; padding: 34px 10px 10px; }
+  .saved-check { font-size: 42px; color: #188038; line-height: 1; }
+  .saved-title { font-size: 18px; font-weight: 600; margin: 12px 0 4px; }
+  .saved-time { color: #5f6368; font-size: 13px; margin-bottom: 26px; }
+  .back-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .back-btn {
+    background: none; border: none; font-size: 20px; color: #1a73e8;
+    cursor: pointer; padding: 4px 10px; min-height: 44px;
+  }
+  .card {
+    background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+    padding: 12px; margin-bottom: 8px;
+  }
+  .card-title { font-weight: 600; font-size: 14px; }
+  .card-sub { color: #5f6368; font-size: 12px; margin-top: 6px; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .badge { font-size: 10px; padding: 3px 8px; border-radius: 10px; background: #f1f3f4; color: #5f6368; }
+  .summary-box { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 4px 14px; }
+  .summary-line {
+    display: flex; justify-content: space-between; padding: 9px 0;
+    font-size: 13px; border-bottom: 1px solid #f1f3f4;
+  }
+  .summary-line:last-child { border-bottom: none; }
+  .timeline-item { padding: 8px 2px; border-bottom: 1px solid #f1f3f4; font-size: 13px; }
+  .timeline-item .t-sub { color: #9aa0a6; font-size: 11px; margin-top: 2px; }
+  .empty { color: #9aa0a6; font-size: 13px; padding: 10px 2px; }
+  .loading { text-align: center; color: #9aa0a6; padding: 50px 20px; font-size: 13px; }
+  .error-box {
+    background: #fce8e6; border: 1px solid #d93025; border-radius: 8px;
+    padding: 14px; color: #d93025; font-size: 13px; margin: 14px;
+  }
+  .toast {
+    position: fixed; bottom: 14px; left: 14px; right: 14px;
+    background: #202124; color: #fff; padding: 12px 16px; border-radius: 8px;
+    font-size: 13px; text-align: center; z-index: 100; display: none;
+  }
+  .toast.error { background: #d93025; }
+  #evidenceFileInput { display: none; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div id="topbarTitle">Loading…</div>
+  <button id="menuBtn" aria-label="Case Overview">☰</button>
+</div>
+
+<div id="initLoading" class="loading">Loading…</div>
+<div id="initError"></div>
+
+<div id="view-dailyCheck" class="view">
+
+  <div id="dailyCheckForm">
+    <h2>Daily Check</h2>
+
+    <div class="datetime-display" id="dtDisplay">
+      <span id="dtText">—</span> <span class="edit-hint">(tap to edit)</span>
+    </div>
+    <input type="datetime-local" id="dc_dateTime" style="display:none">
+
+    <label class="check-row"><input type="checkbox" id="dc_access"><span>Access Observed</span></label>
+    <label class="check-row"><input type="checkbox" id="dc_contractor"><span>Contractor Observed</span></label>
+    <label class="check-row"><input type="checkbox" id="dc_devRep"><span>Developer Rep Observed</span></label>
+
+    <div class="field" style="margin-top:18px">
+      <label>Work Observed (optional)</label>
+      <textarea id="dc_workObserved"></textarea>
+    </div>
+
+    <div class="field">
+      <label>General Status (optional)</label>
+      <div class="chips" id="statusChips">
+        <div class="chip" data-value="On Track">On Track</div>
+        <div class="chip" data-value="Delayed">Delayed</div>
+        <div class="chip" data-value="No Access">No Access</div>
+      </div>
+      <input type="text" id="dc_generalStatus" placeholder="Or type your own">
+    </div>
+
+    <div class="field">
+      <label>Notes (optional)</label>
+      <textarea id="dc_notes"></textarea>
+    </div>
+
+    <button class="btn-primary" id="saveCheckBtn" disabled>SAVE CHECK</button>
+  </div>
+
+  <div id="dailyCheckSaved" class="saved-state" style="display:none">
+    <div class="saved-check">✓</div>
+    <div class="saved-title">Check Saved</div>
+    <div class="saved-time" id="savedTime"></div>
+    <button class="btn-secondary" id="addEvidenceBtn">+ Add Photo Evidence</button>
+    <button class="btn-secondary" id="doneBtn">Done</button>
+    <div id="evidenceStatus" style="margin-top:16px;font-size:13px;color:#5f6368"></div>
+  </div>
+
+  <input type="file" id="evidenceFileInput" accept="image/*" capture="environment">
+</div>
+
+<div id="view-overview" class="view">
+  <div class="back-row">
+    <button class="back-btn" id="backBtn" aria-label="Back">←</button>
+    <h2 style="margin:0">Case Overview</h2>
+  </div>
+  <div id="overviewLoading" class="loading">Loading…</div>
+  <div id="overviewContent" style="display:none">
+    <div class="summary-box">
+      <div class="summary-line"><span>Status</span><span id="ov_status">—</span></div>
+      <div class="summary-line"><span>Open</span><span id="ov_open">—</span></div>
+      <div class="summary-line"><span>Pending Verification</span><span id="ov_pending">—</span></div>
+      <div class="summary-line"><span>Verified</span><span id="ov_verified">—</span></div>
+      <div class="summary-line"><span>Closed</span><span id="ov_closed">—</span></div>
+    </div>
+    <h3>Defect List</h3>
+    <div id="ov_defectList"></div>
+    <h3>Recent Timeline</h3>
+    <div id="ov_timeline"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var state = {
+  caseId: null,
+  lastCheckId: null,
+  saveClientRequestId: null,
+  bootstrapped: false
+};
+
+document.addEventListener('DOMContentLoaded', init);
+
+function init() {
+  setupDailyCheckForm();
+  setupEvidenceFlow();
+  setupNav();
+  loadBootstrap();
+}
+
+// ─── Bootstrap ─────────────────────────────────────────────────────
+
+function loadBootstrap() {
+  google.script.run
+    .withSuccessHandler(function (res) {
+      document.getElementById('initLoading').style.display = 'none';
+      if (!res.success) { showInitError_(res.error); return; }
+
+      state.caseId = res.data.caseId;
+      state.bootstrapped = true;
+
+      document.getElementById('topbarTitle').textContent =
+        (res.data.propertyName || 'Property') + (res.data.unitLabel ? ' · ' + res.data.unitLabel : '');
+
+      var now = new Date(res.data.nowIso);
+      document.getElementById('dtText').textContent = formatDateTimeDisplay_(now);
+      document.getElementById('dc_dateTime').value = toDatetimeLocalValue_(now);
+
+      document.getElementById('view-dailyCheck').classList.add('active');
+      document.getElementById('saveCheckBtn').disabled = false;
+    })
+    .withFailureHandler(function (err) {
+      document.getElementById('initLoading').style.display = 'none';
+      showInitError_(err.message);
+    })
+    .dlp_getMobileBootstrap();
+}
+
+function showInitError_(msg) {
+  var box = document.getElementById('initError');
+  box.className = 'error-box';
+  box.textContent = 'Could not load: ' + msg;
+}
+
+// ─── Daily Check form ──────────────────────────────────────────────
+
+function setupDailyCheckForm() {
+  document.getElementById('dtDisplay').addEventListener('click', function () {
+    this.style.display = 'none';
+    document.getElementById('dc_dateTime').style.display = 'block';
+  });
+
+  document.querySelectorAll('.chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      document.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('selected'); });
+      chip.classList.add('selected');
+      document.getElementById('dc_generalStatus').value = chip.dataset.value;
+    });
+  });
+
+  document.getElementById('saveCheckBtn').addEventListener('click', submitDailyCheck);
+  document.getElementById('doneBtn').addEventListener('click', resetDailyCheckForm);
+}
+
+function submitDailyCheck() {
+  if (!state.bootstrapped) return;
+  var btn = document.getElementById('saveCheckBtn');
+  btn.disabled = true;
+
+  // Reused across retries of THIS attempt so a flaky connection can't
+  // create a duplicate row (Contract §8) — cleared only after success.
+  if (!state.saveClientRequestId) state.saveClientRequestId = generateClientRequestId_();
+
+  var dtInput = document.getElementById('dc_dateTime');
+  var dtWasEdited = dtInput.style.display !== 'none';
+  var input = {
+    dateTime: dtWasEdited && dtInput.value ? new Date(dtInput.value).toISOString() : undefined,
+    accessObserved: document.getElementById('dc_access').checked,
+    contractorObserved: document.getElementById('dc_contractor').checked,
+    developerRepresentativeObserved: document.getElementById('dc_devRep').checked,
+    workObserved: document.getElementById('dc_workObserved').value,
+    generalStatus: document.getElementById('dc_generalStatus').value,
+    notes: document.getElementById('dc_notes').value,
+    clientRequestId: state.saveClientRequestId
+  };
+
+  google.script.run
+    .withSuccessHandler(function (res) {
+      btn.disabled = false;
+      if (!res.success) { showToast(res.error, true); return; }
+      state.lastCheckId = res.data.checkId;
+      state.saveClientRequestId = null; // next check gets a fresh id
+      showSavedState_(res.data.dailyCheck);
+    })
+    .withFailureHandler(function (err) {
+      btn.disabled = false;
+      showToast(err.message, true);
+    })
+    .dlp_logDailyCheck(input);
+}
+
+function showSavedState_(dailyCheck) {
+  document.getElementById('dailyCheckForm').style.display = 'none';
+  document.getElementById('dailyCheckSaved').style.display = 'block';
+  var when = dailyCheck && dailyCheck.DateTime ? new Date(dailyCheck.DateTime) : new Date();
+  document.getElementById('savedTime').textContent = formatDateTimeDisplay_(when);
+  document.getElementById('evidenceStatus').textContent = '';
+}
+
+function resetDailyCheckForm() {
+  document.getElementById('dailyCheckForm').style.display = 'block';
+  document.getElementById('dailyCheckSaved').style.display = 'none';
+
+  document.getElementById('dc_access').checked = false;
+  document.getElementById('dc_contractor').checked = false;
+  document.getElementById('dc_devRep').checked = false;
+  document.getElementById('dc_workObserved').value = '';
+  document.getElementById('dc_generalStatus').value = '';
+  document.getElementById('dc_notes').value = '';
+  document.querySelectorAll('.chip').forEach(function (c) { c.classList.remove('selected'); });
+  state.lastCheckId = null;
+
+  var now = new Date();
+  document.getElementById('dtText').textContent = formatDateTimeDisplay_(now);
+  document.getElementById('dc_dateTime').value = toDatetimeLocalValue_(now);
+  document.getElementById('dc_dateTime').style.display = 'none';
+  document.getElementById('dtDisplay').style.display = 'block';
+}
+
+// ─── Evidence ──────────────────────────────────────────────────────
+
+function setupEvidenceFlow() {
+  document.getElementById('addEvidenceBtn').addEventListener('click', function () {
+    document.getElementById('evidenceFileInput').click();
+  });
+  document.getElementById('evidenceFileInput').addEventListener('change', function (e) {
+    var file = e.target.files[0];
+    e.target.value = ''; // allow selecting the same file again next time
+    if (file) uploadEvidence_(file);
+  });
+}
+
+function uploadEvidence_(file) {
+  var statusEl = document.getElementById('evidenceStatus');
+  statusEl.style.color = '#5f6368';
+  statusEl.textContent = 'Uploading…';
+
+  var reader = new FileReader();
+  reader.onload = function () {
+    var dataUrl = reader.result;
+    var commaIdx = dataUrl.indexOf(',');
+    var base64Data = dataUrl.slice(commaIdx + 1);
+    var mimeType = dataUrl.slice(5, dataUrl.indexOf(';')) || file.type || 'image/jpeg';
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        if (!res.success) {
+          statusEl.style.color = '#d93025';
+          statusEl.textContent = "Photo didn't upload, but your Check is saved. Tap + Add Photo Evidence to retry.";
+          showToast(res.error, true);
+          return;
+        }
+        statusEl.style.color = '#5f6368';
+        statusEl.textContent = 'Photo attached. You can add another.';
+        showToast('Evidence attached.');
+      })
+      .withFailureHandler(function (err) {
+        statusEl.style.color = '#d93025';
+        statusEl.textContent = "Photo didn't upload, but your Check is saved. Tap + Add Photo Evidence to retry.";
+        showToast(err.message, true);
+      })
+      .dlp_attachEvidence({
+        checkId: state.lastCheckId,
+        base64Data: base64Data,
+        fileName: file.name || ('photo-' + Date.now() + '.jpg'),
+        mimeType: mimeType,
+        clientRequestId: generateClientRequestId_()
+      });
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── Case Overview (read-only) ──────────────────────────────────────
+
+function setupNav() {
+  document.getElementById('menuBtn').addEventListener('click', openOverview);
+  document.getElementById('backBtn').addEventListener('click', function () {
+    document.getElementById('view-overview').classList.remove('active');
+    document.getElementById('view-dailyCheck').classList.add('active');
+  });
+}
+
+function openOverview() {
+  if (!state.bootstrapped) return;
+  document.getElementById('view-dailyCheck').classList.remove('active');
+  document.getElementById('view-overview').classList.add('active');
+  document.getElementById('overviewLoading').style.display = 'block';
+  document.getElementById('overviewContent').style.display = 'none';
+
+  google.script.run
+    .withSuccessHandler(function (res) {
+      document.getElementById('overviewLoading').style.display = 'none';
+      if (!res.success) { showToast(res.error, true); return; }
+      document.getElementById('overviewContent').style.display = 'block';
+      renderOverview_(res.data);
+    })
+    .withFailureHandler(function (err) {
+      document.getElementById('overviewLoading').style.display = 'none';
+      showToast(err.message, true);
+    })
+    .dlp_getCaseOverview();
+}
+
+function renderOverview_(data) {
+  var counts = data.dashboard.defectCounts.byStatus;
+  document.getElementById('ov_status').textContent = data.dashboard.caseInfo.status;
+  document.getElementById('ov_open').textContent = counts.Open || 0;
+  document.getElementById('ov_pending').textContent = counts.PendingVerification || 0;
+  document.getElementById('ov_verified').textContent = counts.Verified || 0;
+  document.getElementById('ov_closed').textContent = counts.Closed || 0;
+
+  var listEl = document.getElementById('ov_defectList');
+  listEl.innerHTML = '';
+  if (data.defects.length === 0) {
+    listEl.innerHTML = '<div class="empty">No defects on record.</div>';
+  } else {
+    data.defects.forEach(function (d) {
+      var card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML =
+        '<div class="card-title">' + escapeHtml(d.location) + ' — ' + escapeHtml(d.category) + '</div>' +
+        '<div class="badges">' +
+          '<span class="badge">' + escapeHtml(d.status) + '</span>' +
+          '<span class="badge">Dev: ' + escapeHtml(d.developerStatus) + '</span>' +
+          '<span class="badge">Owner: ' + escapeHtml(d.ownerVerificationStatus) + '</span>' +
+        '</div>' +
+        (d.latestEvent ? '<div class="card-sub">' + escapeHtml(d.latestEvent) + '</div>' : '');
+      listEl.appendChild(card);
+    });
+  }
+
+  var tlEl = document.getElementById('ov_timeline');
+  tlEl.innerHTML = '';
+  if (data.timeline.length === 0) {
+    tlEl.innerHTML = '<div class="empty">No timeline entries yet.</div>';
+  } else {
+    data.timeline.forEach(function (t) {
+      var item = document.createElement('div');
+      item.className = 'timeline-item';
+      item.innerHTML =
+        '<div>' + escapeHtml(t.Summary) + '</div>' +
+        '<div class="t-sub">' + formatRelativeDate_(t.OccurredAt) + '</div>';
+      tlEl.appendChild(item);
+    });
+  }
+}
+
+// ─── Utilities ─────────────────────────────────────────────────────
+
+function generateClientRequestId_() {
+  if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+  return 'req-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+}
+
+function formatDateTimeDisplay_(d) {
+  var today = new Date();
+  var isToday = d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+  var time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return (isToday ? 'Today' : d.toLocaleDateString()) + ', ' + time;
+}
+
+function toDatetimeLocalValue_(d) {
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+    'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+function formatRelativeDate_(iso) {
+  if (!iso) return '';
+  var d = new Date(iso);
+  var diffDays = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if (diffDays <= 0) return 'today';
+  if (diffDays === 1) return '1d ago';
+  return diffDays + 'd ago';
+}
+
+function escapeHtml(s) {
+  var div = document.createElement('div');
+  div.textContent = s == null ? '' : String(s);
+  return div.innerHTML;
+}
+
+var toastTimer;
+function showToast(msg, isError) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (isError ? ' error' : '');
+  t.style.display = 'block';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.style.display = 'none'; }, 3500);
+}
+</script>
+</body>
+</html>
