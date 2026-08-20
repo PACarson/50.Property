@@ -257,10 +257,10 @@ var PROPERTY_CONFIG = Object.freeze({
   // Case is the trigger for building that, not this config existing.
   // REMOVE this key once a real Case Selector / listActiveCases()
   // exists.
-  // [NEEDS CONFIRMATION] placeholder below — replace with the real
-  // active PropertyCases row's CaseID (format: CASE-<ts36>-<rand4>,
-  // see 902_PropertyIdentity.js generateCaseId_) before deploying 948.
-  ACTIVE_DLP_CASE_ID: 'CASE-REPLACE-WITH-REAL-ID',
+  // Real active Case — supplied by CC from the PropertyCases sheet
+  // 2026-08-19, not guessed. Update this value (and only this value)
+  // if the tracked DLP Case ever changes.
+  ACTIVE_DLP_CASE_ID: 'CASE-msxyfkpi-zu4j',
 
   // Single-user MVP identity source for DailyProgressCheck.CheckedBy
   // auto-fill (Mobile Console). Config today, swappable for a real

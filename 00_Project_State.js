@@ -41,6 +41,19 @@
 //                     （ADR-P07，刻意如此）。997_Tests_DefectEngine.js
 //                     （GAS-native 正式测试文件）尚未建立——Phase 11，
 //                     未开始。
+//                     ★ 以上全部已真实验证。以下是新写出、尚未验证：
+//                     947_DlpConsoleServer.js（新，doGet() + dlp_*
+//                     thin wrapper）+ 948_MobileConsole.html（新，DLP
+//                     Mobile Console）+ 900_PropertyConfig.js 新增
+//                     ACTIVE_DLP_CASE_ID（真实值 CASE-msxyfkpi-zu4j）/
+//                     OPERATOR_NAME（MVP Configuration，非 Domain，见
+//                     DlpMobileConsole_UIContract.md §9.1/§9.2）+
+//                     appsscript.json 新增 webapp 区块（executeAs:
+//                     USER_DEPLOYING, access: MYSELF，§9.3）。全部
+//                     node --check 语法通过，零真实 GAS/Sheets/
+//                     HtmlService/真机验证。STATUS: RUNTIME CODE
+//                     COMPLETE, NOT PRODUCTION-READY——见 IN PROGRESS
+//                     与 Contract §11 的 11 步真机验证 Gate。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -112,12 +125,26 @@
 // IN PROGRESS 开发中模块
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-//   - DLP Defect Engine Phase 9-11：HtmlService Mobile Web Console
-//     （doGet() 入口，专案目前完全没有——现在唯一入口是 Sidebar，必须
-//     先打开 Google Sheet 才能叫出）、Sidebar 新增 DLP Tab、
-//     997_Tests_DefectEngine.js（GAS-native 正式测试）。尚未动笔——
-//     Phase 9/10 涉及具体 UI/版面这类主观决定，下次开始前先跟 CC
-//     谈清楚要长什么样，不是直接比照 Phase 1-8 后端模式动手写。
+//   - DLP Defect Engine Phase 9/10（Mobile Web Console）：UI Contract
+//     Design 谈完并 APPROVED（2026-08-19，独立文件
+//     DlpMobileConsole_UIContract.md，含完整 Page Structure/
+//     Navigation/Command Mapping/Evidence Flow/Configuration
+//     Decisions）。Runtime 代码已写出：947_DlpConsoleServer.js（doGet()
+//     + dlp_* thin wrapper）、948_MobileConsole.html、
+//     900_PropertyConfig.js 新增 ACTIVE_DLP_CASE_ID（真实值
+//     CASE-msxyfkpi-zu4j）/OPERATOR_NAME、appsscript.json 新增 webapp
+//     区块（executeAs: USER_DEPLOYING, access: MYSELF）。
+//     ★ STATUS: RUNTIME CODE COMPLETE, NOT PRODUCTION-READY — 只有
+//     node --check 语法检查，零真实 GAS 执行、零真机测试。CC 明确要求
+//     不得因为代码写完就标记完成。下一步是 Contract §11 定义的 11 步
+//     真机验证 Gate（clasp push → 部署 → 真机打开 doGet() → Bootstrap
+//     → Daily Check 存档 → Saved 状态 → Case Overview → 照片 Evidence
+//     → 确认既有 918/911/922 无 regression），全部通过才更新
+//     MANUAL_VERIFICATION_CHECKLIST.md 标记 Production-Ready。
+//   - Sidebar 新增 DLP Tab：仍未开始。UI Contract 明确排除在这次讨论
+//     之外（Contract §0：只涵盖 Mobile Console，Sidebar DLP Tab 是
+//     Desktop management surface，需要另外一轮设计对话）。
+//   - 997_Tests_DefectEngine.js（GAS-native 正式测试）：仍未开始。
 //   - 待 CC 决定：Phase 4 真实 smoke test 用了真实 Property
 //     （PROP-mshs0wca-skrq）而非丢弃用测试 Property，产生的那笔真实
 //     Case/Daily Check 要保留还是清掉重新开始追踪。
@@ -219,12 +246,15 @@
 //   5. ✓ Operator Console（922/945/946）已建好并实战使用
 //   6. ✓ DLP Defect Case & Rectification Tracking Vertical Slice
 //      Phase 0-8——完成，逐 Phase 真实部署确认（见上方 CHANGELOG）
-//   7. ← 目前在此：DLP Defect Engine Phase 9-11（Mobile Web Console +
-//      Sidebar DLP Tab + 997 GAS-native 测试），先跟 CC 谈 UI 要长
-//      什么样再动手
-//   8. 依 Phase 9-11 后的真实使用回馈，决定下一步（914 恢复 / Repair
-//      Cycle Domain Model 演进（ADR-P15 follow-up）/ Rental / Mortgage
-//      等）
+//   7. ✓ DLP Defect Engine Phase 9/10 UI Contract Design——完成并
+//      APPROVED (2026-08-19)，见 DlpMobileConsole_UIContract.md
+//   8. ← 目前在此：Phase 9/10 Runtime 代码已写出（947/948 新增 + 900/
+//      appsscript.json 修改），但 NOT PRODUCTION-READY——等 CC 完成
+//      真机 11 步验证 Gate（Contract §11），才算 Runtime 真正完成
+//   9. Sidebar 新增 DLP Tab + 997_Tests_DefectEngine.js——仍未开始
+//   10. 依 Phase 9/10 真机验证后的真实使用回馈，决定下一步（914 恢复 /
+//       Repair Cycle Domain Model 演进（ADR-P15 follow-up）/ Rental /
+//       Mortgage 等）
 //
 //   Operator Console 部署步骤（CC 需要做的）：
 //   a. Apps Script 编辑器「+ → HTML」新增文件，命名 945_
@@ -262,6 +292,62 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+//   2026-08-19      DLP Defect Engine Phase 9/10（Mobile Web Console）
+//                   UI Contract Design 谈完、APPROVED，Runtime 代码写出
+//                   （947/948 新增 + 900/appsscript.json 修改）。完整
+//                   过程与理由见独立的 DlpMobileConsole_UIContract.md，
+//                   这里只记摘要。
+//
+//                   ★ 起因：CC 主动要求这次不要比照 Phase 1-8 直接写
+//                   代码——UI 涉及版面/Sidebar 新分頁长相这类主观决定，
+//                   要求先谈清楚再动手。Claude 先读 Vertical Slice §11/
+//                   Phase0 Audit §7-8/Project State/945/946/922/918
+//                   全部 14 个 Command，才开始讨论。
+//
+//                   ★ 关键决策（正式记入 DlpMobileConsole_UIContract.md，
+//                   非本次新增 ADR——CC 判断这些是 Configuration 层级，
+//                   不是需要 ADR 的架构决策）：
+//                   (1) 两个 UI Surface 各自分工：Sidebar DLP Tab=
+//                   Desktop 完整管理（Case/DefectItem/Correspondence/
+//                   SecondaryDamage/Evidence/Timeline/Dashboard，未开始，
+//                   这次范围外）；Mobile Console=现场 30-60 秒 Daily
+//                   Check 为核心，唯读 Case Overview（Dashboard 摘要+
+//                   Defect List+Timeline）为次级入口，明确排除
+//                   Correspondence/SecondaryDamage（连唯读都不要）。
+//                   (2) Case Context 用 900_PropertyConfig.js 的
+//                   ACTIVE_DLP_CASE_ID（MVP Configuration，非 Truth
+//                   Layer，非 Case Entity 一部分，Domain Logic 不得
+//                   当作正式来源，真实第二个 Case 出现才是移除触发
+//                   条件）取代——刻意不做 listActiveCases() Query，
+//                   CC 原话：「为了未来的未来写代码」，等真实需求出现
+//                   再让需求逼出正确的 Query 设计。真实值
+//                   CASE-msxyfkpi-zu4j 已填入。
+//                   (3) CheckedBy 用同一 Config 文件的 OPERATOR_NAME
+//                   （='CC'）自动带入，Contract 层承诺是"从当前
+//                   Operator identity source 带入"，以后换 Google
+//                   Identity/multi-user 时只换来源，不改 Contract。
+//                   (4) Web App 部署（appsscript.json 新增 webapp
+//                   区块）：executeAs=USER_DEPLOYING, access=MYSELF，
+//                   个人工具，明确不加 ANYONE/ANYONE_ANONYMOUS。
+//
+//                   ★ 明确的纪律（CC 特别强调，记在这里避免之后被
+//                   默认掉）：Runtime 代码写完 ≠ Production-Ready。
+//                   这批代码（947_DlpConsoleServer.js/948_
+//                   MobileConsole.html/900 新增两个 Config/appsscript.
+//                   json）只经过 node --check 语法检查，零真实 GAS
+//                   执行、零真机测试。DlpMobileConsole_UIContract.md
+//                   §11 定义了 11 步真机验证 Gate（clasp push→部署→
+//                   真机打开→doGet()→Bootstrap→Daily Check 存档→
+//                   Saved 状态→Case Overview→照片 Evidence→确认既有
+//                   918/911/922 无 regression），全部通过才更新
+//                   MANUAL_VERIFICATION_CHECKLIST.md 标记
+//                   Production-Ready。状态目前如实标 pending。
+//
+//                   CC 会开新 Session 带真机测试结果回来——下一个
+//                   session 若看到这里，先读
+//                   DlpMobileConsole_UIContract.md 全文（尤其 §11）
+//                   取得完整背景，不要假设 947/948 已经跑过。
 //
 //   2026-08-17      DLP Defect Case & Rectification Tracking Vertical
 //                   Slice，Phase 0-8 全部完成并逐阶段部署确认，913 之后

@@ -445,21 +445,24 @@
 // Called By: Telegram Layer（共用路由器）
 // Status: Planned — Phase 1
 
-// ⚠ 号码冲突记录（2026-08-17 发现，订正）：945/946 原本规划给下面两个
-// Deferred 概念，但 Operator Console（945_OperatorConsole.html /
-// 946_OperatorConsoleServer.js）实际建立时占用了这两个号，当时没有
-// 同步回这份 File Map。这两个 Deferred 概念本身没有变，等真的要做
-// 时需要挑其他空号（例如 947+ 或 94x 里其他未占用的），不是现在的
-// 待办，先如实记录冲突存在。
+// ⚠ 号码冲突记录（2026-08-17 发现，订正；2026-08-19 更新）：945/946
+// 原本规划给下面两个 Deferred 概念，但 Operator Console（945_
+// OperatorConsole.html / 946_OperatorConsoleServer.js）实际建立时占用
+// 了这两个号，当时没有同步回这份 File Map。这两个 Deferred 概念本身
+// 没有变，等真的要做时需要挑其他空号——2026-08-19 后 947/948 也已被
+// DLP Mobile Console 占用（见下方），候选号段因此变成 949+ 或 94x 里
+// 其他未占用的，不是现在的待办，先如实记录冲突存在。
 
-// 945_DocumentImportAdapter（号码待重新分配，见上方冲突说明）
+// 945_DocumentImportAdapter（号码待重新分配，见上方冲突说明；
+//   947/948 已被占用，候选号段是 949+）
 // Purpose: [ADR-P05] 未来 OCR/Email/PDF 账单摄入，统一转换为
 //   UTILITY_BILL_RECEIVED 事件 → 912 消费转为 OBLIGATION_UPDATED；
 //   不主动 Poll 任何外部系统（Manual Input/Email OCR/PDF OCR/API/
 //   Import 皆汇入同一事件管道）
 // Status: Deferred — Phase 5（预留接口，不实作）
 
-// 946_BankReconciliationAdapter（号码待重新分配，见上方冲突说明）
+// 946_BankReconciliationAdapter（号码待重新分配，见上方冲突说明；
+//   947/948 已被占用，候选号段是 949+）
 // Purpose: [ADR-P05] 未来银行对账，同样汇入 UTILITY_BILL_RECEIVED
 //   管道，不主动 Poll
 // Status: Deferred — Phase 5
@@ -472,11 +475,32 @@
 //   文件里，全部转发给 Domain 层（910/912/918/922）。ADR-P14 建立。
 // Dependencies: 910, 912, 918（透过后续 DLP Tab，尚未加）, 922
 // Status: ✅ Runtime Complete，实战使用中 (2026-07-29 起)。DLP 专属
-//   Tab（Phase 9-10）尚未加入，目前只有 Obligation/Property 相关
-//   Tab。doGet() Web App 入口尚不存在——现在唯一 UI 入口必须先打开
-//   Google Sheet 才能叫出这个 Sidebar，手机上无法直接开网址进入
-//   （task 明确要的 Mobile Web Console 需要另外的 doGet()，Phase
-//   9-10 尚未开始）。
+//   Tab（Sidebar 端——跟下面 947/948 的 Mobile Console 是两个不同 UI
+//   Surface，各自独立设计）仍未加入。UI Contract Design 讨论时 CC
+//   明确把 Sidebar DLP Tab 排除在那次范围外
+//   （DlpMobileConsole_UIContract.md §0），需要另外一轮设计对话才会做。
+
+// 947_DlpConsoleServer.js + 948_MobileConsole.html   ★ 新 (2026-08-19)
+// Purpose: DLP Mobile Console（Phase 9/10 合并交付——原规划是两个
+//   Phase，因为 Daily Check 变成整个落地页而非加在通用 Shell 之后的
+//   功能，合并成一次交付）。947 是 doGet() Web App 入口 + dlp_* thin
+//   wrapper（dlp_wrap_ 统一 try/catch，跟 946 的 console_wrap_ 同一
+//   纪律），948 是独立页面本身（Daily Check 表单 + Saved 状态 + 拍照
+//   Evidence + 唯读 Case Overview）。947 设计上预留给未来 Sidebar DLP
+//   Tab 共用，避免两个 UI Surface 各自重复一套 wrapper。完整设计
+//   过程/理由/未来变更边界见独立文件 DlpMobileConsole_UIContract.md。
+// Dependencies: 900（ACTIVE_DLP_CASE_ID/OPERATOR_NAME，MVP
+//   Configuration，非 Domain——见 Contract §9.1/§9.2）, 910
+//   （getProperty）, 918（getPropertyCase/logDailyProgressCheck）,
+//   911（attachEvidence）, 922（getDlpCaseDashboard/
+//   listDefectItemsForDashboard/getCaseTimeline）
+// Called By: doGet()（947 本身就是 Web App 入口，没有更上层的呼叫者）
+// Status: ⏳ RUNTIME CODE COMPLETE, NOT PRODUCTION-READY。node --check
+//   语法检查通过，零真实 GAS 执行、零真机测试。appsscript.json 已加
+//   webapp 区块（executeAs: USER_DEPLOYING, access: MYSELF）但尚未
+//   实际部署。Production-Ready 前置条件：Contract §11 的 11 步真机
+//   验证 Gate 全部通过。CC 会带真机测试结果回来更新此状态——下一个
+//   session 看到本条目时不要假设已经跑过。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
