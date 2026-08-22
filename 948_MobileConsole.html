@@ -407,66 +407,116 @@ function setupNav() {
   });
 }
 
+// ─── Case Overview (含屏幕直显诊断) ──────────────────────────────────
+
 function openOverview() {
-  if (!state.bootstrapped) return;
+  if (!state.bootstrapped) {
+    alert('系统尚未初始化完成，请稍候再试');
+    return;
+  }
   document.getElementById('view-dailyCheck').classList.remove('active');
   document.getElementById('view-overview').classList.add('active');
-  document.getElementById('overviewLoading').style.display = 'block';
-  document.getElementById('overviewContent').style.display = 'none';
+
+  var loadingEl = document.getElementById('overviewLoading');
+  var contentEl = document.getElementById('overviewContent');
+
+  loadingEl.style.display = 'block';
+  loadingEl.style.color = '#5f6368';
+  loadingEl.textContent = '正在从服务器获取数据…';
+  contentEl.style.display = 'none';
 
   google.script.run
-    .withSuccessHandler(function (res) {
-      document.getElementById('overviewLoading').style.display = 'none';
-      if (!res.success) { showToast(res.error, true); return; }
-      document.getElementById('overviewContent').style.display = 'block';
-      renderOverview_(res.data);
+    .withSuccessHandler(function (raw) {
+      // 947 now returns JSON.stringify()'d text, not a raw object — a
+      // plain string can't hit whatever google.script.run's serializer
+      // was silently choking on. Parse it back out here before anything
+      // else touches it. See 947_DlpConsoleServer.js's dlp_getCaseOverview.
+      var res;
+      try {
+        res = JSON.parse(raw);
+      } catch (parseErr) {
+        loadingEl.style.display = 'block';
+        loadingEl.innerHTML = '<div style="color:#d93025;background:#fce8e6;padding:12px;border-radius:8px;text-align:left;">' +
+          '<b>JSON 解析失败 (Parse Error)：</b><br>' + escapeHtml(parseErr.message) +
+          '<br><br><pre style="font-size:11px;white-space:pre-wrap;">收到的原始内容：' + escapeHtml(String(raw).slice(0, 500)) + '</pre></div>';
+        return;
+      }
+      if (!res || !res.success) {
+        loadingEl.style.display = 'block';
+        loadingEl.innerHTML = '<div style="color:#d93025;background:#fce8e6;padding:12px;border-radius:8px;text-align:left;">' +
+          '<b>后端返回错误：</b><br>' + escapeHtml(res ? res.error : '未收到数据') + '</div>';
+        return;
+      }
+      try {
+        renderOverview_(res.data);
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+      } catch (renderErr) {
+        loadingEl.style.display = 'block';
+        loadingEl.innerHTML = '<div style="color:#d93025;background:#fce8e6;padding:12px;border-radius:8px;text-align:left;">' +
+          '<b>前端渲染崩溃 (Render Crash)：</b><br>' + escapeHtml(renderErr.message) +
+          '<br><br><pre style="font-size:11px;white-space:pre-wrap;">' + escapeHtml(renderErr.stack) + '</pre></div>';
+      }
     })
     .withFailureHandler(function (err) {
-      document.getElementById('overviewLoading').style.display = 'none';
-      showToast(err.message, true);
+      loadingEl.style.display = 'block';
+      loadingEl.innerHTML = '<div style="color:#d93025;background:#fce8e6;padding:12px;border-radius:8px;text-align:left;">' +
+        '<b>网络/RPC 失败：</b><br>' + escapeHtml(err ? err.message : '未知通信异常') + '</div>';
     })
     .dlp_getCaseOverview();
 }
 
 function renderOverview_(data) {
-  var counts = data.dashboard.defectCounts.byStatus;
-  document.getElementById('ov_status').textContent = data.dashboard.caseInfo.status;
-  document.getElementById('ov_open').textContent = counts.Open || 0;
-  document.getElementById('ov_pending').textContent = counts.PendingVerification || 0;
-  document.getElementById('ov_verified').textContent = counts.Verified || 0;
-  document.getElementById('ov_closed').textContent = counts.Closed || 0;
+  if (!data || !data.dashboard) {
+    throw new Error('服务器返回的 data.dashboard 为空');
+  }
 
+  var dashboard = data.dashboard;
+  var counts = (dashboard.defectCounts && dashboard.defectCounts.byStatus) || {};
+  var caseInfo = dashboard.caseInfo || {};
+
+  // 1. 统计概览
+  document.getElementById('ov_status').textContent = caseInfo.status || '—';
+  document.getElementById('ov_open').textContent = counts.Open != null ? counts.Open : 0;
+  document.getElementById('ov_pending').textContent = counts.PendingVerification != null ? counts.PendingVerification : 0;
+  document.getElementById('ov_verified').textContent = counts.Verified != null ? counts.Verified : 0;
+  document.getElementById('ov_closed').textContent = counts.Closed != null ? counts.Closed : 0;
+
+  // 2. 缺陷列表
   var listEl = document.getElementById('ov_defectList');
   listEl.innerHTML = '';
-  if (data.defects.length === 0) {
+  var defects = data.defects || [];
+  if (defects.length === 0) {
     listEl.innerHTML = '<div class="empty">No defects on record.</div>';
   } else {
-    data.defects.forEach(function (d) {
+    defects.forEach(function (d) {
       var card = document.createElement('div');
       card.className = 'card';
       card.innerHTML =
-        '<div class="card-title">' + escapeHtml(d.location) + ' — ' + escapeHtml(d.category) + '</div>' +
+        '<div class="card-title">' + escapeHtml((d.location || 'Defect') + ' — ' + (d.category || '')) + '</div>' +
         '<div class="badges">' +
-          '<span class="badge">' + escapeHtml(d.status) + '</span>' +
-          '<span class="badge">Dev: ' + escapeHtml(d.developerStatus) + '</span>' +
-          '<span class="badge">Owner: ' + escapeHtml(d.ownerVerificationStatus) + '</span>' +
+          '<span class="badge">' + escapeHtml(d.status || '') + '</span>' +
+          '<span class="badge">Dev: ' + escapeHtml(d.developerStatus || '') + '</span>' +
+          '<span class="badge">Owner: ' + escapeHtml(d.ownerVerificationStatus || '') + '</span>' +
         '</div>' +
         (d.latestEvent ? '<div class="card-sub">' + escapeHtml(d.latestEvent) + '</div>' : '');
       listEl.appendChild(card);
     });
   }
 
+  // 3. 时间轴
   var tlEl = document.getElementById('ov_timeline');
   tlEl.innerHTML = '';
-  if (data.timeline.length === 0) {
+  var timeline = data.timeline || dashboard.recentTimeline || [];
+  if (timeline.length === 0) {
     tlEl.innerHTML = '<div class="empty">No timeline entries yet.</div>';
   } else {
-    data.timeline.forEach(function (t) {
+    timeline.forEach(function (t) {
       var item = document.createElement('div');
       item.className = 'timeline-item';
       item.innerHTML =
-        '<div>' + escapeHtml(t.Summary) + '</div>' +
-        '<div class="t-sub">' + formatRelativeDate_(t.OccurredAt) + '</div>';
+        '<div>' + escapeHtml(t.Summary || t.EntryType || 'Timeline Entry') + '</div>' +
+        '<div class="t-sub">' + formatRelativeDate_(t.OccurredAt || t.CreatedAt) + '</div>';
       tlEl.appendChild(item);
     });
   }

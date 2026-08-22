@@ -121,7 +121,7 @@ function dlp_attachEvidence(input) {
 // client only renders the fuller one.
 
 function dlp_getCaseOverview() {
-  return dlp_wrap_(function () {
+  var result = dlp_wrap_(function () {
     var caseId = PROPERTY_CONFIG.ACTIVE_DLP_CASE_ID;
     return {
       dashboard: getDlpCaseDashboard(caseId),
@@ -129,4 +129,13 @@ function dlp_getCaseOverview() {
       timeline: getCaseTimeline(caseId, 20)
     };
   });
+  // Serialized to a plain string before crossing the google.script.run
+  // boundary. Real-device verification (2026-08-21, Executions log showed
+  // "Completed", 6.8s, no error, yet the client received nothing) traced
+  // to google.script.run's client-bridge silently returning null for this
+  // specific payload. Scoped to just this one RPC rather than folded into
+  // dlp_wrap_ itself, since the other three dlp_* calls (bootstrap, daily
+  // check, evidence) are already confirmed working real-device and don't
+  // need it. See 00_Project_State.js / MANUAL_VERIFICATION_CHECKLIST.md.
+  return JSON.stringify(result);
 }
