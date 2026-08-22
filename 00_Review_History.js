@@ -149,6 +149,131 @@
 //   已明确指示过这一点（"保持目前状态为 pending 是正确的"），本次
 //   更新照办，没有因为数字好看就放宽。
 
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// REVIEW-002 — DLP Defect Engine Phase 9/10（Mobile Web Console）
+//              Production Readiness Verification
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// Date: 2026-08-22
+// Profile: 真机验证 Gate（DlpMobileConsole_UIContract.md §11，11 步），
+//   非正式 UEF §9 Production Readiness Audit 格式，但沿用同样的
+//   Definition of Ready/Done/Production-Ready 结构方便对照。
+// Scope: DLP Defect Engine Phase 9/10（Mobile Web Console：947_
+//   DlpConsoleServer.js + 948_MobileConsole.html + 900/appsscript.json
+//   的对应新增）。不含 Sidebar DLP Tab（尚未开始）。
+// Owner: CC（solo dev）
+//
+// ─── Definition of Ready（回溯检查）────────────────────────────────
+//   ✓ UI Contract Design 谈完并 APPROVED（2026-08-19，
+//     DlpMobileConsole_UIContract.md）
+//   ✓ Runtime 代码写出，node --check 语法通过（2026-08-19）
+//
+// ─── Definition of Done ─────────────────────────────────────────────
+//   ✓ Contract §11 定义的 11 步真机验证 Gate 全部通过（Test Case
+//     1-10 一次到位；Test Case 11「Case Overview」经三轮诊断修复后
+//     通过，过程见 00_Project_State.js CHANGELOG 2026-08-22 条目）
+//
+// ─── Definition of Production-Ready ─────────────────────────────────
+//   Done + 11 步 Gate 全部通过 + MANUAL_VERIFICATION_CHECKLIST.md
+//   对应项目勾选。
+//   → ★ 结论（本次 Scope 范围内，即 Phase 9/10 Mobile Web Console
+//   这一个子系统——不代表整个 Property OS 项目）：11 步 Gate 全部
+//   通过，PRODUCTION-READY。
+//   ⚠ MANUAL_VERIFICATION_CHECKLIST.md 的 Test Case 11 勾选動作本身
+//   尚待 CC 在实际文件上同步——本次 Governance 更新只涵盖
+//   00_Project_State.js/00_Product_Backlog.js/00_Review_History.js
+//   三份文件，如实标注未涵盖的部分，不假装已经做了。
+//
+// ─── Findings ─────────────────────────────────────────────────────
+//
+//   FINDING-1（已修复）— dlp_getCaseOverview 真实 N+1 查询。
+//     enrichDefectForDisplay_ 在 listDefectItemsForDashboard 的迴圈
+//     内对每个 Defect 各呼叫一次 getPropertyCase/getProperty，即使
+//     同一 Case 的所有 Defect 结果完全相同也重复查。Instrumented
+//     测量确认：140 项 Defect 规模下 288 次 Sheets 读取。
+//     Fix: 922_DashboardAdapter.js 新增 buildCaseOverviewForMobile_，
+//     单次组装，4 张表各读一次，不动共用的
+//     getDlpCaseDashboard/listDefectItemsForDashboard。同规模下降到
+//     4 次读取（99% 减少），输出与旧路径逐栏位比对一致。
+//     Verification: 本地 GasShim instrumented 测量 + 真机 CC 确认
+//     "顺利跑通了"。
+//
+//   FINDING-2（防御性修复，根因未 100% 锁定）— google.script.run
+//     对 dlp_getCaseOverview 的回传，真机 Executions log 显示
+//     "Completed"、6.8 秒、无 error，但前端收到空值。Fix: 该 RPC
+//     的回传值改用 JSON.stringify/parse 包装，scoped 在这一支，
+//     没有动 dlp_wrap_ 本身（其他三支 dlp_* 已确认真机可用，不需要
+//     一并修改）。★ 如实记录：这个修复是防御性质，不是已证实的
+//     根因修复——不排除同一症状部分来自 Web App 部署版本未更新
+//     （常见 GAS 陷阱：编辑器代码更新不代表已部署的 Web App 版本
+//     自动更新），这点未被独立排除。
+//     Verification: 修复后 CC 确认真机可用；根因层面未闭环，如实
+//     标注为 LOW severity 遗留疑点，非阻塞。
+//
+//   FINDING-3（修复方案已提供，套用状态 UNVERIFIED / OPEN）—
+//     GasShim.js 的 SpreadsheetApp mock 缺 flush()。
+//     910_PropertyAssetEngine.js 的 withPropertyLock_（2026-07-29
+//     新增）呼叫 SpreadsheetApp.flush()，真实 GAS 本来就有这个 API，
+//     但本地预检 harness 的 mock 没跟上，导致
+//     local_precheck_test_918/922/911.js 三个文件目前实际上跑不动
+//     （createProperty 第一步就会 throw）。已提供一行修复方案。
+//     Verification: UNVERIFIED / OPEN——目前没有确认实际 GasShim.js
+//     已经套用该修复，不假设已完成（CC 2026-08-22 (b) 明确指示，
+//     保持这个状态直到 CC 确认）。不影响真实 GAS 生产环境（真实
+//     SpreadsheetApp 本来就有 flush()），只影响离线预检工具本身。
+//
+// ─── Disposition ─────────────────────────────────────────────────────
+//   GO。DLP Defect Engine Phase 9/10（Mobile Web Console）
+//   PRODUCTION-READY——11 步真机验证 Gate 全部通过。FINDING-1 已
+//   修复并验证；FINDING-2 已用防御性修复处理，根因层面留有 LOW
+//   severity 未完全排除的疑点，如实记录不隐藏；FINDING-3 待 CC
+//   确认是否已套用，不阻塞本次 Disposition（只影响离线工具）。
+//
+// ─── Next Steps ──────────────────────────────────────────────────────
+//   1. CC 在 MANUAL_VERIFICATION_CHECKLIST.md 上同步勾选 Test
+//      Case 11
+//   2. 确认 FINDING-3（GasShim.js flush() mock）是否已套用
+//   3. Phase 11 — Real DLP/Defect Data Onboarding 启动（见
+//      00_Project_State.js NEXT PRIORITY 第 9 点、00_Product_
+//      Backlog.js 的 Gap 收集说明）
+//   4. Sidebar DLP Tab 设计对话——优先级已提升，紧接 Phase 11 之后
+//
+// ─── Addendum (2026-08-22, 同日) ────────────────────────────────────
+//   CC Review 本 REVIEW-002 与对应的 Governance 更新，基本批准，
+//   提出四项修正后才正式 Review Approved（完整往来见
+//   00_Project_State.js CHANGELOG 2026-08-22 (b)）：
+//
+//   (1) Phase 编号冲突——"Phase 11"曾同时代表两件不同工作（Real
+//   DLP/Defect Data Onboarding vs. 997 测试+文档整理）。CC 拍板：
+//   Phase 11 保留给 Real Data Onboarding；997 测试+文档整理顺延为
+//   Phase 12；Sidebar DLP Tab 暂不预先编号，等实际执行顺序确定后
+//   再分配。00_Project_State.js 已同步修正。CHANGELOG 历史条目
+//   （(a) 与 2026-08-19）保留原文不改——CC 明确指示历史记录不回头
+//   改写。
+//
+//   (2) PRODUCTION-READY 状态范围——CC 指出不应把整个 Property OS
+//   的 PROJECT STATUS 标成 PRODUCTION-READY，只有 Phase 9/10 这个
+//   子系统达到。00_Project_State.js 最上方新增 PROJECT STATUS
+//   （ACTIVE DEVELOPMENT）/Current Phase（Phase 11）两个栏位，本
+//   REVIEW-002 上方的结论行与 FINDING-3 标签同步补上"Phase 9/10"
+//   范围限定，避免被单独摘录时误读成整个专案已经 Production-Ready。
+//
+//   (3) FINDING-2（JSON.stringify）——CC 确认保留原有的诚实描述：
+//   defensive serialization workaround，非已证实的唯一根因。原文
+//   未改。
+//
+//   (4) FINDING-3（GasShim flush()）——CC 明确指示保持 UNVERIFIED /
+//   OPEN，不假设已套用。标签与 Verification 欄位已同步补上这个
+//   明确状态。
+//
+//   Disposition 更新：四项修正已套用，00_Project_State.js/
+//   00_Product_Backlog.js/00_Review_History.js 三份 Governance
+//   文件 Review Approved。原 GO/PRODUCTION-READY 结论不变（范围
+//   仍是 Phase 9/10 单一子系统，不是整个 Property OS）。Runtime
+//   仍未开始，下一步正式进入 Phase 11 — Real DLP/Defect Data
+//   Onboarding。
+
 // ═══════════════════════════════════════════════════════════════════════
 // END OF 00_Review_History.js
 // ═══════════════════════════════════════════════════════════════════════

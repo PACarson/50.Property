@@ -10,6 +10,15 @@
 // PROJECT VERSION
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   PROJECT STATUS  : ACTIVE DEVELOPMENT（整个 Property OS 项目层级
+//                     状态——不要与下方特定子系统/Phase 的
+//                     PRODUCTION-READY 标记混淆。CC 2026-08-22 明确
+//                     要求区分开：Phase 9/10 Mobile DLP Console 这个
+//                     子系统已达 PRODUCTION-READY，不代表整个
+//                     Property OS 已经 Production-Ready）
+//   Current Phase   : Phase 11 — Real DLP/Defect Data Onboarding
+//                     （DLP Defect Engine 内部阶段编号；详见下方
+//                     NEXT PRIORITY 与 CHANGELOG 2026-08-22 (b)）
 //   Current Version : v1.4.0-dlp-defect-engine-phase1-8
 //   Current Branch  : （待 CC 指定，建议 property-os/session1-obligation-engine）
 //   Blueprint 合规  : Universal Domain OS Blueprint ✓ | UEF v1.6 ✓
@@ -39,21 +48,30 @@
 //                     真实部署 smoke test 确认（Phase 5 含真实 Drive
 //                     文件/资料夹 URL）。EventBus 仍是 Logger 占位
 //                     （ADR-P07，刻意如此）。997_Tests_DefectEngine.js
-//                     （GAS-native 正式测试文件）尚未建立——Phase 11，
-//                     未开始。
-//                     ★ 以上全部已真实验证。以下是新写出、尚未验证：
-//                     947_DlpConsoleServer.js（新，doGet() + dlp_*
-//                     thin wrapper）+ 948_MobileConsole.html（新，DLP
-//                     Mobile Console）+ 900_PropertyConfig.js 新增
+//                     （GAS-native 正式测试文件）尚未建立——Phase 12
+//                     （原为 Phase 11，2026-08-22 (b) 因编号冲突顺延，
+//                     详见下方 CHANGELOG），未开始。
+//                     ★ 以上全部已真实验证，包含 947_
+//                     DlpConsoleServer.js（doGet() + dlp_* thin
+//                     wrapper）+ 948_MobileConsole.html（DLP Mobile
+//                     Console）+ 900_PropertyConfig.js 新增
 //                     ACTIVE_DLP_CASE_ID（真实值 CASE-msxyfkpi-zu4j）/
 //                     OPERATOR_NAME（MVP Configuration，非 Domain，见
 //                     DlpMobileConsole_UIContract.md §9.1/§9.2）+
 //                     appsscript.json 新增 webapp 区块（executeAs:
-//                     USER_DEPLOYING, access: MYSELF，§9.3）。全部
-//                     node --check 语法通过，零真实 GAS/Sheets/
-//                     HtmlService/真机验证。STATUS: RUNTIME CODE
-//                     COMPLETE, NOT PRODUCTION-READY——见 IN PROGRESS
-//                     与 Contract §11 的 11 步真机验证 Gate。
+//                     USER_DEPLOYING, access: MYSELF，§9.3）+
+//                     922_DashboardAdapter.js 新增
+//                     buildCaseOverviewForMobile_（真机验证过程中
+//                     新增，非原 UI Contract 规划内容，见下方
+//                     CHANGELOG 2026-08-22）。PHASE 9/10 STATUS:
+//                     PRODUCTION-READY（2026-08-22，仅限 Phase 9/10
+//                     Mobile DLP Console 子系统，不代表整个 Property
+//                     OS——见本文件最上方 PROJECT STATUS 欄位）——
+//                     Contract §11 的 11 步真机验证 Gate 全部通过。
+//                     验证过程中发现并修复的问题（N+1 查询、
+//                     google.script.run 序列化、client-side
+//                     timeout）与详细过程见下方 CHANGELOG 2026-08-22
+//                     条目、REVIEW-002（00_Review_History.js）。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -119,35 +137,61 @@
 //       PropertyCaseTimeline，Phase 2-3-4-6-7）
 //     - 922_DashboardAdapter DLP Dashboard 新增（Phase 8）
 //     - Property 新增 DevelopmentName/UnitLabel（ADR-P17）
+//   - DLP Defect Engine Phase 9/10（Mobile Web Console）真机 11 步
+//     验证 Gate 全部通过，PRODUCTION-READY（2026-08-22，见下方
+//     CHANGELOG）。过程中发现并修复真实 N+1 查询问题（922 新增
+//     buildCaseOverviewForMobile_，140 项 Defect 规模下 Sheets 读取
+//     288 次降到 4 次）与两项防御性强化（google.script.run 序列化、
+//     client-side timeout）。REVIEW-002 记录完整 Production Readiness
+//     结果（00_Review_History.js）。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // IN PROGRESS 开发中模块
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-//   - DLP Defect Engine Phase 9/10（Mobile Web Console）：UI Contract
-//     Design 谈完并 APPROVED（2026-08-19，独立文件
-//     DlpMobileConsole_UIContract.md，含完整 Page Structure/
-//     Navigation/Command Mapping/Evidence Flow/Configuration
-//     Decisions）。Runtime 代码已写出：947_DlpConsoleServer.js（doGet()
-//     + dlp_* thin wrapper）、948_MobileConsole.html、
-//     900_PropertyConfig.js 新增 ACTIVE_DLP_CASE_ID（真实值
-//     CASE-msxyfkpi-zu4j）/OPERATOR_NAME、appsscript.json 新增 webapp
-//     区块（executeAs: USER_DEPLOYING, access: MYSELF）。
-//     ★ STATUS: RUNTIME CODE COMPLETE, NOT PRODUCTION-READY — 只有
-//     node --check 语法检查，零真实 GAS 执行、零真机测试。CC 明确要求
-//     不得因为代码写完就标记完成。下一步是 Contract §11 定义的 11 步
-//     真机验证 Gate（clasp push → 部署 → 真机打开 doGet() → Bootstrap
-//     → Daily Check 存档 → Saved 状态 → Case Overview → 照片 Evidence
-//     → 确认既有 918/911/922 无 regression），全部通过才更新
-//     MANUAL_VERIFICATION_CHECKLIST.md 标记 Production-Ready。
-//   - Sidebar 新增 DLP Tab：仍未开始。UI Contract 明确排除在这次讨论
-//     之外（Contract §0：只涵盖 Mobile Console，Sidebar DLP Tab 是
-//     Desktop management surface，需要另外一轮设计对话）。
-//   - 997_Tests_DefectEngine.js（GAS-native 正式测试）：仍未开始。
-//   - 待 CC 决定：Phase 4 真实 smoke test 用了真实 Property
-//     （PROP-mshs0wca-skrq）而非丢弃用测试 Property，产生的那笔真实
-//     Case/Daily Check 要保留还是清掉重新开始追踪。
+//   - DLP Defect Engine Phase 11 — Real DLP/Defect Data Onboarding
+//     （2026-08-22 新增，CC 明确指示，取代原本"进入纯 Real-Usage
+//     Feedback Period"的规划——完整理由见下方 CHANGELOG）。目标不是
+//     继续扩展 Engine，而是把 CC 名下 Est8 Seputeh A-19-11 这次真实
+//     进入约一星期的 Defect Submission Case，正式建立进 Property OS，
+//     开始使用 918/911/922/947/948 现有能力。优先顺序：
+//       1. 建立真实 Property Case
+//       2. 将现有 Defect Items 全部录入
+//       3. 将已有 Defect Report/SnP/相关文件建立 Evidence/Document
+//          records
+//       4. 有照片的 Defect 建立对应 Evidence
+//       5. 开始每天使用 Mobile Console 做 Daily Progress Check
+//       6. Developer/Contractor 有任何进度时，记录 Correspondence/
+//          Developer Status
+//       7. Owner 实际检查后记录 Owner Verification
+//       8. 所有后续 Rectification/Reinspection 持续记录
+//     ★ 明确纪律（CC 特别强调）：先不要因为真实资料录入而修改 Domain
+//     Model。录入过程中若发现栏位不够、workflow 不符实际、Defect
+//     类型无法表达、Evidence 关联方式不够好、Repair Cycle 问题真正
+//     出现——先记录为 Feedback/Gap（见 00_Product_Backlog.js 新增的
+//     Phase 11 Gap 收集说明），不要立即修改 Runtime。除非是真正的
+//     data integrity/safety bug，否则先完成整个真实案件的资料
+//     onboarding，再一次集中做 Gap Review，而不是每发现一个"不顺手"
+//     的地方就改一次 Schema。
+//     ★ 这一步同时化解了原本列在这里、待 CC 决定的问题（Phase 4
+//     真实 smoke test 用了真实 Property/Case，去留未定）——不是清掉
+//     重来，是正式把那笔真实 Property/Case 当作这次 onboarding 的
+//     起点，继续往上补完整，因此原本那笔待办从这里移除。
+//   - Sidebar 新增 DLP Tab：仍未开始，优先级提升（2026-08-22 调整，
+//     原本排在 914_FinanceEngine 之后，现在改为紧接 Phase 11 之后）。
+//     具体 Phase 编号暂不预先分配（2026-08-22 (b) CC 明确指示），
+//     等实际执行顺序确定后再编号——不代表优先级不确定，只是编号
+//     留待执行时再定。理由：Mobile Console 适合现场 30-60 秒 Daily
+//     Check，但真实 Defect 数据的初始录入、整理、Correspondence、
+//     Evidence、Defect Item 管理，Desktop Sidebar 会更适合——这正是
+//     Phase 11 需要的工具。UI Contract 明确排除在 Phase 9/10 讨论
+//     之外（Contract §0：Sidebar DLP Tab 是 Desktop management
+//     surface，需要另外一轮设计对话才能动手写 Runtime）。
+//   - Phase 12 — 997_Tests_DefectEngine.js（GAS-native 正式测试）+
+//     正式文档整理：仍未开始，排在 Sidebar DLP Tab 之后（原本这组
+//     内容称"Phase 11"，2026-08-22 (b) 因与新的 Phase 11 = Real
+//     DLP/Defect Data Onboarding 编号冲突，顺延为 Phase 12）。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -241,20 +285,39 @@
 //   2. ✓ 910_PropertyAssetEngine——Runtime 完成，Review Approved，
 //      真实 GAS 确认通过
 //   3. ✓ 914_FinanceEngine——Vertical Slice APPROVED（ADR-P13）
-//   4. ⏸ 914_FinanceEngine Runtime——暂停（ADR-P14），DLP Defect
-//      Engine 插队完成后仍未恢复
+//   4. ⏸ 914_FinanceEngine Runtime——暂停（ADR-P14）。2026-08-22 CC
+//      重新确认继续 Queued：现在最重要的是把正在发生的真实 DLP
+//      lifecycle（Case→Defect→Evidence→Daily Check→Developer Status→
+//      Owner Verification→Rectification→Reinspection→Close）完整
+//      跑过一轮，914 恢复的时机留到那之后再评估（见下方第 12 点）
 //   5. ✓ Operator Console（922/945/946）已建好并实战使用
 //   6. ✓ DLP Defect Case & Rectification Tracking Vertical Slice
 //      Phase 0-8——完成，逐 Phase 真实部署确认（见上方 CHANGELOG）
 //   7. ✓ DLP Defect Engine Phase 9/10 UI Contract Design——完成并
 //      APPROVED (2026-08-19)，见 DlpMobileConsole_UIContract.md
-//   8. ← 目前在此：Phase 9/10 Runtime 代码已写出（947/948 新增 + 900/
-//      appsscript.json 修改），但 NOT PRODUCTION-READY——等 CC 完成
-//      真机 11 步验证 Gate（Contract §11），才算 Runtime 真正完成
-//   9. Sidebar 新增 DLP Tab + 997_Tests_DefectEngine.js——仍未开始
-//   10. 依 Phase 9/10 真机验证后的真实使用回馈，决定下一步（914 恢复 /
-//       Repair Cycle Domain Model 演进（ADR-P15 follow-up）/ Rental /
-//       Mortgage 等）
+//   8. ✓ Phase 9/10 Runtime——PRODUCTION-READY（2026-08-22）。真机
+//      11 步验证 Gate 全部通过，过程见下方 CHANGELOG 与
+//      00_Review_History.js REVIEW-002
+//   9. ← 目前在此：Phase 11 — Real DLP/Defect Data Onboarding（新增，
+//      2026-08-22，取代原本此处第 10 点"依真实使用回馈决定下一步"的
+//      规划）。理由：Property 已进入真实 Defect Submission lifecycle
+//      约一星期，Real Defect Data Onboarding 优先于 Finance/Rental/
+//      Mortgage；真实使用反馈将在资料录入和 Daily Check 过程中自然
+//      产生，不需要另外安排一段"Feedback Period"。完整 8 步优先顺序
+//      与"先不要因为真实资料录入而修改 Domain Model"的纪律，详见
+//      上方 IN PROGRESS。
+//   10. Sidebar 新增 DLP Tab——优先级提升，紧接 Phase 11 之后（原本
+//       排在 914 之后，2026-08-22 调整）。具体 Phase 编号暂不预先
+//       分配，等实际执行顺序确定后再编号（2026-08-22 (b)）。理由见
+//       上方 IN PROGRESS。
+//   11. Phase 12 — 997_Tests_DefectEngine.js（GAS-native 正式测试）+
+//       正式文档整理——排在 Sidebar 之后，仍未开始（原称"Phase 11"，
+//       2026-08-22 (b) 因编号冲突顺延为 Phase 12）
+//   12. 累积至少一轮完整 Case 生命周期的真实 onboarding + 使用 Gap 后，
+//       集中做一次 Feedback Review，再决定：914 恢复 / Repair Cycle
+//       Domain Model 演进（ADR-P15 follow-up，仅在真实出现 Failed
+//       Verification → Developer 修复 → 再次 ClaimedCompleted 时才
+//       考虑，不提前实现）/ Rental / Mortgage 等
 //
 //   Operator Console 部署步骤（CC 需要做的）：
 //   a. Apps Script 编辑器「+ → HTML」新增文件，命名 945_
@@ -292,6 +355,151 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+//   2026-08-22 (a)  DLP Defect Engine Phase 9/10 真机验证完成，
+//                   PRODUCTION-READY；同日 CC 调整下一阶段优先顺序
+//                   为 Phase 11 — Real DLP/Defect Data Onboarding。
+//
+//                   ★ 真机验证过程（Contract §11 的 11 步 Gate）：
+//                   Test Case 1-10 一次到位（部署/doGet()/Bootstrap/
+//                   Daily Check 存档/Saved 状态/照片 Evidence/既有
+//                   918-911-922 无 regression）。Test Case 11（Case
+//                   Overview）第一轮失败——空白面板，无任何内容显示。
+//                   诊断过程（多轮，逐步排除）：
+//                   (a) 先用本地 GasShim 对 922/948 的实际代码跑多组
+//                   真实数据场景（空 Case、真实 Case 形状、140 项
+//                   Defect 满载），并用假 DOM harness 直接执行未修改
+//                   的 948 <script> 区块，全数正常——排除了 Domain
+//                   逻辑与 Client 渲染逻辑本身有 bug 的可能，同时
+//                   顺手发现并修复一个跟本次症状无关的独立问题：
+//                   GasShim.js 的 SpreadsheetApp mock 缺 flush()（910
+//                   的 withPropertyLock_ 2026-07-29 就在用，真实 GAS
+//                   本来就有，只是本地预检 harness 没跟上），
+//                   local_precheck_test_918/922/911.js 三个文件在此
+//                   之前其实跑不动。已给 CC 一行修复，★ 尚未确认是否
+//                   已套用到 CC 的实际 GasShim.js，留待下次核对。
+//                   (b) 真机 Executions log 显示 dlp_getCaseOverview
+//                   "Completed"、6.8 秒、无 error，但前端完全空白——
+//                   加上 google.script.run 边界的 JSON.stringify/
+//                   parse 防御性修改（scoped 在 dlp_getCaseOverview
+//                   这一支，没有动 dlp_wrap_ 本身，因为其他三支
+//                   dlp_* 已确认真机可用）。★ 确切根因是否真的是
+//                   "复杂 payload 让 google.script.run 序列化悄悄
+//                   失败"未 100% 锁定，这个修改是防御性质，不是已
+//                   证实的根因修复，如实记录不夸大。
+//                   (c) 症状转变为卡在 Loading 不动——这次用实际
+//                   instrumented 测量（包 SpreadsheetApp.getRange().
+//                   getValues() 呼叫次数），对真实 140 项 Defect 规模
+//                   重现：旧路径（getDlpCaseDashboard +
+//                   listDefectItemsForDashboard + getCaseTimeline）
+//                   实测 288 次 Sheets 读取——enrichDefectForDisplay_
+//                   在 listDefectItemsForDashboard 的迴圈内对每个
+//                   Defect 各呼叫一次 getPropertyCase/getProperty，
+//                   即使同一个 Case 的所有 Defect 结果完全相同也重复
+//                   查——这是真实、已测量确认的 N+1，不是猜测。
+//                   ★ 修复：922_DashboardAdapter.js 新增
+//                   buildCaseOverviewForMobile_，单次组装，只读取
+//                   移动端真正会显示的 4 张表（PropertyCase/Property/
+//                   DefectItem/PropertyCaseTimeline）各一次，不动
+//                   getDlpCaseDashboard/listDefectItemsForDashboard
+//                   本身（两者仍留给未来 Sidebar DLP Tab 用，这是
+//                   Candidate Pattern 纪律——不因为一个呼叫方的效能
+//                   需求就改共用函式）。同样规模下实测降到 4 次
+//                   Sheets 读取（99% 减少），输出与旧路径逐栏位比对
+//                   完全一致。同时补上 loadBootstrap（10 秒）/
+//                   openOverview（20 秒）两个 client-side timeout +
+//                   settled guard，不管日后根因是什么，都不会再无限
+//                   卡在 Loading。
+//                   (d) CC 确认最终版本"顺利跑通了"——Test Case 11
+//                   通过，11 步 Gate 全数完成。
+//
+//                   ★ STATUS 更新：DLP Defect Engine Phase 9/10
+//                   （Mobile Web Console）PRODUCTION-READY。
+//                   MANUAL_VERIFICATION_CHECKLIST.md Test Case 11
+//                   待 CC 同步勾选（本次 Governance 更新未直接改
+//                   该文件）。REVIEW-002 记录本次 Production
+//                   Readiness 结果，见 00_Review_History.js。
+//
+//                   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+//                   ★ CC 同日调整下一阶段优先顺序（明确指示，非
+//                   Claude 提议）：取代上一次对话建议的"进入纯
+//                   Real-Usage Feedback Period，依真实使用回馈决定
+//                   914 恢复/Repair Cycle 演进/Rental/Mortgage"，改为
+//                   Phase 11 — Real DLP/Defect Data Onboarding。CC
+//                   原话记录的理由：「Property 已进入真实 Defect
+//                   Submission lifecycle，因此 Real Defect Data
+//                   Onboarding 优先于 Finance/Rental/Mortgage；真实
+//                   使用反馈将在资料录入和 Daily Check 过程中自然
+//                   产生」——现在正好是 Defect Submission 约一星期、
+//                   918 Defect Engine 已完成的时机，把真实 Case/
+//                   Defect Items/Evidence/Correspondence 等资料正式
+//                   建立进 Property OS，而不是先暂停开发等回馈。
+//                   完整 8 步优先顺序、"先不要因为真实资料录入而
+//                   修改 Domain Model"的纪律、Sidebar DLP Tab 优先级
+//                   提升的理由，已记入上方 IN PROGRESS 与 NEXT
+//                   PRIORITY。914_FinanceEngine 与 Repair Cycle/
+//                   ADR-P15 follow-up 两项明确维持 Queued，理由同上。
+//
+//                   ★ Phase 编号说明（Claude 整理，非 CC 原话指定，
+//                   待 Review 时确认）：2026-08-19 条目曾用"Phase
+//                   9-11"统称 Mobile Console+Sidebar+997 测试+文档
+//                   整理，其中"Phase 11"当时指 997_Tests_
+//                   DefectEngine.js + 正式文档整理（见下方 2026-08-19
+//                   条目）。这次 CC 新指示的"Phase 11"专指 Real
+//                   DLP/Defect Data Onboarding，与旧标签冲突。本次
+//                   更新采用新指示的编号（Real Data Onboarding =
+//                   Phase 11），997 测试/文档整理暂不强行编号，留在
+//                   Sidebar 之后、未特别标记——如果这个处理方式不是
+//                   CC 想要的，麻烦下次说一声，再统一调整编号。
+//
+//                   ★ 本次范围：只更新 00_Project_State.js/
+//                   00_Product_Backlog.js/00_Review_History.js 三份
+//                   Governance 文件，没有动任何 Runtime 代码或开始
+//                   Sidebar DLP Tab 设计——CC 明确要求"更新完
+//                   Governance 后先停下来 Review，不要直接扩大
+//                   Scope"，照办。
+//
+//   2026-08-22 (b)  CC Review (a) 条目产出的三份 Governance 文件，
+//                   基本批准，提出四项修正后才正式 Review Approved
+//                   （完整 Disposition 见 00_Review_History.js
+//                   REVIEW-002 Addendum）：
+//                   (1) Phase 编号冲突——(a) 条目当时如实记录了冲突但
+//                   未解决，留待 CC 确认。CC 这次拍板：Phase 11 保留
+//                   给 Real DLP/Defect Data Onboarding；原本占用
+//                   "Phase 11"这个编号的 997_Tests_DefectEngine.js+
+//                   正式文档整理，顺延为 Phase 12；Sidebar DLP Tab
+//                   暂不预先编号，等实际执行顺序确定后再分配——本文件
+//                   PROJECT VERSION/IN PROGRESS/NEXT PRIORITY 已同步
+//                   修正。★ (a) 条目本身与 2026-08-19 条目的原始叙述
+//                   保留不改（CC 明确指示"CHANGELOG 可以保留历史
+//                   记录"——那两笔当时确实是那个状态，不回头改写
+//                   历史）。
+//                   (2) PRODUCTION-READY 状态范围——CC 指出不应把整个
+//                   Property OS 的 PROJECT STATUS 标成 PRODUCTION-
+//                   READY，只有 Phase 9/10 Mobile DLP Console 这个
+//                   子系统达到。本文件最上方 PROJECT VERSION 新增
+//                   PROJECT STATUS/Current Phase 两个栏位：整个
+//                   Property OS 项目层级状态是 ACTIVE DEVELOPMENT，
+//                   Current Phase 是 Phase 11——明确跟 Phase 9/10
+//                   子系统的 PRODUCTION-READY 标记分开，不再共用一个
+//                   容易混淆的"STATUS:"欄位。Runtime 代码欄位与
+//                   REVIEW-002 的结论行同步补上"PHASE 9/10"范围
+//                   限定字样。
+//                   (3) JSON.stringify 修复的诚实描述——CC 明确要求
+//                   保留：这是 defensive serialization workaround，
+//                   不是已证实的原始 Loading 问题唯一根因。
+//                   REVIEW-002 FINDING-2 原文不改，本来就是这样写的。
+//                   (4) GasShim flush() 状态——CC 明确指示：目前没有
+//                   确认实际 GasShim.js 已套用该修复，保持 UNVERIFIED
+//                   / OPEN，不能假设已完成。REVIEW-002 FINDING-3
+//                   原文不改，补上 UNVERIFIED / OPEN 字样对齐 CC
+//                   用词，Verification 状态本来就没有标记为已完成。
+//
+//                   四项修正已套用。三份 Governance 文件（本文件/
+//                   00_Product_Backlog.js/00_Review_History.js）
+//                   Review Approved。Runtime 仍未开始，下一步正式
+//                   进入 Phase 11 — Real DLP/Defect Data Onboarding。
 //
 //   2026-08-19      DLP Defect Engine Phase 9/10（Mobile Web Console）
 //                   UI Contract Design 谈完、APPROVED，Runtime 代码写出

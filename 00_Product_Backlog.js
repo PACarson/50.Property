@@ -19,6 +19,35 @@
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Phase 11 — Real DLP/Defect Data Onboarding Gap 收集说明
+// （2026-08-22 新增，见 00_Project_State.js CHANGELOG 同日条目）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// CC 明确指示：Phase 11 真实资料 onboarding 过程中，如果发现——
+//   - 某个字段不够
+//   - 某个 workflow 不符合实际
+//   - 某个 Defect 类型无法表达
+//   - Evidence 关联方式不够好
+//   - Repair Cycle 问题真正出现（Failed Verification → Developer
+//     修复 → 再次 ClaimedCompleted）
+// ——先记录为 Feedback/Gap，不要立即修改 Runtime。除非是真正的 data
+// integrity/safety bug，否则先完成整个真实案件的资料 onboarding，
+// 再一次集中做 Gap Review，比照 BL-1（Leasehold Lease Expiry）当初
+// "Operator Console 实战使用后的回馈"的模式——先真正用过一轮，再决定
+// 要不要改、怎么改，而不是每发现一个不顺手的地方就改一次 Schema。
+//
+// 这样做的理由（CC 原话）：「更好的方式是先把真实案件完整录进去，
+// 把所有『不顺手』的地方收集起来。等你这个 Case 真正跑过一轮，再
+// 一次性做 Gap Review。这样你最后得到的不是『看起来很完整的
+// Defect OS』，而是一个真的经历过你这套 EST8 DLP 流程的 Defect OS。」
+//
+// Phase 11 期间发现的每一项 Gap，之后会以 BL-N 的格式加进本文件（比照
+// BL-1/BL-2/BL-3 的既有写法：需求 + 设计草图 + 依赖），不是现在预先
+// 猜测会有哪些 Gap 就写占位内容——目前是空的，正如实反映"onboarding
+// 还没开始，还没有真实 Gap 可记"这个事实。
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // BL-1 — Leasehold Lease Expiry（提出于 2026-07-29，Operator Console
 // 实战使用后的回馈）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
