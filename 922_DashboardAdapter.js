@@ -333,3 +333,92 @@ function getDlpCaseDashboard(caseId) {
     recentTimeline: getCaseTimeline(caseId, 10)
   };
 }
+
+/**
+ * Single-pass aggregation for the Mobile Console's Case Overview screen
+ * (948_MobileConsole.html, via 947's dlp_getCaseOverview). Deliberately
+ * NOT built on getDlpCaseDashboard + listDefectItemsForDashboard above —
+ * real-device verification (2026-08-21/22) traced a genuine N+1 there:
+ * enrichDefectForDisplay_ calls getPropertyCase/getProperty once PER
+ * defect, even though every defect in one Case shares the identical
+ * CaseID/PropertyID (140 defects -> ~280 redundant Sheets reads for a
+ * result that's the same every time). Separately, getDlpCaseDashboard's
+ * recentTimeline, listDefectItemsForDashboard's own getCaseTimeline
+ * call, and dlp_getCaseOverview's direct getCaseTimeline call each did
+ * their own full read+sort of PropertyCaseTimeline — 3 full scans of
+ * the same sheet for one page load.
+ *
+ * getDlpCaseDashboard/listDefectItemsForDashboard are untouched by this
+ * addition: 947's own header comment marks them as intended for a
+ * future Sidebar DLP Tab too, and changing shared functions to fit one
+ * caller's performance needs is exactly the kind of speculative
+ * generalization this project avoids. This is a new, separate,
+ * mobile-specific function instead.
+ *
+ * Reads exactly 4 sheets, each exactly once: PropertyCase, Property,
+ * DefectItem, PropertyCaseTimeline. Does not read SecondaryDamage,
+ * Correspondence, RectificationEvent, or DailyProgressCheck — none of
+ * those are rendered by 948_MobileConsole.html's renderOverview_
+ * (verified directly against that function, not assumed).
+ *
+ * @param {string} caseId
+ * @param {number} [timelineLimit] entries to return for display (default 20)
+ * @return {{caseInfo: Object, defectCounts: Object, defects: Array, timeline: Array}}
+ */
+function buildCaseOverviewForMobile_(caseId, timelineLimit) {
+  var propertyCase = getPropertyCase(caseId);
+  if (!propertyCase) {
+    throw propertyError_('DLP_CASE_NOT_FOUND', 'No PropertyCase found for caseId ' + caseId + '.');
+  }
+  var property = getProperty(propertyCase.PropertyID);
+
+  var defects = listDefectItemsForCase(caseId);
+  var defectCounts = {
+    total: defects.length,
+    byStatus: { Open: 0, InProgress: 0, PendingVerification: 0, Verified: 0, Closed: 0 }
+  };
+
+  // Fetched exactly once, then reused both for the latest-event-per-
+  // defect join below and for the displayed list -- replaces what were
+  // three separate full-sheet reads with one.
+  var timeline = getCaseTimeline(caseId); // newest first, no limit
+
+  // O(N) hash index instead of an O(defects x timeline) filter() per
+  // defect, so this stays cheap as the Case Timeline grows.
+  var latestByDefectId = {};
+  timeline.forEach(function (t) {
+    if (t.RelatedDefectID && !latestByDefectId[t.RelatedDefectID]) {
+      latestByDefectId[t.RelatedDefectID] = t; // already newest-first
+    }
+  });
+
+  var enrichedDefects = defects.map(function (defect) {
+    defectCounts.byStatus[defect.Status] = (defectCounts.byStatus[defect.Status] || 0) + 1;
+    var latest = latestByDefectId[defect.DefectID] || null;
+    return {
+      defectId: defect.DefectID,
+      caseId: defect.CaseID,
+      category: defect.Category,
+      location: defect.Location,
+      description: defect.Description,
+      priority: defect.Priority,
+      status: defect.Status,
+      developerStatus: defect.DeveloperStatus,
+      ownerVerificationStatus: defect.OwnerVerificationStatus,
+      latestEvent: latest ? latest.Summary : '',
+      latestEventAt: latest ? latest.OccurredAt : ''
+    };
+  });
+
+  return {
+    caseInfo: {
+      caseId: propertyCase.CaseID,
+      propertyName: property ? property.PropertyName : '',
+      unitLabel: property ? property.UnitLabel : '',
+      status: propertyCase.Status
+    },
+    defectCounts: defectCounts,
+    defects: enrichedDefects,
+    timeline: timeline.slice(0, timelineLimit || 20)
+  };
+}

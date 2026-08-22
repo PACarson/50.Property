@@ -123,19 +123,24 @@ function dlp_attachEvidence(input) {
 function dlp_getCaseOverview() {
   var result = dlp_wrap_(function () {
     var caseId = PROPERTY_CONFIG.ACTIVE_DLP_CASE_ID;
+    // Was: getDlpCaseDashboard(caseId) + listDefectItemsForDashboard(caseId)
+    // + getCaseTimeline(caseId, 20) -- three calls that together did a real
+    // N+1 (getPropertyCase/getProperty once per defect) and read the full
+    // PropertyCaseTimeline sheet three times. buildCaseOverviewForMobile_
+    // (922_DashboardAdapter.js) does the same job in one pass, each of the
+    // 4 sheets it actually needs read exactly once. Same output shape, so
+    // 948_MobileConsole.html's renderOverview_ needs no changes.
+    var overview = buildCaseOverviewForMobile_(caseId, 20);
     return {
-      dashboard: getDlpCaseDashboard(caseId),
-      defects: listDefectItemsForDashboard(caseId),
-      timeline: getCaseTimeline(caseId, 20)
+      dashboard: { caseInfo: overview.caseInfo, defectCounts: overview.defectCounts },
+      defects: overview.defects,
+      timeline: overview.timeline
     };
   });
   // Serialized to a plain string before crossing the google.script.run
-  // boundary. Real-device verification (2026-08-21, Executions log showed
-  // "Completed", 6.8s, no error, yet the client received nothing) traced
-  // to google.script.run's client-bridge silently returning null for this
-  // specific payload. Scoped to just this one RPC rather than folded into
-  // dlp_wrap_ itself, since the other three dlp_* calls (bootstrap, daily
-  // check, evidence) are already confirmed working real-device and don't
-  // need it. See 00_Project_State.js / MANUAL_VERIFICATION_CHECKLIST.md.
+  // boundary. Real-device verification (2026-08-21) showed "Completed"
+  // in Executions with no error, yet the client received nothing -- kept
+  // scoped to just this one RPC, not folded into dlp_wrap_ itself, since
+  // the other three dlp_* calls are already confirmed working real-device.
   return JSON.stringify(result);
 }

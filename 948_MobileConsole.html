@@ -228,8 +228,19 @@ function init() {
 // ─── Bootstrap ─────────────────────────────────────────────────────
 
 function loadBootstrap() {
+  var settled = false;
+  var timeoutId = setTimeout(function () {
+    if (settled) return;
+    settled = true;
+    document.getElementById('initLoading').style.display = 'none';
+    showInitError_('请求超时（10秒），未收到服务器响应。可能原因：网络中断、Google 账号登录冲突，或 Web App 部署版本未更新到最新代码（Deploy → Manage deployments 确认）。请刷新页面重试。');
+  }, 10000);
+
   google.script.run
     .withSuccessHandler(function (res) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
       document.getElementById('initLoading').style.display = 'none';
       if (!res.success) { showInitError_(res.error); return; }
 
@@ -247,6 +258,9 @@ function loadBootstrap() {
       document.getElementById('saveCheckBtn').disabled = false;
     })
     .withFailureHandler(function (err) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
       document.getElementById('initLoading').style.display = 'none';
       showInitError_(err.message);
     })
@@ -425,8 +439,21 @@ function openOverview() {
   loadingEl.textContent = '正在从服务器获取数据…';
   contentEl.style.display = 'none';
 
+  var settled = false;
+  var timeoutId = setTimeout(function () {
+    if (settled) return;
+    settled = true;
+    loadingEl.style.display = 'block';
+    loadingEl.innerHTML = '<div style="color:#d93025;background:#fce8e6;padding:12px;border-radius:8px;text-align:left;">' +
+      '<b>请求超时（20秒）：</b><br>未收到服务器响应。可能原因：网络中断、Web App 部署版本未更新到最新代码（Deploy → Manage deployments 确认版本），或服务器执行时间过长。' +
+      '<br><br>可到 Apps Script 编辑器的 Executions 查看这次调用的真实状态。</div>';
+  }, 20000);
+
   google.script.run
     .withSuccessHandler(function (raw) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
       // 947 now returns JSON.stringify()'d text, not a raw object — a
       // plain string can't hit whatever google.script.run's serializer
       // was silently choking on. Parse it back out here before anything
@@ -459,6 +486,9 @@ function openOverview() {
       }
     })
     .withFailureHandler(function (err) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
       loadingEl.style.display = 'block';
       loadingEl.innerHTML = '<div style="color:#d93025;background:#fce8e6;padding:12px;border-radius:8px;text-align:left;">' +
         '<b>网络/RPC 失败：</b><br>' + escapeHtml(err ? err.message : '未知通信异常') + '</div>';
