@@ -78,6 +78,13 @@ class FakeRange {
     }
     return this;
   }
+
+  // Cosmetic only in real Sheets (bold text) — no effect on any value
+  // Property OS logic reads back, so a no-op is faithful here, same
+  // reasoning as SpreadsheetApp.flush() above.
+  setFontWeight(_weight) {
+    return this;
+  }
 }
 
 class FakeSheet {
@@ -99,6 +106,11 @@ class FakeSheet {
   }
   setFrozenRows(n) {
     this.frozenRows = n;
+    return this;
+  }
+  // Cosmetic only in real Sheets (column pixel width) — no effect on
+  // any value Property OS logic reads back.
+  autoResizeColumns(_startColumn, _numColumns) {
     return this;
   }
 }
@@ -173,7 +185,7 @@ function loadPropertyOSContext(sourceDir, files) {
   const spreadsheet = new FakeSpreadsheet();
   const logs = [];
   const ctx = {
-    SpreadsheetApp: { getActiveSpreadsheet: () => spreadsheet },
+    SpreadsheetApp: { getActiveSpreadsheet: () => spreadsheet, flush: () => {} },
     LockService: makeLockService(),
     CacheService: makeCacheService(),
     Utilities,

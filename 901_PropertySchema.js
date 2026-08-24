@@ -223,7 +223,34 @@ var PROPERTY_SCHEMA = Object.freeze({
       'OwnerVerifiedDate',                              // ISO date, optional
       'ClosedDate',                                      // ISO date, optional
       'CreatedAt',
-      'UpdatedAt'
+      'UpdatedAt',
+      // ── Pre-Import Gate additions (Phase 11 Real Data Onboarding, CC
+      // decision 2026-08-24, Option B: migrate schema now rather than
+      // wait for the real Defect Report) — MUST stay appended here,
+      // never inserted earlier in this list. ensureSheetSchema_ does a
+      // positional match against the real sheet's existing header
+      // (same reasoning as Property/ADR-P17 above); inserting mid-list
+      // would misalign every column after it. Not yet logged as a
+      // formal ADR — flagged in the migration report for CC to decide
+      // whether this warrants one (would be ADR-P18).
+      'ItemID',        // string, optional. The item number as shown in
+                        // the Developer App (the developer's own
+                        // defect-tracking portal/system) — CC reads it
+                        // off that app and keys it in manually; no
+                        // automated extraction exists or is implied.
+                        // AS DISTINCT FROM OriginalReference (also
+                        // described as a "source item number" by its
+                        // own comment above) — the two are
+                        // deliberately NOT reconciled by this
+                        // migration. ItemID does NOT replace
+                        // OriginalReference, does NOT change the
+                        // Importer's dedup key (still OriginalReference),
+                        // and no backfill/merge is performed. See
+                        // migration report.
+      'SubCategory',   // string, optional, free text. No enum — unlike
+                        // Category, not validated against a fixed list
+                        // (avoid Speculative Design; not requested).
+      'Remark'         // string, optional, free text.
     ]),
     dateColumns: Object.freeze([
       'SubmittedAt', 'RectificationStartDate', 'DeveloperClaimedCompletedDate',
@@ -509,8 +536,31 @@ function initDocumentEngineSchema_() {
 }
 
 /**
- * Initializes all seven 918_DefectEngine sheets. Brand-new sheets — no
- * existing headers to migrate, ensureSheetSchema_ creates each fresh.
+ * Initializes all seven 918_DefectEngine sheets. Six of the seven are
+ * unchanged from their original creation — ensureSheetSchema_
+ * creates/confirms each fresh, exactly as before.
+ *
+ * ⚠ MIGRATION NOTE (Phase 11 Pre-Import Gate, 2026-08-24) — read before
+ * deploying this against the REAL spreadsheet:
+ * ensureSheetSchema_ does an exact positional match between this
+ * file's `columns` array and the REAL sheet's row 1 (see that
+ * function's own docstring: "refuses to fix a mismatched header
+ * automatically... must be resolved via Migration Strategy, not
+ * auto-corrected"). DefectItem.columns now has three more entries
+ * (ItemID, SubCategory, Remark) than the real, already-deployed
+ * DefectItems sheet's header row does. Concretely, based on this
+ * file's DefectItem column list BEFORE this change (17 columns,
+ * ending at UpdatedAt = column Q) — confirm this still matches the
+ * real sheet's current last column before proceeding, since this note
+ * cannot see the real sheet directly. If it matches, add three header
+ * cells by hand:
+ *   R1 = ItemID
+ *   S1 = SubCategory
+ *   T1 = Remark
+ * Do this once, directly in Sheets — no formula, no data-row changes.
+ * Skipping this step means the next call to any 918 function that
+ * touches DefectItems throws "Schema drift detected on sheet
+ * DefectItems" (by design — see ensureSheetSchema_ above).
  */
 function initDefectEngineSchema_() {
   ensureSheetSchema_(

@@ -27,8 +27,12 @@
  * Instead: every source row must carry a stable OriginalReference
  * (the original Defect Report's own item number, e.g. "88" — this
  * field already exists in DefectItem's schema for exactly this kind
- * of traceability, see DLP_Defect_Case_Engine_Phase0_Audit.md). Before
- * importing a row, this file reads the REAL, CURRENT DefectItem sheet
+ * of traceability, see DLP_Defect_Case_Engine_Phase0_Audit.md).
+ * ⚠ 2026-08-24 schema migration added an ItemID staging column too
+ * (see PHASE11_STAGING_COLUMNS) — ItemID is NOT the dedup key.
+ * OriginalReference remains the sole dedup key throughout this file;
+ * ItemID/SubCategory/Remark are optional pass-through fields only.
+ * Before importing a row, this file reads the REAL, CURRENT DefectItem sheet
  * (via the existing listDefectItemsForCase — no schema change) and
  * builds OriginalReference -> DefectID for everything already there.
  * A row is only ever imported if its OriginalReference is NOT already
@@ -92,16 +96,19 @@
  *   1. Run phase11_setupDefectImportStagingSheet() once. It creates a
  *      "DefectImportStaging" tab with headers + 2 example rows.
  *   2. Replace the example rows with the real Defect Report data (one
- *      row per defect: OriginalReference / Location / Category /
- *      Description / Priority). Delete the two example rows.
- *   3. Run phase11_dryRunDefectImport(). Read column F on every row and
- *      the Logger summary (total / would-import / invalid /
- *      duplicate-in-source / already-imported, and how many runs the
- *      cap will require).
+ *      row per defect: OriginalReference / ItemID / Location / Category /
+ *      SubCategory / Description / Remark / Priority — ItemID,
+ *      SubCategory, and Remark are optional, leave blank if the source
+ *      report doesn't have them). Delete the two example rows.
+ *   3. Run phase11_dryRunDefectImport(). Read the ValidationResult
+ *      column on every row (position may shift if columns are added
+ *      again — see phase11_colIndex_) and the Logger summary
+ *      (total / would-import / invalid / duplicate-in-source /
+ *      already-imported, and how many runs the cap will require).
  *   4. Fix anything flagged, re-run the dry-run until INVALID and
  *      DUPLICATE_IN_SOURCE are both zero.
- *   5. Only then run phase11_runDefectImport(). Check column G + Logger
- *      output (View > Logs, or the Executions panel).
+ *   5. Only then run phase11_runDefectImport(). Check the ImportResult
+ *      column + Logger output (View > Logs, or the Executions panel).
  *   6. If it stops partway (GAS execution time limit, or the
  *      maxRowsPerRun cap), just run phase11_runDefectImport() again —
  *      ALREADY_IMPORTED rows are skipped automatically via the durable
@@ -123,10 +130,33 @@ var PHASE11_IMPORT_CONFIG = Object.freeze({
   maxRowsPerRun: 50
 });
 
+// Added ItemID/SubCategory/Remark 2026-08-24 (Phase 11 Pre-Import Gate
+// schema migration, CC decision Option B). ValidationResult/ImportResult
+// stay last, same as before. Unlike 901_PropertySchema.js's DefectItem
+// sheet, THIS array has no real-sheet drift constraint — this staging
+// sheet is created fresh every time by
+// phase11_setupDefectImportStagingSheet() (throws if it already
+// exists), never migrated — so column order here is free to change.
 var PHASE11_STAGING_COLUMNS = Object.freeze([
-  'OriginalReference', 'Location', 'Category', 'Description', 'Priority',
+  'OriginalReference', 'ItemID', 'Location', 'Category', 'SubCategory',
+  'Description', 'Remark', 'Priority',
   'ValidationResult', 'ImportResult'
 ]);
+
+// Looks up a column's 0-indexed position from PHASE11_STAGING_COLUMNS
+// itself, so ValidationResult/ImportResult's real sheet position is
+// always derived from the single source of truth above, never a
+// separate hardcoded number that could silently drift out of sync the
+// next time a column is inserted (exactly the class of bug this
+// migration would otherwise risk introducing at the two getRange(...)
+// call sites in phase11_dryRunDefectImport / phase11_runDefectImport).
+function phase11_colIndex_(columnName) {
+  var idx = PHASE11_STAGING_COLUMNS.indexOf(columnName);
+  if (idx === -1) {
+    throw new Error('phase11_colIndex_: "' + columnName + '" is not in PHASE11_STAGING_COLUMNS.');
+  }
+  return idx;
+}
 
 function phase11_resolveCaseId_() {
   return PHASE11_IMPORT_CONFIG.caseId || PROPERTY_CONFIG.ACTIVE_DLP_CASE_ID;
@@ -151,9 +181,14 @@ function phase11_setupDefectImportStagingSheet() {
   // manual here since this sheet isn't part of PROPERTY_SCHEMA.
   sheet.getRange(2, 1, 998, 1).setNumberFormat('@');
 
+  // Column order: OriginalReference, ItemID, Location, Category,
+  // SubCategory, Description, Remark, Priority, ValidationResult(blank),
+  // ImportResult(blank). ItemID/SubCategory/Remark are optional —
+  // EXAMPLE-1 leaves them blank to show that's valid; EXAMPLE-2 fills
+  // them in to show the columns in use.
   var exampleRows = [
-    ['EXAMPLE-1', 'Master Bathroom', 'Waterproofing', 'DELETE THIS ROW — example of a normal row', 'High', '', ''],
-    ['EXAMPLE-2', 'Living Room', 'BadCategoryXYZ', 'DELETE THIS ROW — example dry-run should flag (bad Category)', 'Medium', '', '']
+    ['EXAMPLE-1', '', 'Master Bathroom', 'Waterproofing', '', 'DELETE THIS ROW — example of a normal row', '', 'High', '', ''],
+    ['EXAMPLE-2', 'DR-88', 'Living Room', 'BadCategoryXYZ', 'Skirting', 'DELETE THIS ROW — example dry-run should flag (bad Category)', 'Sample remark text', 'Medium', '', '']
   ];
   sheet.getRange(2, 1, exampleRows.length, PHASE11_STAGING_COLUMNS.length).setValues(exampleRows);
   sheet.autoResizeColumns(1, PHASE11_STAGING_COLUMNS.length);
@@ -184,11 +219,14 @@ function phase11_setupDefectImportStagingSheet() {
  * never DUPLICATE_IN_SOURCE, since there's nothing to compare).
  */
 function phase11_validateStagingRow_(row, rowIndex, seenReferencesInBatch, existingReferencesInCase) {
-  var originalReference = String(row[0] || '').trim();
-  var location = String(row[1] || '').trim();
-  var category = String(row[2] || '').trim();
-  var description = String(row[3] || '').trim();
-  var priority = String(row[4] || '').trim();
+  var originalReference = String(row[phase11_colIndex_('OriginalReference')] || '').trim();
+  var itemId = String(row[phase11_colIndex_('ItemID')] || '').trim();
+  var location = String(row[phase11_colIndex_('Location')] || '').trim();
+  var category = String(row[phase11_colIndex_('Category')] || '').trim();
+  var subCategory = String(row[phase11_colIndex_('SubCategory')] || '').trim();
+  var description = String(row[phase11_colIndex_('Description')] || '').trim();
+  var remark = String(row[phase11_colIndex_('Remark')] || '').trim();
+  var priority = String(row[phase11_colIndex_('Priority')] || '').trim();
 
   var problems = [];
   var warnings = [];
@@ -203,10 +241,16 @@ function phase11_validateStagingRow_(row, rowIndex, seenReferencesInBatch, exist
     problems.push('Unknown Priority "' + priority + '" — must be one of: ' + PROPERTY_CONFIG.DEFECT_PRIORITIES.join(', '));
   }
   if (!priority) warnings.push('Priority blank, will default to "Medium"');
+  // ItemID/SubCategory/Remark are optional pass-through fields, added
+  // 2026-08-24 — no requiredness check, no enum check (SubCategory has
+  // no enum, see 901_PropertySchema.js), and deliberately NOT part of
+  // the dedup key (that's still originalReference only — see file
+  // header and phase11_loadExistingReferences_).
 
   var result = {
-    originalReference: originalReference, location: location, category: category,
-    description: description, priority: priority,
+    originalReference: originalReference, itemId: itemId, location: location,
+    category: category, subCategory: subCategory, description: description,
+    remark: remark, priority: priority,
     problems: problems, warnings: warnings
   };
 
@@ -264,7 +308,8 @@ function phase11_readStagingRows_() {
 /**
  * Validates every staging row against the REAL, current DefectItem
  * sheet state. Writes one of INVALID / DUPLICATE_IN_SOURCE /
- * ALREADY_IMPORTED / READY to column F per row. Never calls
+ * ALREADY_IMPORTED / READY to the ValidationResult column per row
+ * (see phase11_colIndex_ for its real position). Never calls
  * addDefectItem, never writes to DefectItem — zero Truth-layer writes,
  * guaranteed by construction (this function never references
  * addDefectItem at all).
@@ -288,7 +333,10 @@ function phase11_dryRunDefectImport() {
   });
 
   if (results.length > 0) {
-    staging.sheet.getRange(2, 6, results.length, 1).setValues(results); // column F
+    // 1-indexed Sheets column, derived from PHASE11_STAGING_COLUMNS —
+    // was hardcoded "6" (column F) before the 2026-08-24 migration
+    // added 3 columns ahead of ValidationResult; now column I.
+    staging.sheet.getRange(2, phase11_colIndex_('ValidationResult') + 1, results.length, 1).setValues(results);
   }
 
   var runsNeeded = Math.ceil(counts.READY / PHASE11_IMPORT_CONFIG.maxRowsPerRun) || 0;
@@ -304,7 +352,7 @@ function phase11_dryRunDefectImport() {
     ' | invalid: ' + counts.INVALID +
     ' | duplicate_in_source: ' + counts.DUPLICATE_IN_SOURCE +
     ' | already_imported: ' + counts.ALREADY_IMPORTED +
-    '. Zero writes to DefectItem.' + capWarning + ' Check column F for details.';
+    '. Zero writes to DefectItem.' + capWarning + ' Check the ValidationResult column for details.';
   Logger.log(summary);
   return summary;
 }
@@ -364,6 +412,9 @@ function phase11_runDefectImport() {
         location: v.location,
         priority: v.priority,
         originalReference: v.originalReference,
+        itemId: v.itemId,
+        subCategory: v.subCategory,
+        remark: v.remark,
         clientRequestId: 'phase11-import-' + caseId + '-' + v.originalReference
       });
       resultColumn.push(['IMPORTED: ' + result.defectId]);
@@ -378,7 +429,9 @@ function phase11_runDefectImport() {
   }
 
   if (resultColumn.length > 0) {
-    staging.sheet.getRange(2, 7, resultColumn.length, 1).setValues(resultColumn); // column G
+    // Was hardcoded "7" (column G) before the migration; now column J
+    // — same phase11_colIndex_ derivation as the dry-run write above.
+    staging.sheet.getRange(2, phase11_colIndex_('ImportResult') + 1, resultColumn.length, 1).setValues(resultColumn);
   }
 
   var totalHandled = byStatus.IMPORTED.length + byStatus.FAILED.length + byStatus.INVALID.length +

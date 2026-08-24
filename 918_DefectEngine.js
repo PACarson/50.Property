@@ -631,7 +631,10 @@ function createPropertyCase(input) {
  * validation).
  *
  * @param {Object} input {caseId, description, category, location,
- *   priority, originalReference, submittedAt, clientRequestId}
+ *   priority, originalReference, submittedAt, clientRequestId,
+ *   itemId, subCategory, remark} — itemId/subCategory/remark added
+ *   2026-08-24 (Phase 11 Pre-Import Gate schema migration); all three
+ *   optional, default '', same leniency as originalReference.
  */
 function addDefectItem(input) {
   return withDefectEngineLock_(function () {
@@ -686,7 +689,12 @@ function addDefectItem(input) {
       OwnerVerifiedDate: '',
       ClosedDate: '',
       CreatedAt: now,
-      UpdatedAt: now
+      UpdatedAt: now,
+      // Added 2026-08-24 (Phase 11 Pre-Import Gate migration). Optional,
+      // free text, no validation — same treatment as OriginalReference.
+      ItemID: input.itemId || '',
+      SubCategory: input.subCategory || '',
+      Remark: input.remark || ''
     };
 
     defectItemSheet_().appendRow(objectToRowArray_(defectItem, PROPERTY_SCHEMA.DefectItem.columns));
@@ -728,10 +736,13 @@ function addDefectItem(input) {
 
 /**
  * Generic field edit for a DefectItem — Category / Location /
- * Description / Priority / OriginalReference only. Status,
- * DeveloperStatus, OwnerVerificationStatus, and every timestamp field
- * have their own dedicated Commands and are denied here (denylist
- * pattern, same as 910's updateProperty).
+ * Description / Priority / OriginalReference / ItemID / SubCategory /
+ * Remark (the last three added 2026-08-24, Phase 11 migration; left
+ * OFF the denylist below deliberately, editable via this Command the
+ * same way OriginalReference already was — not added to denylist).
+ * Status, DeveloperStatus, OwnerVerificationStatus, and every
+ * timestamp field have their own dedicated Commands and are denied
+ * here (denylist pattern, same as 910's updateProperty).
  *
  * @param {Object} input {defectId, changedFields}
  */
