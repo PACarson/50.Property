@@ -274,6 +274,87 @@
 //   仍未开始，下一步正式进入 Phase 11 — Real DLP/Defect Data
 //   Onboarding。
 
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// REVIEW-003 — ONETIME_Phase11_DefectImporter.js Design Review
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// Date: 2026-08-22
+// Profile: 设计 Review（本地 Node/GasShim 测试驱动，非真机——这个
+//   utility 从未、也还不会对真实 GAS/Sheets 执行）。
+// Scope: ONETIME_Phase11_DefectImporter.js 单一文件——一次性 onboarding
+//   utility，明确不是 Property OS 的正式 Runtime Engine。
+// Owner: CC（solo dev）
+//
+// ─── 背景 ────────────────────────────────────────────────────────────
+//   第一版 importer 用 addDefectItem 既有的 clientRequestId +
+//   CacheService 做 dedup。CC review 时抓到关键问题：CacheService
+//   TTL 只有 1 小时，无法保证跨天重跑不重复建立 DefectItem
+//   （912_ObligationEngine.js 自己的注解就说这是给 retry-on-glitch
+//   用的，不是给可能中断几小时/几天后才重跑的 batch job 用的）。
+//   要求：durable dedup、稳定 source identity、5 态互斥结果分类、
+//   dry-run 结构化输出、row cap 明确化——全部改完并针对每一点各写
+//   了对应测试。
+//
+// ─── Findings（全部已修复并测试）────────────────────────────────────
+//
+//   全部 34 项测试通过，涵盖 9 个测试区块：
+//   1. Setup + 防止覆盖既有 staging sheet
+//   2. Dry-run 结构化 5 类计数（would_import/invalid/
+//      duplicate_in_source/already_imported + 零写入）
+//   3. Real run 5 态互斥分类写入 column G，DEFECT_ITEM_ADDED Timeline
+//      entry 确认未被绕过
+//   4. 相同资料重跑 → 幂等，零新增
+//   5. maxRowsPerRun cap 明确化 + 跨次 resume（dry-run 主动算好、
+//      明确告知需要几次 run，不自动串接）
+//   6. 静态证明：全档案 .appendRow( 呼叫为零（含 staging sheet 自己
+//      的写入都用 setValues），addDefectItem 确实被引用
+//   7. addDefectItem() 真实执行失败（非验证失败）→ FAILED，与
+//      INVALID/DUPLICATE_IN_SOURCE 分开；问题解决后重跑，只重试
+//      FAILED 那笔，不重碰已成功的
+//   8. Row 顺序在两次 run 之间打乱 → dedup 依然正确（key 是
+//      OriginalReference 的值，never row position/index）
+//   9. ★ 决定性测试：两个完全独立的 loadPropertyOSContext（各自全新
+//      VM、全新 CacheService、零共享 JS 状态），只手动搬运
+//      Spreadsheet 资料本身，模拟真实的「今天 Run #1、48 小时后全新
+//      进程 Run #2」。Execution #2 一开始先确认自己的 CacheService
+//      是空的，排除偷偷共享 cache 的可能；随后正确把全部 5 笔识别为
+//      already_imported，零重复。
+//
+// ─── Disposition ─────────────────────────────────────────────────────
+//   Importer Review Approved（CC，2026-08-22）。逐项批准：
+//     - Durable dedup 不依赖 CacheService — Approved
+//     - OriginalReference 作为 stable source identity — Approved
+//     - row-order independence 已验证 — Approved
+//     - fresh VM + fresh CacheService 的 cross-run proof 已验证 — Approved
+//     - Importer 不直接写 DefectItem Truth Layer，只调用
+//       addDefectItem() — Approved
+//     - 五种 mutually-exclusive result status — Approved
+//     - Dry-run zero-write guarantee — Approved
+//     - 50-row cap + 不自动继续下一批 — Approved
+//     - Checklist 保留 finding → resolution audit trail — Approved
+//   明确重申：这个 importer 是 one-time onboarding/migration utility，
+//   不是新的 Property OS Runtime Engine，验证完成后应停用/删除。
+//
+//   ⚠ Approved 的是设计与工程质量，不是"可以执行真实 import"——
+//   CC 明确设了 PRE-IMPORT GATE，见 Next Steps。
+//
+// ─── Next Steps（PRE-IMPORT GATE，见 00_Project_State.js） ───────────
+//   A. Canonical Defect Count — CC 提供/确认原始 Defect Report，
+//      确定 total/编号范围/duplicate reference/缺失编号/非-defect
+//      项目。不使用"140+"或"145"这两个都未经 Sheet/文件直接核实的
+//      数字。
+//   B. Phase 5/6 Test Data — CC 亲自核对真实 Drive/Sheet，确认前
+//      不删除、不覆盖、不重新建立、不自动当成 production data。
+//   A、B 都确认后：先对真实 Defect Report 跑 DRY RUN ONLY，CC review
+//   dry-run 结果，明确批准后才执行第一次真实 batch——不自动从
+//   dry-run 进入 commit。
+//   另有一个尚未决定的独立问题：CC 提出在真实 import 前先做 DefectItem
+//   Schema Migration（新增 ItemID/SubCategory/Remark）。Claude 认为
+//   这跟 Phase 11 既有纪律（先不因真实资料录入改 Domain Model，等
+//   跑完一轮真实案件再集中 Review）在时序上有张力，已在对话中提出，
+//   等 CC 决定——本 Review 范围内未执行任何 Schema 变更。
+
 // ═══════════════════════════════════════════════════════════════════════
 // END OF 00_Review_History.js
 // ═══════════════════════════════════════════════════════════════════════

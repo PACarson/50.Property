@@ -174,6 +174,17 @@
 //     data integrity/safety bug，否则先完成整个真实案件的资料
 //     onboarding，再一次集中做 Gap Review，而不是每发现一个"不顺手"
 //     的地方就改一次 Schema。
+//     ★ 2026-08-22 晚更新：Step 2 的 Batch Onboarding Script
+//     （ONETIME_Phase11_DefectImporter.js）设计已 Review Approved
+//     （34/34 测试，见 REVIEW-003）。尚未执行真实 import——目前状态
+//     是 PRE-IMPORT GATE，等 Canonical Defect Count（原始 Defect
+//     Report，不用"140+"或"145"）与 Phase 5/6 测试资料归属两项都
+//     确认后，才先跑 dry-run，CC review 过 dry-run 结果才批准第一次
+//     真实 batch。CC 另外提出一个尚未决定的 DefectItem Schema
+//     Migration（新增 ItemID/SubCategory/Remark）——这跟本段"先不
+//     因真实资料录入改 Domain Model"的纪律在时序上有张力（这个
+//     migration 提议发生在看到真实 Defect Report 之前），已在对话
+//     中提出给 CC 决定，本次未执行任何 Schema 变更。
 //     ★ 这一步同时化解了原本列在这里、待 CC 决定的问题（Phase 4
 //     真实 smoke test 用了真实 Property/Case，去留未定）——不是清掉
 //     重来，是正式把那笔真实 Property/Case 当作这次 onboarding 的
