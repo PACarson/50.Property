@@ -204,53 +204,60 @@ var PROPERTY_SCHEMA = Object.freeze({
   // ObligationOccurrence relates to ObligationRule. DeveloperStatus and
   // OwnerVerificationStatus are INDEPENDENT — no Command may write both
   // (Phase0 Audit §4.2, CC Review Approval).
+  //
+  // ── Phase 11 Pre-Import Gate schema migration (ADR-P18, CC decision
+  // 2026-08-24) — ItemID / SubCategory / Remark added, and the column
+  // ORDER below was deliberately reordered (not appended) to group
+  // related fields together. This differs from the ADR-P17 precedent
+  // above (Property's DevelopmentName/UnitLabel, appended at the end)
+  // — CC explicitly chose the semantic grouping over the lower-risk
+  // append, so this migration does NOT rely on ensureSheetSchema_'s
+  // ordinary auto-create-if-missing path. The real, already-deployed
+  // DefectItems sheet's header must be transformed to match this exact
+  // new order BEFORE this updated code is deployed against it — see
+  // ONETIME_Phase11_DefectItemSchemaReorderMigration.js, which does
+  // that transformation as a name-keyed remap (reads every existing
+  // row by its OLD column name, writes it back at its NEW position),
+  // never by raw position, so no existing data can be silently
+  // shuffled into the wrong field. Once that migration function has
+  // been run for real and verified, THIS schema is frozen per CC's
+  // Schema Freeze decision (ADR-P18) — new fields/needs discovered
+  // during real Defect Report onboarding go to Feedback/Gap, not a
+  // live Domain/Runtime edit, unless they are a data integrity/safety
+  // bug.
   DefectItem: Object.freeze({
     sheetName: PROPERTY_CONFIG.SHEET_NAMES.DEFECT_ITEMS,
     columns: Object.freeze([
-      'DefectID',                        // string PK, reuses ID_PREFIXES.DEFECT
-      'CaseID',                           // string FK -> PropertyCase
-      'OriginalReference',                 // string, e.g. "88"
-      'Category',                           // enum, PROPERTY_CONFIG.DEFECT_CATEGORIES
-      'Location',                            // string
-      'Description',                          // string
-      'Priority',                              // enum, PROPERTY_CONFIG.DEFECT_PRIORITIES
-      'Status',                                 // enum, PROPERTY_CONFIG.DEFECT_ITEM_STATUSES
-      'DeveloperStatus',                         // enum, PROPERTY_CONFIG.DEVELOPER_STATUSES
-      'OwnerVerificationStatus',                  // enum, PROPERTY_CONFIG.OWNER_VERIFICATION_STATUSES
-      'SubmittedAt',                                // ISO date
-      'RectificationStartDate',                      // ISO date, optional
-      'DeveloperClaimedCompletedDate',                // ISO date, optional
-      'OwnerVerifiedDate',                              // ISO date, optional
-      'ClosedDate',                                      // ISO date, optional
+      'DefectID',                      // string PK, reuses ID_PREFIXES.DEFECT — stays column A; findRowIndexByFirstColumn_ depends on the PK staying first
+      'CaseID',                        // string FK -> PropertyCase
+      'ItemID',                        // string, optional. The item number as shown in the Developer App
+                                        // (the developer's own defect-tracking portal/system) — CC reads it
+                                        // off that app and keys it in manually; no automated extraction
+                                        // exists or is implied. AS DISTINCT FROM OriginalReference directly
+                                        // below — the two are deliberately NOT reconciled by this migration.
+                                        // ItemID does NOT replace OriginalReference, does NOT change the
+                                        // Importer's dedup key (still OriginalReference — see ADR-P18), and
+                                        // no backfill/merge is performed. ItemID is an external reference,
+                                        // NOT a Property OS identity — stays editable via updateDefectItem,
+                                        // unlike DefectID.
+      'OriginalReference',             // string, e.g. "88" — durable Importer dedup key, unchanged by this migration
+      'Category',                      // enum, PROPERTY_CONFIG.DEFECT_CATEGORIES
+      'SubCategory',                   // string, optional, free text. No enum — unlike Category, not
+                                        // validated against a fixed list (avoid Speculative Design; not requested)
+      'Description',                   // string
+      'Remark',                        // string, optional, free text
+      'Location',                      // string
+      'Priority',                      // enum, PROPERTY_CONFIG.DEFECT_PRIORITIES
+      'Status',                        // enum, PROPERTY_CONFIG.DEFECT_ITEM_STATUSES
+      'DeveloperStatus',               // enum, PROPERTY_CONFIG.DEVELOPER_STATUSES
+      'OwnerVerificationStatus',       // enum, PROPERTY_CONFIG.OWNER_VERIFICATION_STATUSES
+      'SubmittedAt',                   // ISO date
+      'RectificationStartDate',        // ISO date, optional
+      'DeveloperClaimedCompletedDate', // ISO date, optional
+      'OwnerVerifiedDate',             // ISO date, optional
+      'ClosedDate',                    // ISO date, optional
       'CreatedAt',
-      'UpdatedAt',
-      // ── Pre-Import Gate additions (Phase 11 Real Data Onboarding, CC
-      // decision 2026-08-24, Option B: migrate schema now rather than
-      // wait for the real Defect Report) — MUST stay appended here,
-      // never inserted earlier in this list. ensureSheetSchema_ does a
-      // positional match against the real sheet's existing header
-      // (same reasoning as Property/ADR-P17 above); inserting mid-list
-      // would misalign every column after it. Not yet logged as a
-      // formal ADR — flagged in the migration report for CC to decide
-      // whether this warrants one (would be ADR-P18).
-      'ItemID',        // string, optional. The item number as shown in
-                        // the Developer App (the developer's own
-                        // defect-tracking portal/system) — CC reads it
-                        // off that app and keys it in manually; no
-                        // automated extraction exists or is implied.
-                        // AS DISTINCT FROM OriginalReference (also
-                        // described as a "source item number" by its
-                        // own comment above) — the two are
-                        // deliberately NOT reconciled by this
-                        // migration. ItemID does NOT replace
-                        // OriginalReference, does NOT change the
-                        // Importer's dedup key (still OriginalReference),
-                        // and no backfill/merge is performed. See
-                        // migration report.
-      'SubCategory',   // string, optional, free text. No enum — unlike
-                        // Category, not validated against a fixed list
-                        // (avoid Speculative Design; not requested).
-      'Remark'         // string, optional, free text.
+      'UpdatedAt'
     ]),
     dateColumns: Object.freeze([
       'SubmittedAt', 'RectificationStartDate', 'DeveloperClaimedCompletedDate',
@@ -540,27 +547,31 @@ function initDocumentEngineSchema_() {
  * unchanged from their original creation — ensureSheetSchema_
  * creates/confirms each fresh, exactly as before.
  *
- * ⚠ MIGRATION NOTE (Phase 11 Pre-Import Gate, 2026-08-24) — read before
- * deploying this against the REAL spreadsheet:
+ * ⚠ MIGRATION NOTE (Phase 11 Pre-Import Gate, ADR-P18, 2026-08-24) —
+ * read before deploying this against the REAL spreadsheet:
  * ensureSheetSchema_ does an exact positional match between this
  * file's `columns` array and the REAL sheet's row 1 (see that
  * function's own docstring: "refuses to fix a mismatched header
  * automatically... must be resolved via Migration Strategy, not
- * auto-corrected"). DefectItem.columns now has three more entries
- * (ItemID, SubCategory, Remark) than the real, already-deployed
- * DefectItems sheet's header row does. Concretely, based on this
- * file's DefectItem column list BEFORE this change (17 columns,
- * ending at UpdatedAt = column Q) — confirm this still matches the
- * real sheet's current last column before proceeding, since this note
- * cannot see the real sheet directly. If it matches, add three header
- * cells by hand:
- *   R1 = ItemID
- *   S1 = SubCategory
- *   T1 = Remark
- * Do this once, directly in Sheets — no formula, no data-row changes.
- * Skipping this step means the next call to any 918 function that
- * touches DefectItems throws "Schema drift detected on sheet
- * DefectItems" (by design — see ensureSheetSchema_ above).
+ * auto-corrected"). DefectItem.columns changed from a 17-column list
+ * to a 20-column list AND reordered (ItemID/SubCategory/Remark
+ * interleaved among the originals, not appended — see ADR-P18 for
+ * why) — the real, already-deployed DefectItems sheet will not match
+ * either its old header OR this new one until it is explicitly
+ * migrated. Do NOT hand-edit header cells for this one (unlike a pure
+ * append, a reorder cannot be done safely by adding cells — every
+ * existing data row's cells would end up under the wrong header).
+ * Instead: run
+ * ONETIME_Phase11_DefectItemSchemaReorderMigration.js's
+ * phase11_migrateDefectItemSchemaReorder() once, for real, against
+ * the real spreadsheet, BEFORE deploying/running any other updated
+ * 918/922/947 code against it. That function reads every existing row
+ * by its OLD column name and rewrites it at its NEW position — see
+ * that file for its own preflight/verification steps. Skipping this
+ * means the next call to any 918 function that touches DefectItems
+ * throws "Schema drift detected on sheet DefectItems" (by design —
+ * see ensureSheetSchema_ above) — this includes the Mobile Console,
+ * since it reads DefectItems through the same code path.
  */
 function initDefectEngineSchema_() {
   ensureSheetSchema_(

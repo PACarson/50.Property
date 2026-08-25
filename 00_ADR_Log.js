@@ -675,3 +675,109 @@
 //   fact" spirit that makes even a neutral reset of OwnerVerificationStatus
 //   feel wrong, though it's technically not an overwrite of a positive
 //   claim).
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ADR-P18 — DefectItem Schema Migration: ItemID / SubCategory / Remark,
+// Reordered Column Layout, and Schema Freeze (Phase 11 Pre-Import Gate)
+// STATUS: APPROVED (2026-08-24) — NEW
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// Question: Phase 11's real Defect Report onboarding surfaced a need for
+//   three fields DefectItem didn't have: an item number as shown in the
+//   Developer App's own defect-tracking portal (distinct from the
+//   existing OriginalReference), a SubCategory finer-grained than the
+//   existing Category enum, and a free-text Remark. Two questions needed
+//   resolving together: (1) add these now, before any real data exists,
+//   or wait until the real Defect Report is actually seen (handoff
+//   2026-08-22 framed this as Option A/B); (2) given ADR-P17's
+//   precedent of appending new columns at the end to keep
+//   ensureSheetSchema_'s positional match trivially satisfied, should
+//   these three follow that same append-only pattern, or does the
+//   resulting column order matter enough to justify a real reorder
+//   migration instead?
+//
+// Decision:
+//   (1) Migrate now (CC decision 2026-08-24) — do not wait for the real
+//   Defect Report.
+//   (2) Reorder, not append. Final DefectItem.columns order:
+//     DefectID, CaseID, ItemID, OriginalReference, Category,
+//     SubCategory, Description, Remark, Location, Priority, Status,
+//     DeveloperStatus, OwnerVerificationStatus, SubmittedAt,
+//     RectificationStartDate, DeveloperClaimedCompletedDate,
+//     OwnerVerifiedDate, ClosedDate, CreatedAt, UpdatedAt
+//   ItemID sits next to OriginalReference, SubCategory next to Category,
+//   Remark next to Description — CC judged this semantic grouping worth
+//   the extra migration engineering an append would have avoided.
+//   Because 901's three generic Sheet helpers
+//   (readRowAsObject_/objectToRowArray_/updateRowFields_) already read
+//   and write every row by column NAME via the columns array, not by
+//   hardcoded position, a reorder is exactly as safe as an append FOR
+//   ANY CODE THAT GOES THROUGH THOSE HELPERS — confirmed by inspection
+//   to be 918/922/947/948's entire DefectItem read/write surface, zero
+//   exceptions found (see migration report, 2026-08-24). The one place
+//   position genuinely mattered — the Importer's own staging sheet, a
+//   separate table — was already made position-independent
+//   (phase11_colIndex_) earlier in this same session, before this
+//   reorder decision was made.
+//
+//   Field semantics:
+//   - ItemID: optional string. The item number as shown in the
+//     Developer App, transcribed by CC — not auto-extracted, no such
+//     integration exists. Editable via updateDefectItem (it is an
+//     EXTERNAL reference, not a Property OS-owned identity — DefectID
+//     remains the only immutable PK).
+//   - OriginalReference: UNCHANGED. Remains the Importer's sole durable
+//     dedup key. Deliberately NOT reconciled with ItemID even though
+//     both are, by their own schema comments, "a source item number" —
+//     CC's explicit instruction was to keep them independent, so no
+//     merge, no backfill, no dedup-key change.
+//   - SubCategory: optional string, no enum (Category already has one;
+//     SubCategory does not, since none was requested — avoiding
+//     Speculative Design over a fixed list CC hasn't defined).
+//   - Remark: optional string, free text.
+//
+//   Migration mechanism: a real, from-scratch migration is REQUIRED —
+//   ensureSheetSchema_ cannot do this itself (it only creates-fresh or
+//   confirms-exact-match; a changed header with existing data to carry
+//   forward is explicitly its "resolve via Migration Strategy, not
+//   auto-corrected" case). ONETIME_Phase11_DefectItemSchemaReorderMigration.js
+//   is that Migration Strategy: reads the real sheet's existing header +
+//   all data rows, verifies the header matches the known pre-migration
+//   17-column shape (aborts loudly, zero writes, if it doesn't), remaps
+//   every row from old position to new position BY COLUMN NAME (never
+//   by raw array index), writes the new header + remapped data, then
+//   re-reads and verifies every pre-existing field is identical between
+//   old and new before declaring success. Idempotent-safe: re-running
+//   after a successful migration detects the header already matches the
+//   new schema and no-ops.
+//
+//   Schema Freeze: once this migration has run for real and verified,
+//   DefectItem's schema is frozen. New fields or requirements surfaced
+//   during real Defect Report onboarding go to Feedback/Gap — not a
+//   live Domain/Runtime edit — unless the issue is a data
+//   integrity/safety bug.
+//
+// Impact: 901_PropertySchema.js (DefectItem.columns reordered and grown
+//   from 17 to 20 columns; MIGRATION NOTE above initDefectEngineSchema_
+//   rewritten to point at the new migration function instead of a
+//   manual header-cell edit). 918_DefectEngine.js — NO business-logic
+//   changes required by the reorder itself (name-driven helpers absorb
+//   it transparently); addDefectItem/updateDefectItem already accept
+//   itemId/subCategory/remark as of this same session.
+//   ONETIME_Phase11_DefectImporter.js — NO changes required by the
+//   reorder (interacts with DefectItem only via 918's named functions);
+//   its own staging-sheet column layout is unaffected and independent.
+//   New file: ONETIME_Phase11_DefectItemSchemaReorderMigration.js. The
+//   real, already-deployed DefectItems sheet must have this migration
+//   run against it before any updated 918/922/947 code (including the
+//   Mobile Console) touches DefectItems again, or every such call
+//   throws "Schema drift detected" by design.
+//
+// Related ADRs: ADR-P17 (Property's DevelopmentName/UnitLabel — same
+//   underlying ensureSheetSchema_ positional-match constraint, opposite
+//   resolution: appended rather than reordered, because that case had
+//   no reason to prefer a specific position). ADR-P15 (DeveloperStatus/
+//   OwnerVerificationStatus independence on this same DefectItem entity
+//   — this ADR's "keep ItemID and OriginalReference independent, don't
+//   merge for convenience" follows the same spirit).

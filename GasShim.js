@@ -104,6 +104,18 @@ class FakeSheet {
   getLastRow() {
     return this.data.length;
   }
+  // No existing Property OS code needed this before — every other
+  // reader always trusts its OWN schema's columns.length rather than
+  // asking the sheet how wide it currently is. The reorder migration
+  // (ONETIME_Phase11_DefectItemSchemaReorderMigration.js) is the first
+  // exception: it must discover the REAL sheet's current width during
+  // its own preflight, precisely because it can no longer assume the
+  // real sheet already matches this codebase's schema. Real Sheets'
+  // getLastColumn() reflects the widest row in the sheet, header
+  // included — Math.max over every stored row's length mirrors that.
+  getLastColumn() {
+    return this.data.reduce((max, row) => Math.max(max, row.length), 0);
+  }
   setFrozenRows(n) {
     this.frozenRows = n;
     return this;

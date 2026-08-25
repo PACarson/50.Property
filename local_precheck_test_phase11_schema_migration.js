@@ -1,13 +1,18 @@
 'use strict';
 /**
  * Local precheck test — Phase 11 Pre-Import Gate schema migration
- * (ItemID / SubCategory / Remark), 2026-08-24.
+ * (ItemID / SubCategory / Remark), 2026-08-24. Covers ADR-P18's FINAL
+ * schema (CC-specified reorder, not the earlier append-only draft).
  *
  * NOT one of the per-Engine numbered precheck files (911/918/922) —
  * this one specifically targets the cross-file migration: does the
- * new schema round-trip through 901 -> 918 -> the real DefectItem
- * sheet, and does ONETIME_Phase11_DefectImporter.js's staging logic
- * still work correctly now that its column layout changed? Existing
+ * new (reordered) schema round-trip through 901 -> 918 -> the real
+ * DefectItem sheet, and does ONETIME_Phase11_DefectImporter.js's
+ * staging logic still work correctly? The REAL sheet's own reorder
+ * (existing-row remap) is covered separately by
+ * local_precheck_test_phase11_defectitem_reorder_migration.js, since
+ * that's a distinct piece of code
+ * (ONETIME_Phase11_DefectItemSchemaReorderMigration.js). Existing
  * local_precheck_test_918.js / _922.js were re-run unmodified as a
  * regression check (144/37 checks, both still pass) — this file is
  * the NEW positive coverage for the fields those didn't know about.
@@ -49,15 +54,17 @@ function seedPropertyAndCase(ctx) {
   });`).caseId;
 }
 
-console.log('═══ 901_PropertySchema.js: DefectItem.columns ═══');
+console.log('═══ 901_PropertySchema.js: DefectItem.columns (final CC-specified order, ADR-P18) ═══');
 {
   const ctx = fresh();
   const cols = run(ctx, 'PROPERTY_SCHEMA.DefectItem.columns.slice();');
+  const EXPECTED = ['DefectID', 'CaseID', 'ItemID', 'OriginalReference', 'Category',
+    'SubCategory', 'Description', 'Remark', 'Location', 'Priority', 'Status',
+    'DeveloperStatus', 'OwnerVerificationStatus', 'SubmittedAt', 'RectificationStartDate',
+    'DeveloperClaimedCompletedDate', 'OwnerVerifiedDate', 'ClosedDate', 'CreatedAt', 'UpdatedAt'];
   check('has 20 columns total (17 original + 3 new)', cols.length === 20);
-  check('ItemID/SubCategory/Remark appended at the END (idx 17,18,19)',
-    cols[17] === 'ItemID' && cols[18] === 'SubCategory' && cols[19] === 'Remark');
-  check('original 17 columns untouched and in original order',
-    cols[0] === 'DefectID' && cols[2] === 'OriginalReference' && cols[16] === 'UpdatedAt');
+  check('matches CC-specified order EXACTLY, position by position', JSON.stringify(cols) === JSON.stringify(EXPECTED));
+  check('DefectID still column A (findRowIndexByFirstColumn_ depends on this)', cols[0] === 'DefectID');
   check('dateColumns unchanged (new fields are not dates)',
     JSON.stringify(run(ctx, 'PROPERTY_SCHEMA.DefectItem.dateColumns.slice();')) ===
     JSON.stringify(['SubmittedAt', 'RectificationStartDate', 'DeveloperClaimedCompletedDate',
