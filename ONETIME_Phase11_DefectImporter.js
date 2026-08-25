@@ -175,6 +175,7 @@ function phase11_setupDefectImportStagingSheet() {
   sheet = ss.insertSheet(PHASE11_IMPORT_CONFIG.stagingSheetName);
   sheet.getRange(1, 1, 1, PHASE11_STAGING_COLUMNS.length).setValues([PHASE11_STAGING_COLUMNS]);
   sheet.getRange(1, 1, 1, PHASE11_STAGING_COLUMNS.length).setFontWeight('bold');
+  sheet.setFrozenRows(1);
   // OriginalReference is a plain-text-prone-to-autoformat column (e.g.
   // "1E2" style references, or leading zeros) — format proactively.
   // Same fix as ensureSheetSchema_ applies to real dateColumns, just

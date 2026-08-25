@@ -147,6 +147,10 @@ console.log('═══ ONETIME_Phase11_DefectImporter.js: phase11_setupDefectImp
     rows[0][1] === '' && rows[0][4] === '' && rows[0][6] === '');
   check('example row 2 ItemID/SubCategory/Remark filled in (shows columns in use)',
     rows[1][1] !== '' && rows[1][4] !== '' && rows[1][6] !== '');
+  const frozenRows = run(ctx, `
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DefectImportStaging').frozenRows;
+  `);
+  check('header row (row 1) is frozen — spotted missing on the real sheet 2026-08-24, added here', frozenRows === 1);
 }
 
 console.log('═══ ONETIME_Phase11_DefectImporter.js: staging row validation reads shifted positions correctly ═══');
