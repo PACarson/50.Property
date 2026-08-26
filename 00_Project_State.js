@@ -23,8 +23,8 @@
 //   Current Branch  : （待 CC 指定，建议 property-os/session1-obligation-engine）
 //   Blueprint 合规  : Universal Domain OS Blueprint ✓ | UEF v1.6 ✓
 //   ADR 状态        : ADR-P01, P02, P04, P05, P06, P07, P08, P10, P15,
-//                     P16, P17 APPROVED；ADR-P03 RESERVED（非 Locked）；
-//                     P09 未使用（跳号）
+//                     P16, P17, P18 APPROVED；ADR-P03 RESERVED（非
+//                     Locked）；P09 未使用（跳号）
 //   Review 状态      : Architecture Review Approval GRANTED (2026-07-19)；
 //                     Foundation 层（900-903）APPROVED (2026-07-19)；
 //                     REVIEW-001 Production Readiness Audit
@@ -366,6 +366,79 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+//   2026-08-24～26   Phase 11 Pre-Import Gate — DefectItem Schema
+//                   Migration（ItemID/SubCategory/Remark）完成，CC 在
+//                   真实 GAS 项目三步驟確認成功。ADR-P18。同一对话窗口
+//                   内跨多轮完成——完整 Timeline/逐项验证证据见同次
+//                   对话产出的 Checkpoint 文件（CHECKPOINT_
+//                   2026-08-26_Phase11-SchemaMigration.md），此处只记
+//                   最终确认状态，细节不重复。
+//
+//                   ★ 决定：新增 ItemID（Developer App 项目编号，CC
+//                   手动 key in，非 Property OS 自动抓取）/
+//                   SubCategory（无 enum，自由文字）/Remark（自由
+//                   文字）。初版方案是 append 在既有 17 栏最后，CC
+//                   后来推翻，改为严格指定顺序（reorder，非
+//                   append）：DefectID/CaseID/ItemID/
+//                   OriginalReference/Category/SubCategory/
+//                   Description/Remark/Location/Priority/Status/
+//                   DeveloperStatus/OwnerVerificationStatus/
+//                   SubmittedAt/RectificationStartDate/
+//                   DeveloperClaimedCompletedDate/OwnerVerifiedDate/
+//                   ClosedDate/CreatedAt/UpdatedAt（20 栏）。
+//                   OriginalReference 维持 Importer dedup key 不变，
+//                   刻意不与 ItemID 合并（两者语义有重叠但 CC 明确
+//                   要求独立）。ItemID 可编辑（外部参照，非 Property
+//                   OS Identity）；DefectID 仍是唯一不可变 PK。
+//
+//                   ★ Reorder 让 ensureSheetSchema_ 原本的 positional
+//                   比对必然失败，新增
+//                   ONETIME_Phase11_DefectItemSchemaReorderMigration.js
+//                   做真正的 Migration（preflight 比对旧 header →
+//                   按栏位"名字"逐列重新映射，非按位置 → 写入 →
+//                   逐栏逐列比对新旧一致才算成功；idempotent，header
+//                   已符合新 schema 则安全 no-op）。本地测试过程中
+//                   实际抓到并修复一个真实 bug：新位置的日期栏位
+//                   migration 前漏了 setNumberFormat('@')，会被真实
+//                   Sheets 自动转型成 Date（而非 Property OS 预期的
+//                   ISO 字串）——已修正为比照 ensureSheetSchema_ 原本
+//                   对日期栏位的处理方式。全程检查过 Mobile Console
+//                   （947/948）/918/922/Importer 对 DefectItem 的
+//                   存取——确认全部经由 readRowAsObject_/
+//                   objectToRowArray_/updateRowFields_ 具名存取，零
+//                   硬编码 column index，reorder 对这些档案完全透明，
+//                   未改动代码。
+//
+//                   ★ CC 实际执行结果（本人操作，非 Claude 代为
+//                   执行——Claude 没有工具能直接写真实 Google
+//                   Sheet）：8 个档案部署到真实 GAS 项目 ✓ → 手动跑
+//                   phase11_migrateDefectItemSchemaReorder() 看到
+//                   MIGRATION SUCCESS ✓ → Mobile Console 手动碰过，
+//                   无 Schema drift 报错 ✓。真实 DefectItems 表实际
+//                   migrated row 数未经 Claude 直接确认——若需要精确
+//                   数字，请查该次执行的 Logger/Execution 记录。顺带
+//                   发现并修复：DefectImportStaging（Importer 自己的
+//                   暂存表，与 DefectItem 真实表无关）原本 setup 函式
+//                   漏了 setFrozenRows(1)，是既有 gap，CC 实际操作时
+//                   才发现，已补上，与本次栏位改动无关。
+//
+//                   ★ Schema Freeze 生效（ADR-P18 记录）：DefectItem
+//                   schema 从此冻结。真实 Defect Report 录入过程中
+//                   如冒出新栏位需求，一律先进
+//                   00_Product_Backlog.js 的 Feedback/Gap（既有机制，
+//                   Phase 11 一开始就写好，非本次新增），不当场改
+//                   Domain/Runtime，除非是 data integrity/safety
+//                   bug。
+//
+//                   ★ STATUS：Schema Migration 本身 COMPLETE +
+//                   VERIFIED。Pre-Import Gate 的 Item A（原始 Defect
+//                   Report 真实数量/内容）依然 OPEN——Report 在
+//                   Developer App 里，AI 无法直接读取，需 CC 逐项
+//                   key in／提供截图。Item A 解决、CC 明确要求开始
+//                   录入前，不进行 Dry Run 或 Real Import（CC 多次
+//                   明确指示，Claude 也确认从未对真实资料执行过
+//                   这两者）。
 //
 //   2026-08-22 (a)  DLP Defect Engine Phase 9/10 真机验证完成，
 //                   PRODUCTION-READY；同日 CC 调整下一阶段优先顺序

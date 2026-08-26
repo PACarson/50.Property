@@ -35,6 +35,11 @@
  *                                       Evidence 新表 Schema +
  *                                       initDefectEngineSchema_/
  *                                       initDocumentEngineSchema_
+ *                                       ★ DefectItem 新增 ItemID/
+ *                                       SubCategory/Remark，20 栏
+ *                                       reorder（非 append，与
+ *                                       Property 的 ADR-P17 模式不同）
+ *                                       ——ADR-P18，2026-08-24～26
  *   902_PropertyIdentity.js          ← 含 generatePropertyId_（910）+
  *                                       8 个 DLP/Evidence 用途的
  *                                       generateXId_
@@ -85,6 +90,37 @@
  *   若真实 GAS 专案的文件数量或任一文件内容与此不符，先同步再跑
  *   测试——大部分"莫名其妙的 undefined"报错都是这里没对齐，不是逻辑
  *   真的错了。）
+ *
+ *   ★ ADDENDUM（2026-08-24～26，Phase 11 对话窗口新增，不改上面
+ *   2026-08-17 原文）——上面清单在两轮真实部署后已经过时，本次只补
+ *   本窗口有把握、直接核实过的部分，不假装把整份 manifest 全部
+ *   重新对过：
+ *
+ *   本窗口新增并已部署到真实 GAS 的文件（CC 已确认部署 (a)(b)(c) 三步
+ *   成功，见 00_Project_State.js CHANGELOG 2026-08-24～26 / ADR-P18）：
+ *     ONETIME_Phase11_DefectImporter.js — 上一个对话窗口新建（Phase
+ *       11 一开始），当时就没有补进这份 File Map，本窗口发现这个既有
+ *       缺口一并补上。真实 Defect Report 批次汇入用的一次性工具，
+ *       staging 表 + dry-run/real-run 两阶段、以 OriginalReference
+ *       为 durable dedup key。本窗口新增 ItemID/SubCategory/Remark 三
+ *       个 staging 欄位支援。Phase 11 DefectItem onboarding 验证完成
+ *       後可删除（见档案自己的开头说明）。
+ *     ONETIME_Phase11_DefectItemSchemaReorderMigration.js — 本窗口
+ *       新建。把真实 DefectItems 表从 migration 前的 17 栏 schema
+ *       转成 CC 指定顺序的新 20 栏 schema，以栏位名字逐列重新映射
+ *       既有资料，非按位置搬移。CC 已在真实 GAS 项目手动执行一次，
+ *       Logger 回报 MIGRATION SUCCESS。同样是一次性工具，语意上跟
+ *       Importer 同类——是否比照 Importer 保留到 Phase 11 完全结束
+ *       再删，还是现在就可以删，未问过 CC，留待下次确认。
+ *
+ *   ★ 已知落差，本窗口未处理（如实记录，不是修好了）：上面
+ *   2026-08-17 原文清单也没有 947_DlpConsoleServer.js /
+ *   948_MobileConsole.html（Phase 9/10，2026-08-19 才建立，比这份
+ *   manifest 原文晚两天）——这是本窗口之前就存在的落差，不是这次造成
+ *   的，但本窗口没有去核实/补齐这两个文件的条目（不在这次 CC 交代
+ *   的范围内，也没有重新核实这两个文件目前真实内容的证据）。整份
+ *   manifest 建议找一次机会重新完整核对一遍，而不是继续用这种
+ *   一次补一点的方式维护。
  *
  *   纯治理文件（.claspignore 排除，不推送到 GAS，仅供参考/审计）：
  *   00_ADR_Log.js / 00_Business_Rules.js / 00_File_Map.js（本文件）/
