@@ -355,6 +355,144 @@
 //   跑完一轮真实案件再集中 Review）在时序上有张力，已在对话中提出，
 //   等 CC 决定——本 Review 范围内未执行任何 Schema 变更。
 
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// REVIEW-004 — DefectItem Schema Migration（ItemID / SubCategory /
+//              Remark，20 栏 Reorder）Design & Deployment Review
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// Date: 2026-08-24～26
+// Profile: Schema Migration Design + Deployment Review——本地
+//   Node/GasShim 测试驱动 + 真实 GAS 项目实际部署执行，双重验证。
+//   沿用 REVIEW-001/002 的 Definition of Ready/Done/Production-Ready
+//   结构，非正式 UEF §9 Production Readiness Audit 格式。
+// Scope: 901_PropertySchema.js（DefectItem.columns reorder，17→20
+//   栏）、918_DefectEngine.js（addDefectItem/updateDefectItem 支援
+//   itemId/subCategory/remark）、新建
+//   ONETIME_Phase11_DefectItemSchemaReorderMigration.js、
+//   ONETIME_Phase11_DefectImporter.js（staging schema 调整 +
+//   setFrozenRows(1) 补上——与本次栏位改动本身无关的既有 gap，顺带
+//   修复）、GasShim.js（flush()/setFontWeight()/autoResizeColumns()/
+//   getLastColumn() 四个 mock 补齐，test infrastructure，非 domain
+//   逻辑）。★ 不含 Item A/Item B 本身（Pre-Import Gate 剩余项目，
+//   见 REVIEW-003 Next Steps，本次未变动、未解除）。
+// Owner: CC（solo dev）
+//
+// ─── Definition of Ready（回溯检查）────────────────────────────────
+//   ✓ 治理决定在实作前已产出：ADR-P18 两个问题——(1) migrate now vs.
+//     等真实资料到位；(2) append-only vs. reorder——都先由 CC 拍板
+//     （2026-08-24）才动手，不是边做边决定。
+//   ✓ 前一版本（append-at-end）草案已交付、CC review 后明确推翻，
+//     改为 reorder——ADR-P18 记录在案，
+//     CHECKPOINT_2026-08-26_Phase11-SchemaMigration.md 第 3 节列为
+//     "已被取代"，不是本次才第一次做决定。
+//
+// ─── Definition of Done ─────────────────────────────────────────────
+//   ✓ 代码已实作（901/918/两个新 ONETIME 档案/GasShim 四个 mock）
+//   ✓ 全部 .js 语法检查（node -c）干净
+//   ✓ 两份新测试套件：local_precheck_test_phase11_schema_migration.js
+//     48/48、local_precheck_test_phase11_defectitem_reorder_
+//     migration.js 30/30，全通过
+//   ✓ 既有回归无损：918 本地测试 144/144、922 本地测试 37/37
+//   ✓ 用 node -e 直接执行 loadPropertyOSContext 拿到
+//     PROPERTY_SCHEMA.DefectItem.columns 真实内容，20 栏顺序与
+//     ADR-P18 决定的顺序逐字比对一致（非只读 checkpoint 文字转述）
+//   ✓ 零硬编码 column index——918/922/947/948/Importer 对 DefectItem
+//     的存取路径逐一确认，全部经由 901 的具名 helper
+//     （readRowAsObject_/objectToRowArray_/updateRowFields_），reorder
+//     对这些呼叫方是透明的
+//   ✓ ADR-P18 唯一一份记录（grep -c "ADR-P18" 00_ADR_Log.js = 1，
+//     无重复）
+//   ✓ 治理文件同 session 更新：00_Project_State.js ADR 状态栏 +
+//     CHANGELOG、00_File_Map.js 补上两个新档案条目
+//
+// ─── Definition of Production-Ready ─────────────────────────────────
+//   Done + 真实 GAS 项目实际执行验证。
+//   → ★ 结论（本次 Scope 范围内，即 Schema Migration 本身——不代表
+//   整个 Phase 11 Pre-Import Gate 已解除）：CC 已在真实 GAS 项目完成
+//   8 个档案部署 → 手动执行 migration 函式 → Logger 回报 MIGRATION
+//   SUCCESS → Mobile Console 手动碰过、无 Schema drift 报错。三步
+//   都是 CC 本人操作完成，PRODUCTION-READY（本次 Scope 范围内）。
+//   ⚠ 如实标注未涵盖的部分：真实 migrated row 数的精确数字未经
+//   Claude 直接确认（如需要，请查该次执行的 Execution/Logger 记录）；
+//   "8 个档案部署"本身 Claude 没有工具核对是否逐字节相同，只能相信
+//   CC 的操作结果，不假装已独立验证。
+//
+// ─── Findings ─────────────────────────────────────────────────────
+//
+//   FINDING-1（已修复，本次范围内发现，与栏位 reorder 本身无关）—
+//     ONETIME_Phase11_DefectImporter.js 的
+//     phase11_setupDefectImportStagingSheet() 原本漏了
+//     setFrozenRows(1)，是既有 gap，CC 实际操作真实 GAS 项目时发现
+//     （非本地测试发现）。Fix: 已在同一函式内、设完 header 与 bold
+//     格式后紧接着补上（同一次函式呼叫内一次做完，不是分两步）。
+//     Verification: grep 核实其位置 +
+//     local_precheck_test_phase11_schema_migration.js 专属断言
+//     （frozenRows === 1，注解记录"spotted missing on the real sheet
+//     2026-08-24"）守着，本次核对重新执行仍通过。CC 确认
+//     （2026-08-26）真实 DefectImportStaging 目前尚未建立，下次执行
+//     setup 会一次自动带 freeze，不需要对既有 sheet 另外补救。
+//
+//   FINDING-2（已修复，设计阶段发现）— 日期栏位 reorder 后如果不先
+//     锁定 plain-text 格式，真实 Google Sheets 会把 migration 写入的
+//     日期栏位自动转型成 Date object，而非 Property OS 全线预期的
+//     ISO 字串。Fix:
+//     ONETIME_Phase11_DefectItemSchemaReorderMigration.js 写入前对
+//     日期栏位做 setNumberFormat('@')，比照 ensureSheetSchema_ 既有
+//     处理手法。Verification: 本地测试涵盖 0 笔资料/3 笔资料/
+//     idempotent 重跑/header 不符 preflight abort/sheet 不存在共
+//     5 种情境，30/30 通过。
+//
+//   （REVIEW-003 已列过的 Importer 本身设计发现，本次不重复列；本次
+//   新发现仅上述两项）
+//
+// ─── Disposition ─────────────────────────────────────────────────────
+//   GO——DefectItem Schema Migration（ItemID/SubCategory/Remark，
+//   20 栏 reorder）本身 COMPLETE + VERIFIED。ADR-P18 APPROVED，已在
+//   真实 GAS 项目部署执行成功。FINDING-1/2 均已修复并验证。Schema
+//   Freeze（ADR-P18）自本次起生效：真实资料录入期间新栏位需求一律
+//   先进 00_Product_Backlog.js 的 Feedback/Gap，不当场改 Domain/
+//   Runtime，除非是 data integrity/safety bug。
+//   ⚠ 此 Disposition 范围严格限定在 Schema Migration 本身——不代表
+//   Phase 11 Pre-Import Gate 已解除，不代表 Dry Run/Real Import 已
+//   获批准。Item A（原始 Defect Report 真实数量/内容）依然 OPEN，
+//   是继续推进的唯一阻塞项（Item B 状态见 REVIEW-003/Checklist，
+//   本次未变动）。
+//
+// ─── Next Steps ──────────────────────────────────────────────────────
+//   1. 等 CC 提供 Item A（原始 Defect Report 真实内容）——逐项 key in
+//      或截图皆可
+//   2. Item A 到位后：填入真实 GAS 项目的 DefectImportStaging 表 →
+//      CC 手动执行 phase11_dryRunDefectImport() → review
+//      ValidationResult 栏 → 确认无误后 CC 手动执行
+//      phase11_runDefectImport()
+//   3. 在 CC 明确要求前，不主动建议或执行 Dry Run/Real Import
+//   4. 两个 ONETIME_Phase11_*.js 档案：CC 决定暂时保留（2026-08-26）
+//      ——Phase 11 真实 onboarding 尚未开始，两者仍是现役工具（schema
+//      migration/verification 与 defect importer），archive/delete
+//      时机留到真实资料全部导入、验证完成、确定不会再 rollback/
+//      rerun 之后再决定
+//   5. 00_File_Map.js 整份 manifest 重新核对（含 947/948 那段既有
+//      落差）：CC 决定暂不在本次治理更新中处理（2026-08-26），记录
+//      为 Backlog BL-4（见 00_Product_Backlog.js），等 Phase 11 主线
+//      告一段落后再集中处理
+//
+// ─── Addendum (2026-08-26，同日) ────────────────────────────────────
+//   CC 对本次治理更新给出四项明确指示，均已落实：
+//   (1) Phase11_RealDataOnboarding_Checklist.md 里过时的 Schema
+//   Migration"待决定"段落已更新，反映 ADR-P18 APPROVED + Migration
+//   已完成、当前 Schema-Frozen / Pre-Import 状态。
+//   (2) 本 REVIEW-004 正式补上。
+//   (3) 两个 ONETIME_Phase11_*.js 暂不删除——见上方 Next Steps 第 4
+//   点，CC 原话："我们还没完成真实 Defect onboarding。它们现在还是
+//   Phase 11 的工具"。
+//   (4) 00_File_Map.js 全面重审暂不处理，属于 housekeeping，记录进
+//   Backlog BL-4，避免在 Pre-Import Gate 治理更新中另开一个大范围
+//   audit——见上方 Next Steps 第 5 点。
+//   完成以上四项治理更新后停止：不进行任何 Dry Run/Real Import，
+//   等待 CC 提供 Item A。
+
+
 // ═══════════════════════════════════════════════════════════════════════
 // END OF 00_Review_History.js
 // ═══════════════════════════════════════════════════════════════════════

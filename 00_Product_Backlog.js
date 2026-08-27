@@ -150,3 +150,26 @@
 // Slice；如果是新实体+新 Command（BL-2/BL-3），仍建议至少走一次
 // 精简版设计再动手，避免像 Operator Console 这样，实战后才发现
 // 设计缺口（例如这次跨 execution 一致性的 bug）。
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-4 — 00_File_Map.js 完整 Manifest 重新核对（提出于 2026-08-26，
+// Phase 11 Schema Migration 治理更新收尾时顺带发现）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 背景：Phase 11 DefectItem Schema Migration 期间（ADR-P18、
+// 00_Review_History.js REVIEW-004），00_File_Map.js 只补上了本次新增
+// 的两个档案条目（两个 ONETIME_Phase11_*.js）。CHECKPOINT_2026-08-26_
+// Phase11-SchemaMigration.md 已明确记录：manifest 里 947/948 那段既有
+// 落差在本次 Migration 之前就存在，未被本次覆盖或核对。
+//
+// 任务（跟 BL-1/2/3 性质不同，不是"需求+设计草图"式的功能，是文件
+// 核对）：找时间对整份 00_File_Map.js 逐一核对是否与真实档案状态一致，
+// 特别是 947/948 那段。不涉及 Schema 或 Runtime 变更，纯粹是治理
+// 文件本身的准确性 housekeeping。
+//
+// 依赖：无。CC 明确指示（2026-08-26）不要在 Phase 11 Pre-Import Gate
+// 这次的治理更新里顺手处理，避免打开一个"全 Repository manifest
+// audit"的大范围任务——与当前主线（Schema Migration → 真实 Defect
+// 数据输入 → Dry Run → Real Import → 实战 Feedback）无关，等这条主线
+// 告一段落后再集中处理。

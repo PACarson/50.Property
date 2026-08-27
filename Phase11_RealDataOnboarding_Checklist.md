@@ -10,7 +10,7 @@
 
 （2026-08-22 晚）`ONETIME_Phase11_DefectImporter.js`：**Importer Design Review Approved**（34/34 测试通过，完整清单见 `00_Review_History.js` REVIEW-003）。尚未执行 `phase11_runDefectImport()`，也不会执行，直到下方 Item A、Item B 都确认完成。Runtime 不再修改。
 
-一个待决定、尚未执行的问题：是否要在这之前先做一次 DefectItem Schema Migration（新增 `ItemID`/`SubCategory`/`Remark`）——这点有跟 Phase 11 既有纪律（先不因真实资料录入改 Domain Model）之间的时序问题，还没有动手，细节见对话回复，等 CC 决定。
+DefectItem Schema Migration（新增 `ItemID`/`SubCategory`/`Remark`，20 栏 reorder）已完成：**ADR-P18 APPROVED**（2026-08-24），CC 已在真实 GAS 项目完成部署、执行 migration、确认 Mobile Console 无异常（完整过程见 `00_ADR_Log.js` ADR-P18、`00_Review_History.js` REVIEW-004）。**Schema Freeze 现在生效中**——真实资料录入期间如冒出新栏位需求，先记进 `00_Product_Backlog.js` 的 Feedback/Gap，不当场改 Domain/Runtime，除非是 data integrity/safety bug。当前状态：**Schema-Frozen / Pre-Import Gate**。
 
 ## ⚠ 开始前，建议先确认的 3 件事
 
