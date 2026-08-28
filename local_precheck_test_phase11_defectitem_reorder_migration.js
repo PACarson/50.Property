@@ -12,6 +12,37 @@
  * result field-by-field.
  *
  * Run with: node local_precheck_test_phase11_defectitem_reorder_migration.js
+ *
+ * ⚠ STATUS NOTE (added 2026-08-26, ADR-P19 Schema Consolidation —
+ * found during that session's impact analysis, reported to CC, kept
+ * exactly as-is per CC's explicit instruction not to touch this file):
+ * phase11_migrateDefectItemSchemaReorder() reads its NEW_COLUMNS
+ * target LIVE from PROPERTY_SCHEMA.DefectItem.columns (not a frozen
+ * snapshot) — correct at the time this test was written, when 901 was
+ * at the ADR-P18 20-column schema. As of ADR-P19 (2026-08-26), 901 has
+ * moved FURTHER, to the 19-column consolidated schema (OriginalReference
+ * removed). Loaded into a fresh vm context today, this migration
+ * function now sees that 19-column schema as its "NEW_COLUMNS", which
+ * this test's own hardcoded NEW_COLUMNS constant below (still 20
+ * columns, matching what actually happened for real on 2026-08-24) no
+ * longer matches — so re-running this file in the CURRENT codebase
+ * will fail Case 1's header check and throw inside Case 2's
+ * verification (field mismatches on the now-nonexistent
+ * OriginalReference column).
+ *
+ * This is a property of running an already-completed, one-time
+ * migration's test in a codebase that has since moved two ADRs past
+ * what it was built for — NOT a live production risk: the real
+ * DefectItems sheet already went through this exact migration for
+ * real on 2026-08-24 (CC-confirmed MIGRATION SUCCESS) and is not in
+ * the 17-column pre-ADR-P18 state this test fabricates, so this
+ * function's own preflight (checks the real header against a
+ * HARDCODED 17-column OLD_COLUMNS snapshot, immune to 901's live
+ * state) would correctly refuse to touch it with a clear "PREFLIGHT
+ * FAILED" error and zero writes, exactly like it's designed to. The
+ * assertions below remain a truthful historical record of what was
+ * verified when ADR-P18 was current; they are intentionally left
+ * unmodified.
  */
 const { loadPropertyOSContext } = require('./GasShim.js');
 const vm = require('vm');

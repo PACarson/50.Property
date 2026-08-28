@@ -191,7 +191,7 @@ function enrichDefectForDisplay_(defect) {
   return {
     defectId: defect.DefectID,
     caseId: defect.CaseID,
-    originalReference: defect.OriginalReference,
+    itemId: defect.ItemID,
     category: defect.Category,
     location: defect.Location,
     description: defect.Description,

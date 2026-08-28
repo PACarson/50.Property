@@ -780,4 +780,146 @@
 //   no reason to prefer a specific position). ADR-P15 (DeveloperStatus/
 //   OwnerVerificationStatus independence on this same DefectItem entity
 //   — this ADR's "keep ItemID and OriginalReference independent, don't
-//   merge for convenience" follows the same spirit).
+//   merge for convenience" follows the same spirit). ★ SUPERSEDED IN
+//   PART by ADR-P19 below — the "keep them independent" position two
+//   lines up was reversed after real-world use.
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// ADR-P19 — DefectItem Schema Consolidation: ItemID/OriginalReference
+//           merge, Category fixed enum
+// ═══════════════════════════════════════════════════════════════════════
+//
+// STATUS: APPROVED (2026-08-26)
+//
+// CONTEXT:
+//   ADR-P18 (2026-08-24) deliberately kept ItemID and OriginalReference
+//   as two separate DefectItem columns — OriginalReference was the
+//   Importer's durable dedup key (inherited from the original Phase 0
+//   design), ItemID was a new, optional, editable external-reference
+//   field for "the item number as shown in the Developer App," and
+//   ADR-P18 explicitly reasoned that merging them "for convenience"
+//   was premature before real usage had shown whether they'd actually
+//   diverge in practice.
+//
+//   Real usage has now happened: CC confirmed (2026-08-26) that Dry
+//   Run and Real Import both succeeded against the real Defect Report,
+//   with all tests passing. With the real workflow actually exercised
+//   end to end, CC's assessment is that OriginalReference and ItemID
+//   were carrying the same real-world meaning — both are "the item's
+//   own reference number, as read off the Developer App" — and keeping
+//   them as two separate columns was redundant rather than protective.
+//   Nothing about this reflects a failure of the real import; per CC's
+//   explicit instruction, this ADR records a schema CONSOLIDATION
+//   decided after a successful import, not a bug fix prompted by one.
+//
+//   Separately, DefectItem.Category had been a "starter list" by
+//   design (ADR-era default, see 900_PropertyConfig.js's original
+//   comment: "extend additively as real defects don't fit; not
+//   exhaustive by design"). Having now classified the real Defect
+//   Report against it, CC specified a final, closed list matching the
+//   real vocabulary actually needed (physical defect locations/types:
+//   Plumbing, Ceiling, Wall, Door Frames, etc.) rather than the
+//   original placeholder list (which mixed trade categories like
+//   "Electrical"/"Painting" with a few physical-location ones and
+//   didn't match the real inventory well).
+//
+// DECISION:
+//   1. OriginalReference is REMOVED as a DefectItem column.
+//      ItemID becomes the SOLE field carrying both of its former
+//      roles: (a) the external reference visible to CC (the Developer
+//      App's own item number), AND (b) the Importer's durable
+//      cross-run dedup key (ONETIME_Phase11_DefectImporter.js). No
+//      separate SourceReference (or similarly-named) field is
+//      introduced to split these roles back apart — CC's assessment
+//      after real usage is that a defect's Developer-App item number
+//      IS its natural durable reference; inventing a second field for
+//      "the same number, but for dedup purposes" would recreate
+//      exactly the redundancy this ADR removes. If a future Defect
+//      Report genuinely needs an identity distinct from its
+//      Developer-App item number, that is a new, real requirement to
+//      evaluate on its own merits then — not something this ADR
+//      pre-provisions for speculatively.
+//      DefectItem.columns: 20 -> 19 (OriginalReference dropped, every
+//      other column's relative order unchanged — see
+//      901_PropertySchema.js).
+//      ItemID remains OPTIONAL at the addDefectItem Command level
+//      (lenient defaults, same as before) and remains editable via
+//      updateDefectItem, same as ADR-P18 already established — this
+//      ADR does not change that. It IS required at the
+//      ONETIME_Phase11_DefectImporter.js staging-row level, because a
+//      blank dedup key there would defeat the Importer's entire
+//      cross-run duplicate-protection design (see that file's header).
+//   2. DEFECT_CATEGORIES (900_PropertyConfig.js) is redefined to a
+//      final, CLOSED 15-value list: Plumbing, Appliances, Carpentry,
+//      Ceiling, Wall, Sanitary Fitting, Floor, Glass Panel, Door
+//      Panels, Ironmongery, Door Frames, Hand Railing, A/C Ledge MS
+//      Railing, Window, Other. This supersedes the original 11-value
+//      starter list (Structural, Waterproofing, Plumbing, Electrical,
+//      AirConditioning, Carpentry, Painting, Ironmongery, Appliance,
+//      Flooring, Other). Unlike that list, this one is explicitly
+//      CLOSED, not a starter — no more additive extension without a
+//      new CC decision. SubCategory remains free text with no enum,
+//      unchanged from ADR-P18 (a defect that doesn't fit any of the 15
+//      cleanly still gets Category="Other" + a clear SubCategory/
+//      Description, same discipline as before, not a 16th category).
+//   3. The already-imported real DefectItems rows (from the successful
+//      Real Import this ADR is downstream of) are migrated, not
+//      re-imported: ONETIME_Phase11_DefectItemSchemaConsolidationMigration.js
+//      performs a header-based, name-keyed remap of every existing
+//      row, merging its ItemID/OriginalReference values and dropping
+//      the latter column, exactly like ADR-P18's own
+//      ONETIME_Phase11_DefectItemSchemaReorderMigration.js did for the
+//      reorder. Two preflight checks run before any write is made,
+//      both required by CC explicitly: (a) if a row's ItemID and
+//      OriginalReference are both non-empty and DIFFERENT, the
+//      migration refuses to guess which is correct and aborts
+//      entirely, listing every such row for CC to resolve by hand;
+//      (b) if a row's Category is not in the new 15-value list, the
+//      migration refuses to silently convert it and aborts entirely,
+//      listing every such row. Neither check ran against real data as
+//      part of approving this ADR — Claude has no direct access to the
+//      real GAS project's live DefectItems sheet; both checks are
+//      built into the migration function itself and run when CC
+//      executes it for real.
+//   4. Dry Run and Real Import are explicitly NOT re-executed as part
+//      of this consolidation. This ADR and its migration only change
+//      the SHAPE of two already-imported fields (and validate
+//      Category); they do not add, remove, or re-validate which
+//      defects exist. Per CC's explicit instruction, no code path
+//      introduced by this ADR calls phase11_dryRunDefectImport() or
+//      phase11_runDefectImport().
+//
+// CONSEQUENCES:
+//   - Schema Freeze (ADR-P18) continues to apply post-consolidation:
+//     new field requests discovered during ongoing real-world use go
+//     to 00_Product_Backlog.js's Feedback/Gap, not a live Domain/
+//     Runtime edit, unless a genuine data integrity/safety bug.
+//   - Every DefectItem consumer that read/wrote OriginalReference
+//     (918_DefectEngine.js's addDefectItem, ONETIME_Phase11_DefectImporter.js's
+//     dedup logic and staging schema, 922_DashboardAdapter.js's
+//     enrichDefectForDisplay_ output field) is updated in the same
+//     session as this ADR — see 00_Review_History.js REVIEW-005 for
+//     the full file-by-file impact analysis and verification.
+//   - addDefectItem no longer reads an `originalReference` input
+//     parameter at all (silently ignored if a caller still passes it,
+//     same as any other unrecognized property — not a hard error, to
+//     avoid an unnecessary breaking change for any not-yet-updated
+//     caller, but also not stored anywhere).
+//   - This is the second consecutive schema change to DefectItem
+//     within the same Pre-Import Gate window (ADR-P18, then this).
+//     Both were deliberate, CC-directed, evidence-based decisions, not
+//     scope drift — but it's worth naming as a pattern: DefectItem's
+//     schema stabilized only AFTER real data exercised it twice, not
+//     on the first design pass. Future Engines heading into their own
+//     first real-data onboarding should expect the same possibility
+//     rather than treating a pre-import schema as necessarily final.
+//
+// Related ADRs: ADR-P18 (the column/field split this ADR reverses,
+//   ADR-P18's own "Related ADRs" line above is updated to point back
+//   here). ADR-P15 (DeveloperStatus/OwnerVerificationStatus
+//   independence — deliberately NOT touched by this ADR; that
+//   independence is a different kind of decision, about two fields
+//   that track genuinely different real-world facts, not a redundant
+//   pair like ItemID/OriginalReference turned out to be).
+

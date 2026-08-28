@@ -23,7 +23,7 @@
 //   Current Branch  : （待 CC 指定，建议 property-os/session1-obligation-engine）
 //   Blueprint 合规  : Universal Domain OS Blueprint ✓ | UEF v1.6 ✓
 //   ADR 状态        : ADR-P01, P02, P04, P05, P06, P07, P08, P10, P15,
-//                     P16, P17, P18 APPROVED；ADR-P03 RESERVED（非
+//                     P16, P17, P18, P19 APPROVED；ADR-P03 RESERVED（非
 //                     Locked）；P09 未使用（跳号）
 //   Review 状态      : Architecture Review Approval GRANTED (2026-07-19)；
 //                     Foundation 层（900-903）APPROVED (2026-07-19)；
@@ -366,6 +366,21 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+//   2026-08-26      Phase 11 — DefectItem Schema Consolidation。CC 确认
+//                   真实 Dry Run + Real Import 均已成功后，决定将
+//                   OriginalReference 併入 ItemID（ItemID 成为唯一
+//                   dedup key，20→19 栏），Category 改为最终固定 15 值
+//                   枚举（取代原 11 值 starter list）。ADR-P19。新增
+//                   ONETIME_Phase11_DefectItemSchemaConsolidationMigration.js
+//                   （对真实、已有资料的 sheet 做安全 merge，内建
+//                   ItemID/OriginalReference 冲突与非法 Category 双重
+//                   preflight，任一触发即整体中止、zero writes，不自动
+//                   选择或转换）。本次严格未执行 Dry Run/Real
+//                   Import，也未对真实 DefectItems 表做任何写入——CC
+//                   明确指示这是 schema 整理，不是重新导入。完整
+//                   impact analysis、逐档案变更清单、变更前後 schema
+//                   对照见 00_Review_History.js REVIEW-005。
 //
 //   2026-08-24～26   Phase 11 Pre-Import Gate — DefectItem Schema
 //                   Migration（ItemID/SubCategory/Remark）完成，CC 在

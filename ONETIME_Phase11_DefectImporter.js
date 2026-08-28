@@ -9,6 +9,18 @@
  * into DefectItem, so you don't hand-enter each one through the Mobile
  * Console or Sidebar UI.
  *
+ * ⚠ STATUS (2026-08-26): the initial batch import this file was built
+ * for has ALREADY completed — CC confirmed Dry Run and Real Import
+ * both succeeded on the real GAS project. This file is kept per CC's
+ * 2026-08-26 governance decision, for any further incremental Defect
+ * Report items that surface later — not because the original import is
+ * still pending. Nothing in this file was re-run as part of the
+ * 2026-08-26 ADR-P19 schema consolidation (ItemID/OriginalReference
+ * merge, Category enum fix); that was a separate, one-time structural
+ * migration (see ONETIME_Phase11_DefectItemSchemaConsolidationMigration.js)
+ * that touched only the SHAPE of already-imported rows, never
+ * re-imported or re-validated which defects exist.
+ *
  * ─── Durable cross-run duplicate protection (the core design question) ───
  * addDefectItem already has a clientRequestId idempotency mechanism
  * (same pattern as 910/911/912), but it's backed by CacheService with a
@@ -24,22 +36,26 @@
  * Daily Check, Owner Verification), so this file does NOT rely on
  * CacheService for cross-run protection.
  *
- * Instead: every source row must carry a stable OriginalReference
- * (the original Defect Report's own item number, e.g. "88" — this
- * field already exists in DefectItem's schema for exactly this kind
- * of traceability, see DLP_Defect_Case_Engine_Phase0_Audit.md).
- * ⚠ 2026-08-24 schema migration added an ItemID staging column too
- * (see PHASE11_STAGING_COLUMNS) — ItemID is NOT the dedup key.
- * OriginalReference remains the sole dedup key throughout this file;
- * ItemID/SubCategory/Remark are optional pass-through fields only.
+ * Instead: every source row must carry a stable ItemID (the item
+ * number as shown in the Developer App, e.g. "88" — CC reads it off
+ * that app and keys it in manually; no automated extraction exists or
+ * is implied). ★ ADR-P19 (2026-08-26): ItemID is now the file's SOLE
+ * dedup key. Until 2026-08-26 this file used a separate
+ * OriginalReference staging column as the dedup key (ADR-P18,
+ * 2026-08-24), with ItemID as a merely-optional pass-through field —
+ * CC merged the two into ItemID alone after real-world use showed
+ * keeping them separate was redundant (see ADR-P19 for the full
+ * rationale and ONETIME_Phase11_DefectItemSchemaConsolidationMigration.js
+ * for the migration that merged them on the real, already-populated
+ * DefectItems sheet).
  * Before importing a row, this file reads the REAL, CURRENT DefectItem sheet
  * (via the existing listDefectItemsForCase — no schema change) and
- * builds OriginalReference -> DefectID for everything already there.
- * A row is only ever imported if its OriginalReference is NOT already
+ * builds ItemID -> DefectID for everything already there.
+ * A row is only ever imported if its ItemID is NOT already
  * in that map. This is a plain Sheet-state check, not a cache lookup —
  * it doesn't degrade with time, doesn't care how long between runs,
  * and doesn't care what order rows appear in the staging sheet (the
- * key is the OriginalReference VALUE, never row position — see
+ * key is the ItemID VALUE, never row position — see
  * phase11_validateStagingRow_, rowIndex is only ever used for a
  * human-readable "also used on row N" message, never as part of the
  * dedup decision itself). clientRequestId is still passed to
@@ -78,11 +94,11 @@
  *       READY / WOULD_IMPORT  — dry-run only, row is clean, would be imported
  *       IMPORTED               — real-run only, addDefectItem succeeded
  *       INVALID                — required field missing, or bad Category/Priority
- *       DUPLICATE_IN_SOURCE     — same OriginalReference used twice in the
+ *       DUPLICATE_IN_SOURCE     — same ItemID used twice in the
  *                                 staging sheet itself (a data-entry mistake
  *                                 in the source, reported even if the
  *                                 first occurrence already succeeded)
- *       ALREADY_IMPORTED        — OriginalReference already exists as a real
+ *       ALREADY_IMPORTED        — ItemID already exists as a real
  *                                 DefectItem for this Case (from a prior run)
  *       FAILED                  — real-run only: row was valid and new, but
  *                                 the actual addDefectItem() call threw
@@ -96,10 +112,10 @@
  *   1. Run phase11_setupDefectImportStagingSheet() once. It creates a
  *      "DefectImportStaging" tab with headers + 2 example rows.
  *   2. Replace the example rows with the real Defect Report data (one
- *      row per defect: OriginalReference / ItemID / Location / Category /
- *      SubCategory / Description / Remark / Priority — ItemID,
- *      SubCategory, and Remark are optional, leave blank if the source
- *      report doesn't have them). Delete the two example rows.
+ *      row per defect: ItemID / Location / Category / SubCategory /
+ *      Description / Remark / Priority — SubCategory and Remark are
+ *      optional, leave blank if the source report doesn't have them.
+ *      ★ ItemID is REQUIRED as of ADR-P19 — it is the sole dedup key now).
  *   3. Run phase11_dryRunDefectImport(). Read the ValidationResult
  *      column on every row (position may shift if columns are added
  *      again — see phase11_colIndex_) and the Logger summary
@@ -131,14 +147,16 @@ var PHASE11_IMPORT_CONFIG = Object.freeze({
 });
 
 // Added ItemID/SubCategory/Remark 2026-08-24 (Phase 11 Pre-Import Gate
-// schema migration, CC decision Option B). ValidationResult/ImportResult
-// stay last, same as before. Unlike 901_PropertySchema.js's DefectItem
-// sheet, THIS array has no real-sheet drift constraint — this staging
-// sheet is created fresh every time by
+// schema migration, CC decision Option B). ★ ADR-P19 (2026-08-26):
+// OriginalReference column REMOVED — ItemID is now the sole dedup key
+// (previously OriginalReference alone; see file header). ValidationResult/
+// ImportResult stay last, same as before. Unlike 901_PropertySchema.js's
+// DefectItem sheet, THIS array has no real-sheet drift constraint — this
+// staging sheet is created fresh every time by
 // phase11_setupDefectImportStagingSheet() (throws if it already
 // exists), never migrated — so column order here is free to change.
 var PHASE11_STAGING_COLUMNS = Object.freeze([
-  'OriginalReference', 'ItemID', 'Location', 'Category', 'SubCategory',
+  'ItemID', 'Location', 'Category', 'SubCategory',
   'Description', 'Remark', 'Priority',
   'ValidationResult', 'ImportResult'
 ]);
@@ -176,20 +194,22 @@ function phase11_setupDefectImportStagingSheet() {
   sheet.getRange(1, 1, 1, PHASE11_STAGING_COLUMNS.length).setValues([PHASE11_STAGING_COLUMNS]);
   sheet.getRange(1, 1, 1, PHASE11_STAGING_COLUMNS.length).setFontWeight('bold');
   sheet.setFrozenRows(1);
-  // OriginalReference is a plain-text-prone-to-autoformat column (e.g.
-  // "1E2" style references, or leading zeros) — format proactively.
-  // Same fix as ensureSheetSchema_ applies to real dateColumns, just
-  // manual here since this sheet isn't part of PROPERTY_SCHEMA.
+  // ItemID is a plain-text-prone-to-autoformat column (e.g. "1E2" style
+  // references, or leading zeros) — format proactively. Same fix as
+  // ensureSheetSchema_ applies to real dateColumns, just manual here
+  // since this sheet isn't part of PROPERTY_SCHEMA.
   sheet.getRange(2, 1, 998, 1).setNumberFormat('@');
 
-  // Column order: OriginalReference, ItemID, Location, Category,
-  // SubCategory, Description, Remark, Priority, ValidationResult(blank),
-  // ImportResult(blank). ItemID/SubCategory/Remark are optional —
-  // EXAMPLE-1 leaves them blank to show that's valid; EXAMPLE-2 fills
-  // them in to show the columns in use.
+  // Column order: ItemID, Location, Category, SubCategory, Description,
+  // Remark, Priority, ValidationResult(blank), ImportResult(blank).
+  // ★ ADR-P19 (2026-08-26): ItemID is now REQUIRED (sole dedup key,
+  // OriginalReference removed) — unlike SubCategory/Remark, which stay
+  // optional. EXAMPLE-1 shows a normal filled row; EXAMPLE-2 shows the
+  // columns in use AND an intentionally-bad Category so dry-run
+  // demonstrably flags it.
   var exampleRows = [
-    ['EXAMPLE-1', '', 'Master Bathroom', 'Waterproofing', '', 'DELETE THIS ROW — example of a normal row', '', 'High', '', ''],
-    ['EXAMPLE-2', 'DR-88', 'Living Room', 'BadCategoryXYZ', 'Skirting', 'DELETE THIS ROW — example dry-run should flag (bad Category)', 'Sample remark text', 'Medium', '', '']
+    ['EXAMPLE-1', 'Master Bathroom', 'Wall', '', 'DELETE THIS ROW — example of a normal row', '', 'High', '', ''],
+    ['EXAMPLE-2', 'Living Room', 'BadCategoryXYZ', 'Skirting', 'DELETE THIS ROW — example dry-run should flag (bad Category)', 'Sample remark text', 'Medium', '', '']
   ];
   sheet.getRange(2, 1, exampleRows.length, PHASE11_STAGING_COLUMNS.length).setValues(exampleRows);
   sheet.autoResizeColumns(1, PHASE11_STAGING_COLUMNS.length);
@@ -209,18 +229,18 @@ function phase11_setupDefectImportStagingSheet() {
  *
  * rowIndex is used ONLY to build a human-readable "also used on row N"
  * message — never as part of the dedup key itself. The dedup key is
- * always originalReference's VALUE, so re-ordering rows in the staging
- * sheet between runs cannot change which rows get recognized as
- * already-imported.
+ * always itemId's VALUE (ADR-P19, 2026-08-26 — formerly
+ * originalReference, see file header), so re-ordering rows in the
+ * staging sheet between runs cannot change which rows get recognized
+ * as already-imported.
  *
  * Returns status as exactly one of: 'INVALID', 'DUPLICATE_IN_SOURCE',
  * 'ALREADY_IMPORTED', 'READY' — checked in that priority order, so a
  * row with multiple issues is still classified by its single most
- * fundamental problem (e.g. a row missing OriginalReference is INVALID,
+ * fundamental problem (e.g. a row missing ItemID is INVALID,
  * never DUPLICATE_IN_SOURCE, since there's nothing to compare).
  */
-function phase11_validateStagingRow_(row, rowIndex, seenReferencesInBatch, existingReferencesInCase) {
-  var originalReference = String(row[phase11_colIndex_('OriginalReference')] || '').trim();
+function phase11_validateStagingRow_(row, rowIndex, seenItemIdsInBatch, existingItemIdsInCase) {
   var itemId = String(row[phase11_colIndex_('ItemID')] || '').trim();
   var location = String(row[phase11_colIndex_('Location')] || '').trim();
   var category = String(row[phase11_colIndex_('Category')] || '').trim();
@@ -233,7 +253,7 @@ function phase11_validateStagingRow_(row, rowIndex, seenReferencesInBatch, exist
   var warnings = [];
 
   if (!description) problems.push('Description is required');
-  if (!originalReference) problems.push('OriginalReference is required (needed for de-dup — see file header)');
+  if (!itemId) problems.push('ItemID is required (needed for de-dup — see file header, ADR-P19)');
   if (category && PROPERTY_CONFIG.DEFECT_CATEGORIES.indexOf(category) === -1) {
     problems.push('Unknown Category "' + category + '" — must be one of: ' + PROPERTY_CONFIG.DEFECT_CATEGORIES.join(', '));
   }
@@ -242,14 +262,12 @@ function phase11_validateStagingRow_(row, rowIndex, seenReferencesInBatch, exist
     problems.push('Unknown Priority "' + priority + '" — must be one of: ' + PROPERTY_CONFIG.DEFECT_PRIORITIES.join(', '));
   }
   if (!priority) warnings.push('Priority blank, will default to "Medium"');
-  // ItemID/SubCategory/Remark are optional pass-through fields, added
+  // SubCategory/Remark are optional pass-through fields, added
   // 2026-08-24 — no requiredness check, no enum check (SubCategory has
-  // no enum, see 901_PropertySchema.js), and deliberately NOT part of
-  // the dedup key (that's still originalReference only — see file
-  // header and phase11_loadExistingReferences_).
+  // no enum, see 901_PropertySchema.js), and not part of the dedup key.
 
   var result = {
-    originalReference: originalReference, itemId: itemId, location: location,
+    itemId: itemId, location: location,
     category: category, subCategory: subCategory, description: description,
     remark: remark, priority: priority,
     problems: problems, warnings: warnings
@@ -261,19 +279,19 @@ function phase11_validateStagingRow_(row, rowIndex, seenReferencesInBatch, exist
     return result;
   }
 
-  if (seenReferencesInBatch[originalReference]) {
+  if (seenItemIdsInBatch[itemId]) {
     result.status = 'DUPLICATE_IN_SOURCE';
-    result.message = 'DUPLICATE_IN_SOURCE: OriginalReference "' + originalReference +
-      '" also used on row ' + seenReferencesInBatch[originalReference] + ' of this staging sheet';
+    result.message = 'DUPLICATE_IN_SOURCE: ItemID "' + itemId +
+      '" also used on row ' + seenItemIdsInBatch[itemId] + ' of this staging sheet';
     return result;
   }
-  seenReferencesInBatch[originalReference] = rowIndex;
+  seenItemIdsInBatch[itemId] = rowIndex;
 
-  var existingDefectId = existingReferencesInCase[originalReference];
+  var existingDefectId = existingItemIdsInCase[itemId];
   if (existingDefectId) {
     result.status = 'ALREADY_IMPORTED';
     result.existingDefectId = existingDefectId;
-    result.message = 'ALREADY_IMPORTED: OriginalReference "' + originalReference + '" already exists as ' + existingDefectId;
+    result.message = 'ALREADY_IMPORTED: ItemID "' + itemId + '" already exists as ' + existingDefectId;
     return result;
   }
 
@@ -282,12 +300,13 @@ function phase11_validateStagingRow_(row, rowIndex, seenReferencesInBatch, exist
   return result;
 }
 
-/** Read-only. Map of OriginalReference -> DefectID for everything already in this Case. */
-function phase11_loadExistingReferences_(caseId) {
+/** Read-only. Map of ItemID -> DefectID for everything already in this
+ * Case (ADR-P19, 2026-08-26 — formerly keyed by OriginalReference). */
+function phase11_loadExistingItemIds_(caseId) {
   var existing = listDefectItemsForCase(caseId);
   var map = {};
   existing.forEach(function (d) {
-    if (d.OriginalReference) map[d.OriginalReference] = d.DefectID;
+    if (d.ItemID) map[d.ItemID] = d.DefectID;
   });
   return map;
 }
@@ -323,12 +342,12 @@ function phase11_dryRunDefectImport() {
   }
 
   var staging = phase11_readStagingRows_();
-  var existingReferences = phase11_loadExistingReferences_(caseId);
-  var seenReferencesInBatch = {};
+  var existingItemIds = phase11_loadExistingItemIds_(caseId);
+  var seenItemIdsInBatch = {};
 
   var counts = { READY: 0, INVALID: 0, DUPLICATE_IN_SOURCE: 0, ALREADY_IMPORTED: 0 };
   var results = staging.rows.map(function (row, i) {
-    var v = phase11_validateStagingRow_(row, i + 2, seenReferencesInBatch, existingReferences);
+    var v = phase11_validateStagingRow_(row, i + 2, seenItemIdsInBatch, existingItemIds);
     counts[v.status]++;
     return [v.message];
   });
@@ -372,8 +391,8 @@ function phase11_runDefectImport() {
   }
 
   var staging = phase11_readStagingRows_();
-  var existingReferences = phase11_loadExistingReferences_(caseId);
-  var seenReferencesInBatch = {};
+  var existingItemIds = phase11_loadExistingItemIds_(caseId);
+  var seenItemIdsInBatch = {};
 
   var byStatus = { IMPORTED: [], FAILED: [], INVALID: [], DUPLICATE_IN_SOURCE: [], ALREADY_IMPORTED: [] };
   var processedThisRun = 0;
@@ -382,21 +401,21 @@ function phase11_runDefectImport() {
   for (var i = 0; i < staging.rows.length; i++) {
     var row = staging.rows[i];
     var rowNum = i + 2;
-    var v = phase11_validateStagingRow_(row, rowNum, seenReferencesInBatch, existingReferences);
+    var v = phase11_validateStagingRow_(row, rowNum, seenItemIdsInBatch, existingItemIds);
 
     if (v.status === 'INVALID') {
       resultColumn.push([v.message]);
-      byStatus.INVALID.push({ row: rowNum, originalReference: v.originalReference, reason: v.problems.join('; ') });
+      byStatus.INVALID.push({ row: rowNum, itemId: v.itemId, reason: v.problems.join('; ') });
       continue;
     }
     if (v.status === 'DUPLICATE_IN_SOURCE') {
       resultColumn.push([v.message]);
-      byStatus.DUPLICATE_IN_SOURCE.push({ row: rowNum, originalReference: v.originalReference });
+      byStatus.DUPLICATE_IN_SOURCE.push({ row: rowNum, itemId: v.itemId });
       continue;
     }
     if (v.status === 'ALREADY_IMPORTED') {
       resultColumn.push([v.message]);
-      byStatus.ALREADY_IMPORTED.push({ row: rowNum, originalReference: v.originalReference, existingDefectId: v.existingDefectId });
+      byStatus.ALREADY_IMPORTED.push({ row: rowNum, itemId: v.itemId, existingDefectId: v.existingDefectId });
       continue;
     }
     // v.status === 'READY' from here on
@@ -412,20 +431,19 @@ function phase11_runDefectImport() {
         category: v.category,
         location: v.location,
         priority: v.priority,
-        originalReference: v.originalReference,
         itemId: v.itemId,
         subCategory: v.subCategory,
         remark: v.remark,
-        clientRequestId: 'phase11-import-' + caseId + '-' + v.originalReference
+        clientRequestId: 'phase11-import-' + caseId + '-' + v.itemId
       });
       resultColumn.push(['IMPORTED: ' + result.defectId]);
-      byStatus.IMPORTED.push({ row: rowNum, originalReference: v.originalReference, defectId: result.defectId });
-      existingReferences[v.originalReference] = result.defectId;
+      byStatus.IMPORTED.push({ row: rowNum, itemId: v.itemId, defectId: result.defectId });
+      existingItemIds[v.itemId] = result.defectId;
       processedThisRun++;
     } catch (e) {
       var msg = 'FAILED: ' + (e.message || e);
       resultColumn.push([msg]);
-      byStatus.FAILED.push({ row: rowNum, originalReference: v.originalReference, reason: e.message || String(e) });
+      byStatus.FAILED.push({ row: rowNum, itemId: v.itemId, reason: e.message || String(e) });
     }
   }
 

@@ -31,7 +31,7 @@ function runPhase5SmokeTest() {
   var defectResult = addDefectItem({
     caseId: caseResult.caseId,
     description: 'Smoke test defect for Evidence attachment',
-    category: 'Waterproofing'
+    category: 'Wall'
   });
   Logger.log('3. Added Defect: ' + defectResult.defectId);
 

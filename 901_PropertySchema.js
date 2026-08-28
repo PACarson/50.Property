@@ -225,6 +225,24 @@ var PROPERTY_SCHEMA = Object.freeze({
   // during real Defect Report onboarding go to Feedback/Gap, not a
   // live Domain/Runtime edit, unless they are a data integrity/safety
   // bug.
+  //
+  // ── ADR-P19 (2026-08-26) — Schema Consolidation, POST real import ──
+  // After the real Defect Report was fully onboarded (Dry Run + Real
+  // Import both confirmed successful by CC), CC decided to consolidate
+  // ItemID and OriginalReference into ItemID alone (see ADR-P19 for
+  // full rationale) and to fix Category to a final, closed 15-value
+  // enum. Unlike ADR-P18's reorder, this is a column REMOVAL
+  // (OriginalReference dropped, 20 columns -> 19) plus a value-level
+  // merge, operating on a sheet that — unlike the ADR-P18 migration —
+  // already has real, live Defect data in it, not just an empty/
+  // freshly-created one. See
+  // ONETIME_Phase11_DefectItemSchemaConsolidationMigration.js, which
+  // preflight-checks every existing row for an ItemID/OriginalReference
+  // VALUE conflict and for a Category value outside the new enum
+  // BEFORE writing anything — either condition aborts the whole
+  // migration with zero writes, for CC to resolve manually. This
+  // migration does NOT re-run Dry Run or Real Import, and does not
+  // touch which defects exist — only the shape of two of their fields.
   DefectItem: Object.freeze({
     sheetName: PROPERTY_CONFIG.SHEET_NAMES.DEFECT_ITEMS,
     columns: Object.freeze([
@@ -233,15 +251,17 @@ var PROPERTY_SCHEMA = Object.freeze({
       'ItemID',                        // string, optional. The item number as shown in the Developer App
                                         // (the developer's own defect-tracking portal/system) — CC reads it
                                         // off that app and keys it in manually; no automated extraction
-                                        // exists or is implied. AS DISTINCT FROM OriginalReference directly
-                                        // below — the two are deliberately NOT reconciled by this migration.
-                                        // ItemID does NOT replace OriginalReference, does NOT change the
-                                        // Importer's dedup key (still OriginalReference — see ADR-P18), and
-                                        // no backfill/merge is performed. ItemID is an external reference,
-                                        // NOT a Property OS identity — stays editable via updateDefectItem,
-                                        // unlike DefectID.
-      'OriginalReference',             // string, e.g. "88" — durable Importer dedup key, unchanged by this migration
-      'Category',                      // enum, PROPERTY_CONFIG.DEFECT_CATEGORIES
+                                        // exists or is implied. ★ ADR-P19 (2026-08-26): ItemID now ALSO
+                                        // serves as the Importer's durable dedup key — the separate
+                                        // OriginalReference column (ADR-P18) was merged into this one after
+                                        // real-world use showed the two were redundant. See ADR-P19 for the
+                                        // merge rationale and the ONETIME_Phase11_DefectItemSchemaConsolidation
+                                        // Migration.js migration that performed it on the real, already-
+                                        // populated sheet. ItemID is an external reference, NOT a Property OS
+                                        // identity — stays editable via updateDefectItem, unlike DefectID.
+      'Category',                      // enum, PROPERTY_CONFIG.DEFECT_CATEGORIES — redefined to a fixed
+                                        // 15-value list under ADR-P19 (2026-08-26); see that ADR for the old
+                                        // vs. new list and how existing real data was checked against it
       'SubCategory',                   // string, optional, free text. No enum — unlike Category, not
                                         // validated against a fixed list (avoid Speculative Design; not requested)
       'Description',                   // string
@@ -572,6 +592,24 @@ function initDocumentEngineSchema_() {
  * throws "Schema drift detected on sheet DefectItems" (by design —
  * see ensureSheetSchema_ above) — this includes the Mobile Console,
  * since it reads DefectItems through the same code path.
+ *
+ * ⚠ SECOND MIGRATION NOTE (ADR-P19, 2026-08-26) — layered on top of the
+ * ADR-P18 note above, read this one too before redeploying: after the
+ * ADR-P18 reorder above was run for real AND the real Defect Report was
+ * fully imported (Dry Run + Real Import both CC-confirmed successful),
+ * DefectItem.columns changed again — OriginalReference was removed
+ * (merged into ItemID), 20 columns -> 19. The real DefectItems sheet
+ * now has LIVE data in it (unlike when ADR-P18's migration ran), so
+ * the same "do not hand-edit header cells" rule applies with higher
+ * stakes. Run
+ * ONETIME_Phase11_DefectItemSchemaConsolidationMigration.js's
+ * migration function once, for real, BEFORE deploying/running any
+ * other updated 918/922/947 code against it. That function refuses to
+ * write anything if it finds an ItemID/OriginalReference value
+ * conflict or a Category value outside the new enum on any existing
+ * row — see that file for details. This migration does NOT re-import
+ * or re-validate which defects exist, only the shape of these two
+ * fields.
  */
 function initDefectEngineSchema_() {
   ensureSheetSchema_(

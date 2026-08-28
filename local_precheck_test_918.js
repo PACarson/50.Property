@@ -81,7 +81,7 @@ console.log('\\n═══ addDefectItem ═══');
   const caseId = c.caseId;
 
   check('Case starts Open before any defect', run(ctx, `getPropertyCase('${caseId}').Status`) === 'Open');
-  const d1 = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'Bathroom 1 severe floor ponding', category: 'Waterproofing', location: 'Bathroom 1', priority: 'Critical', originalReference: '1' });`);
+  const d1 = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'Bathroom 1 severe floor ponding', category: 'Sanitary Fitting', location: 'Bathroom 1', priority: 'Critical', itemId: '1' });`);
   check('succeeds with full input', d1.success === true);
   check('DefectID reuses the pre-reserved DEFECT- prefix', d1.defectId.indexOf('DEFECT-') === 0);
   check('DeveloperStatus starts Pending', d1.defectItem.DeveloperStatus === 'Pending');
@@ -107,7 +107,7 @@ console.log('\\n═══ THE key rule: DeveloperStatus / OwnerVerificationStatu
 {
   const ctx = fresh(); const propertyId = seedProperty(ctx);
   const c = run(ctx, `createPropertyCase({ propertyId: '${propertyId}', originalSubmissionDate: '2026-08-13' });`);
-  const d = run(ctx, `addDefectItem({ caseId: '${c.caseId}', description: 'Air-conditioner not cooling', category: 'AirConditioning', originalReference: '88' });`);
+  const d = run(ctx, `addDefectItem({ caseId: '${c.caseId}', description: 'Air-conditioner not cooling', category: 'Appliances', itemId: '88' });`);
   const defectId = d.defectId;
 
   run(ctx, `recordDeveloperStatus({ defectId: '${defectId}', developerStatus: 'ClaimedCompleted', note: 'AC rectified' });`);
@@ -330,7 +330,7 @@ console.log("\n=== Phase 7: logRectificationEvent ===");
 {
   const ctx = fresh(); const propertyId = seedProperty(ctx);
   const caseId = run(ctx, `createPropertyCase({ propertyId: '${propertyId}', originalSubmissionDate: '2026-08-13' }).caseId`);
-  const d = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'AC not cooling', category: 'AirConditioning' });`);
+  const d = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'AC not cooling', category: 'Appliances' });`);
   const otherCase = run(ctx, `createPropertyCase({ propertyId: '${propertyId}', originalSubmissionDate: '2026-08-14' }).caseId`);
 
   const r1 = run(ctx, `logRectificationEvent({

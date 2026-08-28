@@ -103,19 +103,30 @@ var PROPERTY_CONFIG = Object.freeze({
 
   PROPERTY_CASE_STATUSES: Object.freeze(['Open', 'InProgress', 'Closed']),
 
-  // Starter list — extend additively as real defects don't fit; not
-  // exhaustive by design (avoid Speculative Design).
+  // Fixed enum, CC-specified final list (ADR-P19, 2026-08-26) — NOT a
+  // starter list anymore. Do not add, remove, or rename entries without
+  // a new CC decision; unlike SubCategory (free text, no enum by
+  // design), this list is now closed. Superseded the original
+  // 11-value starter list (Structural/Waterproofing/Plumbing/
+  // Electrical/AirConditioning/Carpentry/Painting/Ironmongery/
+  // Appliance/Flooring/Other) — see ADR-P19 for why and for how
+  // already-imported real DefectItems rows were checked against this
+  // new list before it took effect.
   DEFECT_CATEGORIES: Object.freeze([
-    'Structural',
-    'Waterproofing',
     'Plumbing',
-    'Electrical',
-    'AirConditioning',
+    'Appliances',
     'Carpentry',
-    'Painting',
+    'Ceiling',
+    'Wall',
+    'Sanitary Fitting',
+    'Floor',
+    'Glass Panel',
+    'Door Panels',
     'Ironmongery',
-    'Appliance',
-    'Flooring',
+    'Door Frames',
+    'Hand Railing',
+    'A/C Ledge MS Railing',
+    'Window',
     'Other'
   ]),
 

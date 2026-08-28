@@ -675,7 +675,6 @@ function addDefectItem(input) {
     var defectItem = {
       DefectID: defectId,
       CaseID: input.caseId,
-      OriginalReference: input.originalReference || '',
       Category: category,
       Location: input.location || '',
       Description: input.description,
@@ -690,8 +689,11 @@ function addDefectItem(input) {
       ClosedDate: '',
       CreatedAt: now,
       UpdatedAt: now,
-      // Added 2026-08-24 (Phase 11 Pre-Import Gate migration). Optional,
-      // free text, no validation — same treatment as OriginalReference.
+      // ItemID added 2026-08-24 (ADR-P18); as of ADR-P19 (2026-08-26)
+      // it is ALSO the Importer's durable dedup key (OriginalReference,
+      // formerly separate, was merged into this field — see ADR-P19).
+      // Still optional, still free text, still editable via
+      // updateDefectItem — no enum, unlike Category.
       ItemID: input.itemId || '',
       SubCategory: input.subCategory || '',
       Remark: input.remark || ''
@@ -736,10 +738,11 @@ function addDefectItem(input) {
 
 /**
  * Generic field edit for a DefectItem — Category / Location /
- * Description / Priority / OriginalReference / ItemID / SubCategory /
- * Remark (the last three added 2026-08-24, Phase 11 migration; left
- * OFF the denylist below deliberately, editable via this Command the
- * same way OriginalReference already was — not added to denylist).
+ * Description / Priority / ItemID / SubCategory / Remark. ItemID/
+ * SubCategory/Remark (added 2026-08-24, ADR-P18) are left OFF the
+ * denylist below deliberately — editable via this Command, including
+ * ItemID even though it doubles as the Importer's dedup key (ADR-P19,
+ * 2026-08-26) — dedup only matters at import time, not afterward.
  * Status, DeveloperStatus, OwnerVerificationStatus, and every
  * timestamp field have their own dedicated Commands and are denied
  * here (denylist pattern, same as 910's updateProperty).
