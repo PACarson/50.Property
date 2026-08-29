@@ -677,6 +677,130 @@
 //   claim).
 
 
+// ═══════════════════════════════════════════════════════════════════════
+// ADR-P17 — Property DevelopmentName / UnitLabel split
+// ═══════════════════════════════════════════════════════════════════════
+//
+// STATUS: ★ DRAFT — reconstructed 2026-08-26 during BL-4 housekeeping,
+//   NOT independently approved by CC. This entry did not previously
+//   exist in this log even though every OTHER governance file treats
+//   it as an established, approved decision (see SOURCES below) — this
+//   draft is Claude's reconstruction of what those sources consistently
+//   describe, assembled so CC can review it against what actually
+//   happened and correct/approve/reject as needed. Nothing below should
+//   be treated as authoritative until CC confirms it.
+//
+// SOURCES（本草稿唯一依据——每一条都是 repository 现有档案，没有新增
+//   任何本档案之外找不到的资讯）：
+//   - DLP_Defect_Case_Engine_Phase0_Audit.md §4.0（原始提案，line 194）：
+//     "建议新增 ADR-P17...Property 实体拆分 PropertyName /
+//     DevelopmentName / UnitLabel 三个概念，Additive-only，不改动既有
+//     资料"；同档案 line 429、452 的 Impact/ADR 清单表重申同一决定。
+//   - 901_PropertySchema.js line 92："DevelopmentName/UnitLabel added
+//     Phase 1 of the 918_DefectEngine Vertical Slice (ADR-P17, Review
+//     Approval 2026-08-16)"；line 129-132 的栏位注解："ADR-P17
+//     additions (Phase 1, 2026-08-16) — MUST stay appended at the end,
+//     never inserted earlier...ensureSheetSchema_ does a positional
+//     match..."；line 528 起的 MIGRATION NOTE 给出真实部署步骤（见
+//     DECISION 第 3 点）。
+//   - 910_PropertyAssetEngine.js line 291-294（createProperty）："ADR-
+//     P17 (Phase 1, 2026-08-16) — both optional, both blank by
+//     default"；line 338-340（updateProperty）："deniedFields is a
+//     denylist, not an allowlist — DevelopmentName and UnitLabel
+//     (ADR-P17...) are therefore already updatable...no code change
+//     needed."
+//   - 900_PropertyConfig.js line 95："(Review Approval 2026-08-15/16,
+//     see 00_ADR_Log.js ADR-P15/P16/P17..."——原文即预期 P17 会在本
+//     档案里，本草稿之前一直没有兑现。
+//   - 00_File_Map.js（2026-08-17 部署清单）："Property 新增
+//     DevelopmentName/UnitLabel（ADR-P17，Additive 追加在 columns
+//     最后）"；"910...开放 DevelopmentName/UnitLabel（ADR-P17；
+//     updateProperty 本身用 denylist 不用 allowlist，不需要改逻辑）"。
+//   - PropertyOS_DomainModel.md line 22："2026-08-17 新增
+//     DevelopmentName/UnitLabel（ADR-P17，Additive），PropertyName
+//     保持自由文字不变"。
+//   - DlpDefectEngine_VerticalSlice.md line 6、27：列 ADR-P17 为
+//     "Governance"依据之一（"Property DevelopmentName/UnitLabel
+//     split"），并在 Property Aggregate 章节标注"2 new columns,
+//     ADR-P17"。
+//   - 00_ADR_Log.js（本档案）ADR-P18 自己的 CONTEXT 与 Related ADRs
+//     段落两次引用："given ADR-P17's precedent of appending new
+//     columns at the end..."／"ADR-P17 (Property's
+//     DevelopmentName/UnitLabel — same underlying ensureSheetSchema_
+//     positional-match constraint, opposite resolution: appended
+//     rather than reordered, because that case had no reason to prefer
+//     a specific position)"。
+//   - 00_Project_State.js CHANGELOG（2026-08-17 前後既有条目，非本次
+//     新写）："Property 新增 DevelopmentName/UnitLabel（ADR-P17）"；
+//     "★ 关键决策（正式记入 ADR-P15/P16/P17，见 00_ADR_Log.js）"；
+//     "★ Property 实体新增 DevelopmentName/UnitLabel（ADR-P17）——
+//     真实数据核对（CC 提供的 Property OS 导出）显示 PropertyName
+//     现在填的是'Est8 Seputeh'（发展项目层级，无单位号），单位号只
+//     嵌在 AddressLine1 里"；"两个新栏位 Additive 追加在
+//     Property.columns 最后...真实 Properties 表因此需要一次性手动
+//     加两个表头（AD1/AE1），CC 已完成并跑通"。
+//   - Phase11_RealDataOnboarding_Checklist.md line 65：状态表列
+//     "DevelopmentName / UnitLabel | ❓ 待确认 | ADR-P17 建议值
+//     'Est8 Seputeh' / 'A-19-11'，需要确认是否已透过 updateProperty
+//     真正写入这两个新栏位"——这是本草稿唯一一处显示"可能仍有未完全
+//     确认的执行细节"的来源，原样保留、不代为下结论。
+//   排除说明：00_Review_History.js 里出现的两次"P17 式"（line 37、65）
+//   经核对上下文，指的是 UEF §0.3 惯例里一种独立文件格式的命名
+//   （"P17 式四段文件：Schema/Migration/Rollback/Compatibility"），
+//   跟本项目自己编号的 ADR-P17 是两件不相干的事，只是数字巧合，本草稿
+//   不采用这两处作为来源。
+//
+// CONTEXT（依上述来源重建，非新查证）：
+//   Phase 0 Audit（DLP Defect Case Engine 上线前的既有 910 影响评估）
+//   发现：真实 Property 资料里，PropertyName 目前填的是发展项目层级
+//   的名字（"Est8 Seputeh"），不是单一户的门牌；实际的单位号只嵌在
+//   AddressLine1 自由文字里，没有独立、可查询、可比对的栏位。Phase 0
+//   Audit 因此建议：拆成 PropertyName（保留，自由文字不变）/
+//   DevelopmentName／UnitLabel 三个概念，新增後两者为独立栏位，
+//   Additive-only，不改动既有资料本身。
+//
+// DECISION（依上述来源重建）：
+//   1. Property.columns 新增两栏：DevelopmentName（string，optional，
+//      非 strata 类型 PropertyType 不强制）、UnitLabel（string，
+//      optional，例如"A-19-11"）。
+//   2. 两栏一律 Additive 追加在 Property.columns 现有清单的最尾端，
+//      不插入中间——因为 ensureSheetSchema_ 对真实 sheet 表头做逐
+//      位置比对，插入中间会让後面所有栏位位置错位，造成整张表的假性
+//      "Schema drift"。
+//   3. 真实、已部署的 Properties sheet 因为表头比新 schema 少两栏，
+//      需要 CC 手动在 Google Sheets 上直接加两个表头儲存格
+//      （AD1=DevelopmentName、AE1=UnitLabel），不透过程式自动
+//      migration、不改動任何既有资料列——00_Project_State.js 记录
+//      "CC 已完成并跑通"。
+//   4. createProperty：两栏皆 optional，未填一律预设空字串。
+//      updateProperty：两栏不列入 deniedFields（denylist），因此
+//      自动可透过既有 Command 编辑，不需要额外程式改动。
+//
+// CONSEQUENCES（依上述来源重建）：
+//   - 与 ADR-P18（DefectItem 新增 ItemID/SubCategory/Remark）形成
+//     明确对照组：ADR-P17 选 Additive（因为没有特别理由偏好某个
+//     顺序），ADR-P18 当时选 Reorder（因为 CC 认为分组顺序更值得优先
+//     考虑）——ADR-P18 CONTEXT 段落自己引用 ADR-P17 这个先例来框定
+//     它自己的取舍。
+//   - Phase11_RealDataOnboarding_Checklist.md 留有一条尚未标记完成的
+//     状态："需要确认是否已透过 updateProperty 真正写入这两个新栏位"
+//     ——本草稿沒有工具能替 CC 确认真实 Properties sheet 现在的实际
+//     值，如实保留这个开放问题，交给 CC 判断是否已经处理完。
+//
+// Related ADRs: 无（P17 本身没有前置 ADR）；被 ADR-P18 引用为
+//   "Additive vs Reorder"取舍的先例（见上方 ADR-P18 CONTEXT 与
+//   Related ADRs 段落）。
+//
+// ★ 给 CC 的具体问题（Review 时请一併确认）：
+//   1. STATUS 該定 APPROVED（哪個日期？2026-08-15/16 還是 2026-08-17，
+//      来源之间日期不完全一致）还是保留其他状态？
+//   2. Phase11_RealDataOnboarding_Checklist.md 那条"待确认"是否已经
+//      有答案——真实 Properties 表的 DevelopmentName/UnitLabel 现在
+//      是不是已经真的填了"Est8 Seputeh"/"A-19-11"？
+//   3. CONTEXT/DECISION/CONSEQUENCES 三段文字本身要不要修改用词——
+//      这些是 Claude 依据既有描述重建的，不是逐字照抄任何单一来源。
+
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ADR-P18 — DefectItem Schema Migration: ItemID / SubCategory / Remark,
 // Reordered Column Layout, and Schema Freeze (Phase 11 Pre-Import Gate)
