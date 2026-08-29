@@ -765,22 +765,45 @@
 //     phase11_schema_consolidation_migration 38/38 全通过；
 //     phase11_defectitem_reorder_migration 见上方说明。
 //
-//   ★ §5b 已确认死亡、不再是 Property OS 一部分的旧 Node 沙箱残留
-//   （2026-08-26 housekeeping 发现，如实记录，交付给 CC 的档案已移除）：
+//   ★ §5b 已删除——旧 Node 沙箱残留（2026-08-26 首次发现记录，
+//   2026-08-26 CC 确认后完成删除；本段落记录最后一次完整引用检查
+//   与删除结果）：
 //   TestKit.js、runAllTests.js、900_Tests_Foundation.js、
 //   912_Tests_ObligationEngine.js、919_Tests_ObligationIntegration.js、
 //   999_Tests_PlatformVerification.js。彼此靠
 //   require('../shim/GasShim')、require('./tests/900_Tests_Foundation')
 //   这类路径互相引用，但 tests/、shim/ 两个子目录在目前 repository
 //   里不存在——实际执行 node runAllTests.js 会立刻抛
-//   "Cannot find module './tests/900_Tests_Foundation'"。上面§5 段落
-//   本身、00_Project_State.js 都各自独立记录"property-os-tests/（旧
-//   Node 沙箱）已于 2026-07-29 移除，不再是 Property OS 的一部分"——
-//   这批档案就是那次应该被移除、却仍留在 repository 里的遗留物，跟
-//   §5a 现役的 local_precheck_test_*.js 惯例是两个不同世代的产物，
-//   不要混淆。00_Business_Rules.js BR-1 原本引用
-//   919_Tests_ObligationIntegration.js 作为验证依据，已同步修正（见
-//   该档案本身）。
+//   "Cannot find module './tests/900_Tests_Foundation'"。
+//   最终删除前查证（CC 明确要求的"最后一次 repository-wide reference
+//   check"）：
+//     - .claspignore 里"# Node js test run"分类下确实列出这 6 个
+//       档名——但 .claspignore 只负责告诉 clasp push 时跳过哪些档案，
+//       不代表档案本身能跑；这 6 个档名列在里面正好反过来印证它们
+//       "本来就设计成 Node-only、从不推送到 GAS"，删除后 clasp 对
+//       .claspignore 里列出但已不存在的档名不会报错，纯粹无操作，
+//       已同步把这 6 行从 .claspignore 移除（见下方）。
+//     - GasShim.js 唯一一处提到"900_Tests_Foundation.js"是行内注解
+//       （说明 setNumberFormat 的用途），不是 require()，零功能依赖。
+//     - 991_Tests_ObligationEngine.js 提到的是 990_TestKit.js（现役、
+//       保留），grep "TestKit" 命中的是"990_TestKit"的子字串，不是
+//       对已删除 TestKit.js 的真实依赖。
+//     - 992/993/994_Tests_*.js 各自的注解都提到一个或多个已删除档名，
+//       但全部是解释"这个 GAS-native 档案取代了什么"的历史说明句，
+//       三份档案本身 require() 数量都是 0（纯 GAS-native，本来就不
+//       透过 Node require 任何东西）。
+//     - 990-996、918、922、900-903、910-913 等全部现役 Runtime/Test
+//       档案，逐一 grep 后零真实功能引用。
+//   结论：确认无任何现役档案功能性依赖这 6 个档名，删除安全，不影响
+//   目前 GAS runtime、local precheck、真实 GAS 验证、clasp
+//   deployment。CC 确认后已实际删除，不只是不交付。00_Project_State.js
+//   都各自独立记录"property-os-tests/（旧 Node 沙箱）已于 2026-07-29
+//   移除，不再是 Property OS 的一部分"——这批档案就是那次应该被移除、
+//   却仍留在 repository 里的遗留物，跟 §5a 现役的
+//   local_precheck_test_*.js 惯例是两个不同世代的产物，不要混淆。
+//   00_Business_Rules.js BR-1 原本引用 919_Tests_ObligationIntegration.js
+//   作为验证依据，已同步修正（见该档案本身）。删除后重新执行全部
+//   语法检查与测试套件，结果见本次 housekeeping completion report。
 //
 // ═══════════════════════════════════════════════════════════════════════
 // END OF 00_File_Map.js
