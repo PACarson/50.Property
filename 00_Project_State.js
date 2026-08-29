@@ -22,9 +22,23 @@
 //   Current Version : v1.4.0-dlp-defect-engine-phase1-8
 //   Current Branch  : （待 CC 指定，建议 property-os/session1-obligation-engine）
 //   Blueprint 合规  : Universal Domain OS Blueprint ✓ | UEF v1.6 ✓
-//   ADR 状态        : ADR-P01, P02, P04, P05, P06, P07, P08, P10, P15,
-//                     P16, P17, P18, P19 APPROVED；ADR-P03 RESERVED（非
-//                     Locked）；P09 未使用（跳号）
+//   ADR 状态        : ADR-P01, P02, P04, P05, P06, P07, P08, P10, P11,
+//                     P12, P13, P14, P15, P18, P19 APPROVED；ADR-P03
+//                     RESERVED（非 Locked）；P09 未使用（跳号）★ 本行
+//                     2026-08-26 housekeeping 修正：先前误列的 "P16"
+//                     在 00_ADR_Log.js 里完全没有对应条目（已核实，
+//                     grep 零命中），拿掉；先前遗漏的 P11-P14 補上
+//                     （四者在 00_ADR_Log.js 里都有完整 STATUS:
+//                     APPROVED (2026-07-29) 条目，只是这行摘要没同步
+//                     列出）。另外如实记录：ADR-P17 在多处（901、
+//                     File_Map、ADR-P18/P19 的 Related ADRs）被当成
+//                     已存在、已批准的决定引用（Property
+//                     DevelopmentName/UnitLabel 用 Additive 而非
+//                     Reorder），但 00_ADR_Log.js 里找不到 ADR-P17
+//                     自己的正式条目——这是本次housekeeping 发现但
+//                     刻意不擅自补写的缺口（内容涉及还原一个没有
+//                     亲身参与的决策，非单纯排版/编号修正），记入
+//                     Backlog，见 00_Product_Backlog.js
 //   Review 状态      : Architecture Review Approval GRANTED (2026-07-19)；
 //                     Foundation 层（900-903）APPROVED (2026-07-19)；
 //                     REVIEW-001 Production Readiness Audit

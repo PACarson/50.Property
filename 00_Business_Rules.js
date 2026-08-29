@@ -33,8 +33,15 @@
 // Warranty, DefectLiability
 //
 // 政策：新增类别只需在 900_PropertyConfig.OBLIGATION_CATEGORIES 加值，
-// 不需要 Schema 变更（Category 是字串枚举，非独立表）——已被
-// Migration Test 验证（919_Tests_ObligationIntegration.js）。
+// 不需要 Schema 变更（Category 是字串枚举，非独立表）。★ 2026-08-26
+// housekeeping 修正：这句原本写"已被 Migration Test 验证
+// （919_Tests_ObligationIntegration.js）"，但该档案已确认是已死、
+// 无法执行的旧 Node 沙箱残留（require 路径指向不存在的 tests/shim
+// 子目录，详见 00_File_Map.js §5b）——这个政策本身是否仍然成立
+// （不需要 Schema 变更）没有改变，只是不能再引用那个已经跑不动的
+// 档案当作验证依据；如需要重新验证，走 900_PropertyConfig.js 本身
+// 的 DEFECT_CATEGORIES 就是同一种"字串枚举、改值不改 Schema"模式，
+// 本次 ADR-P19 才刚实际验证过。
 //
 // 政策：每个类别不预设不同的付款规则/逾期规则——所有类别共用同一套
 // BR-2~BR-5，除非未来有具体需求要求某类别特殊处理（例如 Mortgage

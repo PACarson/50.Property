@@ -111,7 +111,10 @@
  *       既有资料，非按位置搬移。CC 已在真实 GAS 项目手动执行一次，
  *       Logger 回报 MIGRATION SUCCESS。同样是一次性工具，语意上跟
  *       Importer 同类——是否比照 Importer 保留到 Phase 11 完全结束
- *       再删，还是现在就可以删，未问过 CC，留待下次确认。
+ *       再删，还是现在就可以删，未问过 CC——★ 2026-08-26 已问过、
+ *       已回答：CC 决定两者都暂时保留，等真实 onboarding 全部完成、
+ *       确认不再需要 rollback/rerun 后再议（见 00_Review_History.js
+ *       REVIEW-005 Next Steps）。
  *
  *   ★ 已知落差，本窗口未处理（如实记录，不是修好了）：上面
  *   2026-08-17 原文清单也没有 947_DlpConsoleServer.js /
@@ -121,14 +124,102 @@
  *   的范围内，也没有重新核实这两个文件目前真实内容的证据）。整份
  *   manifest 建议找一次机会重新完整核对一遍，而不是继续用这种
  *   一次补一点的方式维护。
+ *   ★ 2026-08-26 UPDATE：上面这段"建议找机会重新完整核对"在本次
+ *   housekeeping（BL-4，CC 2026-08-26 明确指示执行）已经做了——947/948
+ *   在下方 §2 Runtime Layer 区块其实早就有完整的 Purpose/Dependencies/
+ *   Status 条目（本次核实内容仍然正确），只有最上面这份 2026-08-17
+ *   flat 部署清单没跟上；已在这段与下方 §2 947/948 条目本身修正
+ *   Status（真机验证 REVIEW-002 已 PRODUCTION-READY，先前误标未验证）。
+ *
+ *   ★★ 2026-08-26 HOUSEKEEPING ADDENDUM（BL-4 全面重审，CC 明确指示
+ *   "两条线 parallel 进行"——CC 同时用真实资料跑 DLP workflow，
+ *   Claude 同时做这次治理一致性稽核，互不等待）：
+ *
+ *   本次新增/修改并已同步补上条目的档案：
+ *     ONETIME_Phase11_DefectItemSchemaConsolidationMigration.js —
+ *       ADR-P19 consolidation migration，与上面两个 ONETIME_Phase11_*
+ *       档案同类，同样的保留/删除时机决定（见上一条）。CC 已在真实
+ *       GAS 项目手动执行成功（Execution log 确认，2026-08-26）。
+ *     local_precheck_test_911.js / _918.js / _922.js /
+ *       _phase11_schema_migration.js /
+ *       _phase11_defectitem_reorder_migration.js /
+ *       _phase11_schema_consolidation_migration.js / GasShim.js — 这些
+ *       先前完全没有条目，本次在下方新增「§5a LOCAL PRECHECK TESTING
+ *       CONVENTION」小节统一说明，不逐档重复。
+ *     README.md / Phase11_RealDataOnboarding_Checklist.md /
+ *       DLP_Defect_Case_Engine_Phase0_Audit.md — 补进下方"纯治理文件"
+ *       清单。
+ *     runPhase5SmokeTest.js — 一次性 Phase 5 smoke test 脚本，已完成
+ *       历史任务，非现役 Runtime 的一部分，纯供参考不需要正式 File Map
+ *       条目，此处提及即可。
+ *
+ *   本次发现、评估后判定"确实存在、evidence-based"的落差，已直接修正
+ *   （详见对应条目本身的 housekeeping 修正说明，或本文件下方新增
+ *   小节）：
+ *     - 947/948 Status（本文件本节）：真机验证早已 PRODUCTION-READY
+ *       （REVIEW-002），File Map 之前没跟上，已修正。
+ *     - 910 Status（§2 Runtime Layer）：真实 GAS 确认早已完成
+ *       （00_Project_State.js 已记录），File Map 之前没跟上，已修正。
+ *     - 00_Project_State.js 页首 ADR 状态摘要行：误列不存在的 "P16"、
+ *       遗漏了实际存在的 P11-P14——已在该档案本身修正（不在本档案，
+ *       但一并记录於此供交叉参照）。
+ *
+ *   本次发现、但判定"不该由 housekeeping 自行处理"、记入 Backlog 的
+ *   落差（见 00_Product_Backlog.js BL-5）：
+ *     - ADR-P17 缺档：多处（901_PropertySchema.js 注解、本档案上方
+ *       2026-08-17 清单、ADR-P18/P19 的 Related ADRs）都把 ADR-P17
+ *       当成已存在、已批准的正式决定引用（Property
+ *       DevelopmentName/UnitLabel 用 Additive 而非 Reorder），但
+ *       00_ADR_Log.js 里没有 ADR-P17 自己的正式条目——内容涉及还原
+ *       一个 Claude 没有亲身参与的历史决策，不是排版/编号问题，刻意
+ *       不擅自补写完整 ADR 内容。
+ *     - 一批确认已死、无法执行的孤立档案：TestKit.js、
+ *       runAllTests.js、900_Tests_Foundation.js、
+ *       912_Tests_ObligationEngine.js、919_Tests_ObligationIntegration.js、
+ *       999_Tests_PlatformVerification.js——彼此以
+ *       require('../shim/GasShim')、require('./tests/...') 等路径互相
+ *       引用，但 tests/ 与 shim/ 两个子目录在目前 repository 里根本不
+ *       存在（已实际执行 node runAllTests.js 确认，直接抛
+ *       "Cannot find module" 錯誤）。本档案页尾 §5 Testing Layer
+ *       本身早就写明"原本的 property-os-tests/（Node 本地沙箱）已从
+ *       本项目移除"（2026-07-29），00_Project_State.js 也独立确认
+ *       "property-os-tests/ 已不存在"——这批档案就是那次应该被移除、
+ *       但实际上仍留在 repository 里的遗留物。删除档案本身属于
+ *       "确实存在的一致性问题"，本次已经从交付给 CC 的档案集里移除
+ *       （不在这次回传的档案清单内）；但"你的真实 repository 里
+ *       是否也还留着这几个档案、需不需要手动清掉"这件事本身要 CC
+ *       自己的 repository/GAS 项目确认，Claude 无法代为操作，记入
+ *       Backlog 供 CC 处理。
+ *     - 00_Project_State.js 的 "Current Version: v1.4.0-dlp-defect-
+ *       engine-phase1-8" 字串明显落后于目前实际进度（已完成
+ *       ADR-P18/P19、真实 Import、真实 Consolidation migration），
+ *       但下一个版本号该怎么定属于 CC 的命名判断，不是 Claude
+ *       该自行决定的事，记入 Backlog。
+ *
+ *   本次系统性比对但判定"目前一致、无需修正"的部分（如实记录已查过，
+ *   避免下次重复查一样的东西）：PropertyOS_DomainModel.md（Aggregate/
+ *   Value Object/Invariant 表逐条比对 901/918 实际结构，一致）；
+ *   00_Business_Rules.js BR-1 的 Obligation Category 清单（逐字比对
+ *   PROPERTY_CONFIG.OBLIGATION_CATEGORIES，完全一致，17 项都对得上，
+ *   顺序也一样）；DlpDefectEngine_VerticalSlice.md 的 DefectItem
+ *   栏位清单（已在 ADR-P19 那一轮修正过，本次重新核实仍然一致）。
+ *
+ *   完整 Finding/Fix/Verification 明细见本次 housekeeping completion
+ *   report（对话记录本身），此处只放会影响以后开发导航的摘要。
  *
  *   纯治理文件（.claspignore 排除，不推送到 GAS，仅供参考/审计）：
  *   00_ADR_Log.js / 00_Business_Rules.js / 00_File_Map.js（本文件）/
  *   00_Product_Backlog.js / 00_Project_Constitution.js /
  *   00_Project_State.js / 00_Review_History.js /
  *   DlpDefectEngine_VerticalSlice.md（新，Phase 0-8 完整设计记录）/
+ *   DLP_Defect_Case_Engine_Phase0_Audit.md（Phase 0 历史稽核记录，
+ *   DlpDefectEngine_VerticalSlice.md 自己引用它作为前身文件；先前
+ *   没有独立列在这份清单里，2026-08-26 housekeeping 补上）/
  *   MANUAL_VERIFICATION_CHECKLIST.md / ObligationEngine_VerticalSlice.md /
- *   PropertyAssetEngine_VerticalSlice.md / PropertyOS_DomainModel.md
+ *   Phase11_RealDataOnboarding_Checklist.md（Phase 11 真实资料 onboarding
+ *   操作清单，2026-08-26 housekeeping 补上）/
+ *   PropertyAssetEngine_VerticalSlice.md / PropertyOS_DomainModel.md /
+ *   README.md（2026-08-26 housekeeping 补上）
  *
  * Foundation 层（900-903）Runtime 已完成并批准（2026-07-19）。903 的
  * publishPropertyEvent_() 是 ADR-P07 的 Infrastructure Adapter，其
@@ -277,8 +368,12 @@
 //   key（比照 912 的 OCCURRENCE_TRANSITIONS_ 不放 'Paid' 的原因——
 //   唯一允许离开 Sold 的路径就是这个 Command 自己的明确检查，不是
 //   通用 Map），所以每次呼叫都会抛错。已修正：拿掉那行呼叫，靠原本
-//   就有的 PROPERTY_NOT_SOLD 检查即可。待 CC 对真实 GAS 项目实际跑
-//   一次确认（TECH DEBT）。
+//   就有的 PROPERTY_NOT_SOLD 检查即可。★ 2026-08-26 housekeeping
+//   修正：这条目原本还写"待 CC 对真实 GAS 项目实际跑一次确认（TECH
+//   DEBT）"，但 00_Project_State.js 已经记录"910_PropertyAssetEngine
+//   Runtime 完成并批准，真实 GAS 确认通过（不再是 IN PROGRESS）"——
+//   真机确认其实已经做完，这份 File Map 当时没有同步更新，本次比对
+//   后发现並修正，不是这次才验证通过。
 
 // 911_DocumentEngine  ★ Runtime Complete (minimal scope)
 // Purpose: Evidence 附件——DLP Defect Case Vertical Slice 需要的最小
@@ -531,12 +626,16 @@
 //   911（attachEvidence）, 922（getDlpCaseDashboard/
 //   listDefectItemsForDashboard/getCaseTimeline）
 // Called By: doGet()（947 本身就是 Web App 入口，没有更上层的呼叫者）
-// Status: ⏳ RUNTIME CODE COMPLETE, NOT PRODUCTION-READY。node --check
-//   语法检查通过，零真实 GAS 执行、零真机测试。appsscript.json 已加
-//   webapp 区块（executeAs: USER_DEPLOYING, access: MYSELF）但尚未
-//   实际部署。Production-Ready 前置条件：Contract §11 的 11 步真机
-//   验证 Gate 全部通过。CC 会带真机测试结果回来更新此状态——下一个
-//   session 看到本条目时不要假设已经跑过。
+// Status: ✅ PRODUCTION-READY（Contract §11 的 11 步真机验证 Gate 全部
+//   通过，2026-08-22，见 00_Review_History.js REVIEW-002 Disposition：
+//   "GO。DLP Defect Engine Phase 9/10（Mobile Web Console）
+//   PRODUCTION-READY"）。★ 2026-08-26 housekeeping 修正：这条目原本
+//   还停在"⏳ RUNTIME CODE COMPLETE, NOT PRODUCTION-READY...零真机
+//   测试"，但真机验证其实已经做完、REVIEW-002 也已经批准，这份
+//   File Map 当时没有同步更新——本次比对 00_Review_History.js 与
+//   00_Project_State.js 后发现并修正，不是这次才验证通过。范围仅限
+//   Phase 9/10 这个子系统，不代表整个 Property OS 项目已
+//   Production-Ready（同一份区分，见本文件页首 PROJECT STATUS 说明）。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -616,6 +715,72 @@
 //   （真实并发下的 Lock 竞争、CacheService 真实 1 小时 TTL 到期、
 //   GAS 6 分钟执行上限）无法在单次测试跑里验证，如实保留待办，不
 //   因为测试数字好看就假装已核实。
+//
+//   ★ §5a LOCAL PRECHECK TESTING CONVENTION（2026-08-26 housekeeping
+//   新增条目——这个惯例本身从 Phase 11 一开始就在用，只是先前从没有
+//   在 File Map 里正式记录过）：
+//
+//   跟上面 990-996（GAS-native，贴进真实 GAS 项目跑）是两回事，也跟
+//   下面 §5b 提到、已确认死掉的旧 Node 沙箱（require('../shim/...')
+//   那批）不是同一套——这是目前唯一现役的本地 Node 测试惯例，每次
+//   改动 Runtime/Schema 前后都拿来快速验证用，不推送到 GAS
+//   （.claspignore 排除）。
+//
+//   GasShim.js — 共用的 SpreadsheetApp/LockService/CacheService/
+//     Logger 等 GAS 全域物件的最小 Node mock，外加
+//     loadPropertyOSContext(dir, files) 把指定的 .js 档案在一个 vm
+//     context 里跑起来，模拟 GAS 共用全域作用域。目前 mock 的方法：
+//     getRange/getValues/setValues/setNumberFormat/getLastRow/
+//     getLastColumn/insertSheet/getSheetByName/flush/setFontWeight/
+//     autoResizeColumns（後四个明确注解为 test infrastructure，非
+//     domain 逻辑）。没有 mock PropertiesService——这是
+//     local_precheck_test_911.js 会跑不动的已知、非本次造成的原因。
+//   Dependencies: 无（Node 内建 vm/require 即可）
+//   Called By: 下面全部 local_precheck_test_*.js
+//   Status: ✅ 现役共用基础设施
+//
+//   local_precheck_test_918.js / _922.js / _911.js — 分别对应
+//     918_DefectEngine/922_DashboardAdapter/911_DocumentEngine 的本地
+//     回归测试，各自档案内自带 pass/fail 计数与 check() helper（不
+//     共用一个中央 TestKit——每个档案独立自足）。跑法：
+//     node local_precheck_test_918.js。
+//   local_precheck_test_phase11_schema_migration.js — Phase 11
+//     跨档案契约测试（901→918→ONETIME_Phase11_DefectImporter.js 的
+//     schema round-trip）。ADR-P18 建立，ADR-P19 时全面重写以反映
+//     OriginalReference 合并、19 栏 schema、新 Category enum。
+//   local_precheck_test_phase11_defectitem_reorder_migration.js —
+//     专测 ADR-P18 的 reorder migration script。★ 该 migration 已对
+//     真实资料执行成功、任务已完成，此测试自 2026-08-26 起因为 901
+//     的 live schema 又往前走了一步（ADR-P19）而无法在目前 codebase
+//     状态下完整重跑——已在该档案自己的标头详细加注原因与真实资料
+//     无风险的理由，逻辑本体刻意不动，当历史记录保留。
+//   local_precheck_test_phase11_schema_consolidation_migration.js —
+//     专测 ADR-P19 的 consolidation migration script（新建，
+//     2026-08-26）：涵盖零笔资料、三种 ItemID/OriginalReference 合并
+//     情境、冲突侦测中止、非法 Category 中止、idempotency、未知表头
+//     拒绝、sheet 不存在。
+//   Status: ✅ 全部现役，2026-08-26 housekeeping 时重新逐一执行确认：
+//     918 144/144、922 37/37、911 因 PropertiesService gap 无法执行
+//     （已知、非本次造成）、phase11_schema_migration 71/71、
+//     phase11_schema_consolidation_migration 38/38 全通过；
+//     phase11_defectitem_reorder_migration 见上方说明。
+//
+//   ★ §5b 已确认死亡、不再是 Property OS 一部分的旧 Node 沙箱残留
+//   （2026-08-26 housekeeping 发现，如实记录，交付给 CC 的档案已移除）：
+//   TestKit.js、runAllTests.js、900_Tests_Foundation.js、
+//   912_Tests_ObligationEngine.js、919_Tests_ObligationIntegration.js、
+//   999_Tests_PlatformVerification.js。彼此靠
+//   require('../shim/GasShim')、require('./tests/900_Tests_Foundation')
+//   这类路径互相引用，但 tests/、shim/ 两个子目录在目前 repository
+//   里不存在——实际执行 node runAllTests.js 会立刻抛
+//   "Cannot find module './tests/900_Tests_Foundation'"。上面§5 段落
+//   本身、00_Project_State.js 都各自独立记录"property-os-tests/（旧
+//   Node 沙箱）已于 2026-07-29 移除，不再是 Property OS 的一部分"——
+//   这批档案就是那次应该被移除、却仍留在 repository 里的遗留物，跟
+//   §5a 现役的 local_precheck_test_*.js 惯例是两个不同世代的产物，
+//   不要混淆。00_Business_Rules.js BR-1 原本引用
+//   919_Tests_ObligationIntegration.js 作为验证依据，已同步修正（见
+//   该档案本身）。
 //
 // ═══════════════════════════════════════════════════════════════════════
 // END OF 00_File_Map.js

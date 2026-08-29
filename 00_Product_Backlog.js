@@ -173,3 +173,38 @@
 // audit"的大范围任务——与当前主线（Schema Migration → 真实 Defect
 // 数据输入 → Dry Run → Real Import → 实战 Feedback）无关，等这条主线
 // 告一段落后再集中处理。
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-5 — 三项 2026-08-26 BL-4 Housekeeping 期间发现、判定需要 CC
+// 本人决定/操作、不该由 housekeeping 自行处理的事项
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// （1）ADR-P17 缺档：901_PropertySchema.js 注解、00_File_Map.js 的
+// 2026-08-17 部署清单、ADR-P18/P19 的 Related ADRs，多处一致地把
+// "ADR-P17"当成已存在、已批准的正式决定引用（内容：Property 新增
+// DevelopmentName/UnitLabel 用 Additive 追加在 columns 最后，而非
+// Reorder）。但 00_ADR_Log.js 逐条核对后，找不到 ADR-P17 自己的正式
+// STATUS/CONTEXT/DECISION 条目——只有其他 ADR 提到它。这不是排版或
+// 编号问题，而是要不要还原一段 Claude 没有亲身参与的历史决策内容，
+// 属于 CC 判断范围。若 CC 想补，Claude 可以根据现有多处一致的
+// 描述草拟一份忠于这些描述的 ADR-P17 条目，供 CC 核对/修改，而不是
+// 自己直接定案写入正式 Log。
+//
+// （2）一批已确认死亡、需要 CC 自己在真实 repository 里清掉的孤立
+// 档案：TestKit.js、runAllTests.js、900_Tests_Foundation.js、
+// 912_Tests_ObligationEngine.js、919_Tests_ObligationIntegration.js、
+// 999_Tests_PlatformVerification.js。详细证据见 00_File_Map.js §5b。
+// 这次交付给 CC 的档案集里已经不包含它们，但 Claude 没有工具能直接
+// 从 CC 自己的 repository / 真实 GAS 项目里删除档案，需要 CC 自己
+// 操作（大概率只是本地/GitHub 端还留着旧档案，真实 GAS 项目本身
+// 应该没有，因为 .claspignore 排除 Node-only 测试档案不推送）。
+//
+// （3）00_Project_State.js 页首"Current Version: v1.4.0-dlp-defect-
+// engine-phase1-8"字串明显落后于实际进度（ADR-P18/P19、真实 Import、
+// 真实 Consolidation migration 都已完成，不只是 Phase 1-8）。下一个
+// 版本号怎么定（例如是否要反映到 Phase 11、要不要用语意化版本号）
+// 属于 CC 的命名判断，Claude 不擅自决定写一个新版本号进去。
+//
+// 依赖：无——三项都是纯讨论/决定层级的事，不涉及 Runtime/Schema 变更
+// 本身。均不阻塞 CC 目前的真实 DLP workflow 使用。
