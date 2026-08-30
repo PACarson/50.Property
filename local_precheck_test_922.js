@@ -148,6 +148,60 @@ console.log('\n=== getDlpCaseDashboard — full realistic scenario ===');
   check('propertyName/unitLabel correctly joined on every row', rows.every(r => r.propertyName === 'Est8 Seputeh' && r.unitLabel === 'A-19-11'));
 }
 
+console.log('\n=== buildCaseOverviewForMobile_ — itemId/subCategory/remark (Mobile Console field-display enhancement, 2026-08-30) ===');
+{
+  // buildCaseOverviewForMobile_ itself had ZERO direct test coverage
+  // before this block (confirmed by grep during the pre-coding audit —
+  // the two existing scenarios above test getDlpCaseDashboard and
+  // listDefectItemsForDashboard, neither of which is what Mobile
+  // Console actually calls). This block is the first.
+  const ctx = fresh();
+  const pid = run(ctx, `createProperty({
+    propertyName: 'Est8 Seputeh', addressLine1: 'A-19-11', purchasePrice: 1, freeholdLeasehold: 'Leasehold',
+    propertyType: 'RESIDENTIAL_CONDO', vpDate: '2026-07-18', developmentName: 'Est8 Seputeh', unitLabel: 'A-19-11'
+  }).propertyId`);
+  const caseId = run(ctx, `createPropertyCase({ propertyId: '${pid}', originalSubmissionDate: '2026-08-13' }).caseId`);
+
+  // d1: all three new fields populated
+  const d1 = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'Leaking pipe under sink', category: 'Plumbing', subCategory: 'Leaking Pipe', itemId: 'IMP-001', remark: 'Access via service riser' });`);
+  // d2: all three deliberately omitted -> addDefectItem's own optional-field
+  // default ('') applies, this test doesn't fabricate the empty value itself
+  const d2 = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'Hairline crack in wall', category: 'Wall' });`);
+  // d3: only itemId set -> partial population
+  const d3 = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'Scratched window pane', category: 'Window', itemId: 'IMP-003' });`);
+
+  const overview = run(ctx, `buildCaseOverviewForMobile_('${caseId}');`);
+  const byId = {};
+  overview.defects.forEach(e => { byId[e.defectId] = e; });
+  const e1 = byId[d1.defectId], e2 = byId[d2.defectId], e3 = byId[d3.defectId];
+
+  check('overview.defects has all 3 defects', overview.defects.length === 3);
+
+  check('(1) d1 (fully populated) — itemId/subCategory/remark all correct',
+    e1.itemId === 'IMP-001' && e1.subCategory === 'Leaking Pipe' && e1.remark === 'Access via service riser');
+
+  check('(2) d2 (all three omitted) — itemId/subCategory/remark are empty strings, never undefined/null',
+    typeof e2.itemId === 'string' && e2.itemId === '' &&
+    typeof e2.subCategory === 'string' && e2.subCategory === '' &&
+    typeof e2.remark === 'string' && e2.remark === '');
+  check('(2) every returned defect carries itemId/subCategory/remark as real own-keys (never absent from the object)',
+    overview.defects.every(e => 'itemId' in e && 'subCategory' in e && 'remark' in e));
+  check('(2) d3 (only itemId set) — subCategory/remark correctly blank, not undefined/null, not leaked from d1',
+    e3.itemId === 'IMP-003' && e3.subCategory === '' && e3.remark === '');
+
+  check('(3) no misalignment — d1/d2/d3 each keep their own itemId (never a neighbour\'s, regardless of array position)',
+    e1.itemId === 'IMP-001' && e2.itemId === '' && e3.itemId === 'IMP-003');
+  check('(3) no misalignment — pre-existing fields (category/description) still line up correctly per defect too',
+    e1.category === 'Plumbing' && e1.description === 'Leaking pipe under sink' &&
+    e2.category === 'Wall' && e2.description === 'Hairline crack in wall' &&
+    e3.category === 'Window' && e3.description === 'Scratched window pane');
+
+  check('regression — pre-existing status fields on e1 untouched by this change (Open/Pending/NotChecked for a fresh defect)',
+    e1.status === 'Open' && e1.developerStatus === 'Pending' && e1.ownerVerificationStatus === 'NotChecked');
+
+  throws('unknown caseId still throws cleanly (unchanged by this addition)', () => run(ctx, `buildCaseOverviewForMobile_('CASE-nope');`));
+}
+
 console.log('\n' + '='.repeat(60));
 console.log(fail === 0 ? `ALL ${pass} CHECKS PASSED (0 failures)` : `${pass} passed, ${fail} FAILED`);
 process.exit(fail === 0 ? 0 : 1);

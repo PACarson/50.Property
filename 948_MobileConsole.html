@@ -522,13 +522,25 @@ function renderOverview_(data) {
     defects.forEach(function (d) {
       var card = document.createElement('div');
       card.className = 'card';
+      // SubCategory is optional (901_PropertySchema.js) — folded into the
+      // title next to Category only when present, so an empty SubCategory
+      // never shows as a stray separator or "undefined".
+      var categoryText = d.category || '';
+      if (d.subCategory) { categoryText += ' / ' + d.subCategory; }
       card.innerHTML =
-        '<div class="card-title">' + escapeHtml((d.location || 'Defect') + ' — ' + (d.category || '')) + '</div>' +
+        '<div class="card-title">' + escapeHtml((d.location || 'Defect') + ' — ' + categoryText) + '</div>' +
+        // ItemID: real import/dedup identity — shown right under the title
+        // so it's the field-worker's cross-reference to the physical item.
+        // Optional; omitted entirely (not "ID: ") when unset.
+        (d.itemId ? '<div class="card-sub">ID: ' + escapeHtml(d.itemId) + '</div>' : '') +
         '<div class="badges">' +
           '<span class="badge">' + escapeHtml(d.status || '') + '</span>' +
           '<span class="badge">Dev: ' + escapeHtml(d.developerStatus || '') + '</span>' +
           '<span class="badge">Owner: ' + escapeHtml(d.ownerVerificationStatus || '') + '</span>' +
         '</div>' +
+        // Remark: optional free-text note on the defect itself, distinct
+        // from latestEvent (most recent Timeline activity) below it.
+        (d.remark ? '<div class="card-sub">Remark: ' + escapeHtml(d.remark) + '</div>' : '') +
         (d.latestEvent ? '<div class="card-sub">' + escapeHtml(d.latestEvent) + '</div>' : '');
       listEl.appendChild(card);
     });

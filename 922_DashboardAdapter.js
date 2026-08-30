@@ -361,6 +361,16 @@ function getDlpCaseDashboard(caseId) {
  * those are rendered by 948_MobileConsole.html's renderOverview_
  * (verified directly against that function, not assumed).
  *
+ * 2026-08-30 — added itemId/subCategory/remark to each entry below
+ * (CC-approved Mobile Console field-display enhancement; UI/read-side
+ * only — no Domain/Schema/dedup change, all three already existed on
+ * DefectItem, this function just wasn't selecting them into its output
+ * yet). All three are optional on DefectItem, so each is defaulted to
+ * '' here instead of passed through raw, so the client never receives
+ * undefined/null for an unset value. enrichDefectForDisplay_ above is
+ * intentionally untouched by this — that's the future Sidebar DLP
+ * Tab's display path, out of scope for this Mobile Console change.
+ *
  * @param {string} caseId
  * @param {number} [timelineLimit] entries to return for display (default 20)
  * @return {{caseInfo: Object, defectCounts: Object, defects: Array, timeline: Array}}
@@ -398,9 +408,12 @@ function buildCaseOverviewForMobile_(caseId, timelineLimit) {
     return {
       defectId: defect.DefectID,
       caseId: defect.CaseID,
+      itemId: defect.ItemID || '',
       category: defect.Category,
+      subCategory: defect.SubCategory || '',
       location: defect.Location,
       description: defect.Description,
+      remark: defect.Remark || '',
       priority: defect.Priority,
       status: defect.Status,
       developerStatus: defect.DeveloperStatus,
