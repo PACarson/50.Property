@@ -493,6 +493,200 @@
 //   等待 CC 提供 Item A。
 
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// REVIEW-006 — Mobile Console itemId/SubCategory/Remark Field-Display
+//              Enhancement
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// Date: 2026-08-30
+// Profile: 小范围 UI/read-side enhancement 的收尾记录。比照
+//   REVIEW-002/004 的段落结构，但按实际变更规模大幅缩减——不为了套用
+//   格式而虚增不存在的内容。
+// Scope: 922_DashboardAdapter.js 的 buildCaseOverviewForMobile_() +
+//   948_MobileConsole.html 的 renderOverview_()。两处都只涉及已存在
+//   的 DefectItem.ItemID/SubCategory/Remark（ADR-P18 新增）如何被组进
+//   Mobile Console 显示层，901 schema 本身这次未变。不含 Sidebar DLP
+//   Tab（enrichDefectForDisplay_ 明确排除，留给该 Tab 未来开工时一起
+//   决定）；不含 Domain Model / Schema / dedup logic /
+//   getCaseTimeline() 排序逻辑。
+// Owner: CC（solo dev）
+//
+// ─── 背景与 Pre-Coding Audit ─────────────────────────────────────────
+//   ADR-P18（2026-08-24～26）把这三栏加进 DefectItem schema，但当时
+//   只处理到 Schema/Domain 层——Mobile Console 的 Case Overview 画面
+//   从未跟着显示（REVIEW-004 完成的是 schema migration 本身，不含这层
+//   UI gap）。CC 2026-08-30 提出要补上。Coding 前先对 repository 实际
+//   内容逐项核对（node -c、直接跑测试、grep/view，不依赖先前对话或
+//   checkpoint 文字），确认：901/918 的读取路径本身 schema-driven，
+//   天然带出这三栏；真正服务 Mobile Console 的是 922 的
+//   buildCaseOverviewForMobile_（不是 UI Contract 文件写的
+//   getDlpCaseDashboard+listDefectItemsForDashboard，那组合
+//   2026-08-21/22 N+1 修复后已经换掉、Contract 文件没跟着更新），这个
+//   函式手动列栏位、当时没选进这三个新栏位，此前也 0 条专属测试；947
+//   纯 passthrough，不需要跟着改。过程中也发现这次上传的 repository
+//   与前一份 checkpoint 文字宣称的完成状态有落差，如实记录、未擅自
+//   修正（细节见下方"顺带发现"、00_Product_Backlog.js BL-5(2)/BL-6）。
+//
+// ─── Definition of Done ──────────────────────────────────────────────
+//   ✓ 922/948 两处改动完成，diff 只涉及这两个档案 + 新增的
+//   local_precheck_test_922.js 测试区块（repo-wide diff -rq 核实，
+//   901/918/947/enrichDefectForDisplay_/三个 ONETIME_Phase11_*.js/
+//   GasShim.js 逐一确认未被触碰）。
+//   ✓ buildCaseOverviewForMobile_() 新增 9 条专属断言（此前 0
+//   覆盖率）：有值时正确传出、三个 optional 栏位皆空时不产生
+//   undefined/null、多笔 DefectItem 用 defectId 而非 array 位置比对
+//   确认不错位。连跑 20 次，9 条新断言 20/20 全过。
+//   ✓ 既有 regression 全数重跑：918 144/144；phase11_schema_migration
+//   71/71；phase11_schema_consolidation_migration 38/38；全 repo
+//   node -c（43 个 .js + 948 内嵌 script）全过。
+//   ✓ CC 已将两个改动档案部署到真实 GAS 项目、实际打开 Mobile
+//   Console 跑过一次，回报"暂时无误"。
+//
+// ─── Definition of Production-Ready — 刻意不下结论 ──────────────────
+//   ★ 如实记录：跟 REVIEW-002/004 不同，这次没有 MANUAL_VERIFICATION_
+//   CHECKLIST.md 式的逐项真机验证清单，CC 的"暂时无误"是初步、简短
+//   确认，不是把 optional 栏位皆空、多笔 defect 混合等情境在真实资料
+//   上逐一走过一遍的正式验证记录。本 REVIEW 不宣告 PRODUCTION-READY，
+//   只记录到"已部署、CC 初步确认无异常"这个精确程度，避免跟
+//   REVIEW-002 的 11 步 Gate 通过、正式 GO 结论混为一谈。
+//
+// ─── Findings ─────────────────────────────────────────────────────
+//   本次没有真机除错过程——Findings 栏位刻意留空，不为了套用
+//   REVIEW-002 的格式而编造不存在的发现。这也是本次比 REVIEW-002 轻量
+//   的原因：pre-coding audit + 完整本地测试覆盖在部署前就做了，不是
+//   部署后才在真机上抓 bug。
+//
+// ─── 顺带发现（与本次变更本身无关，记录不处理）──────────────────────
+//   挑选本次该用哪个 REVIEW 编号时，直接 grep 这份档案核实——发现
+//   00_ADR_Log.js（ADR-P19）、00_Project_State.js（2026-08-26
+//   CHANGELOG）、00_File_Map.js 三处都引用"REVIEW-005"，但这份档案里
+//   从来没有 REVIEW-005，只到 REVIEW-004。本次记录因此改用
+//   REVIEW-006，刻意跳过 005，把编号留给未来真正补上那份（Schema
+//   Consolidation Impact Analysis）。详见 00_Product_Backlog.js BL-6。
+//
+// ─── Disposition ─────────────────────────────────────────────────────
+//   本地层面 DONE：改动完成、diff 干净、新测试与既有 regression 全数
+//   通过。真机层面：CC 已部署并初步确认无异常，但按 CC 自己订下的
+//   Deployment boundary，正式的真机/多情境验证（尤其三个 optional
+//   栏位在真实资料上如何呈现）由 CC 自行进行，Claude 不越界代为宣告
+//   已完整验证。
+//
+// ─── Next Steps ──────────────────────────────────────────────────────
+//   1. 若 CC 之后在真机上发现三栏显示有任何异常（尤其空值情境或多笔
+//   defect 混合），回报即可，不需要重新走一次完整 Pre-Coding Audit。
+//   2. Goal 2 Gap（DeveloperStatus/OwnerVerificationStatus/
+//   Reopen/Close 目前在 Mobile Console/Sidebar 都还没有 UI
+//   wrapper）——规划留待下一轮，本 REVIEW 只记录现状，不预先设计。
+//   3. BL-6（REVIEW-005 缺口）与 BL-5（尚未执行的三项）都还是 OPEN，
+//   不属于本次范围，一并留待 CC 之后处理。
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// REVIEW-007 — Sidebar DLP Tab: Phase 1 Design Review
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Date: 2026-08-31
+// Profile: Design Review — negotiated Contract document, not a
+//   Production Readiness Audit (no code exists yet to audit). Comparable
+//   in kind to the original DlpMobileConsole_UIContract.md negotiation
+//   (Phase 9/10, pre-REVIEW-002) — a Contract settled BEFORE
+//   implementation, not after.
+// Scope: The Sidebar "DLP" Tab (945/946+947) that
+//   DlpMobileConsole_UIContract.md §0 explicitly deferred as "its own
+//   design pass later." This review is that design pass, for Phase 1
+//   only. Output: DlpSidebarTab_UIContract.md (standalone file,
+//   delivered to CC, NOT yet part of the tracked repository — see
+//   00_Project_State.js 2026-08-31 CHANGELOG entry for the exact
+//   handoff detail).
+// Owner: CC (solo dev)
+//
+// ─── Process ──────────────────────────────────────────────────────────
+//   v1 draft (Claude) → 5 open questions flagged, one of them a
+//   data-model correction (Correspondence has no defectId field and no
+//   listCorrespondenceForDefect query in 918 — it's Case-level only,
+//   despite the original ask grouping it with Defect-level concerns) →
+//   CC resolved all 5 and added two further disciplines not in the
+//   original ask → v2 (final, this review's subject).
+//
+// ─── Key Decisions ────────────────────────────────────────────────────
+//   1. Phase 1 command scope: View Defect List + Defect Detail, Update
+//      Developer Status, Record Owner Verification, Add Rectification
+//      Event (added by CC — defect-scoped, core to the rectification
+//      lifecycle, existing logRectificationEvent used as-is), View +
+//      Attach Evidence (full EvidenceType/Phase enum, unlike Mobile's
+//      simplified capture), View + Log Secondary Damage, View
+//      Correspondence (Case-level, per the data-model correction).
+//   2. Explicitly Phase 2, not this round: Close Defect, Reopen Defect,
+//      Close Case — real state-machine gates
+//      (OwnerVerificationStatus==='Verified' / required reason / every
+//      sibling DefectItem already Closed, respectively, all verified
+//      directly against 918), not just UI. No disabled placeholder
+//      either — CC's ruling: a "Coming Soon" control misleads more than
+//      an absent one does.
+//   3. Navigation: Case is root, with three siblings — Case Overview,
+//      Correspondence, and Defect List (→ Defect Detail on click). Not
+//      one flat screen, not everything nested under one Defect.
+//   4. Server architecture: 947 becomes the sole DLP glue point for
+//      both 948 and 945's new DLP tab — formalized separately as
+//      ADR-P20 (this is an architecture decision in that ADR's sense;
+//      the rest of this list isn't).
+//   5. Reliability: no clientRequestId retrofit onto the five Commands
+//      that lack it (recordDeveloperStatus/recordOwnerVerification/
+//      closeDefectItem/reopenDefectItem/closeCase) — Sidebar's
+//      desktop/stable-connection profile doesn't carry Mobile's
+//      flaky-connection motivation for the pattern. (Separately
+//      verified: logRectificationEvent already has full clientRequestId
+//      support today, so it needed no such decision.)
+//   6. Phase 1 Domain/Schema freeze: every write in Phase 1 is an
+//      existing 918/911 Command used exactly as it exists — zero new
+//      Domain logic, zero Schema change, zero dedup change. Gaps
+//      surfaced by either CC's real usage or Claude's Sidebar-building
+//      work go to 00_Product_Backlog.js first (see BL-7), not a
+//      same-session "saw a problem, fixed 918" edit — the explicit
+//      exception, same as everywhere else on this project, is a genuine
+//      data-integrity/safety bug, which is still handled immediately.
+//   7. The new 922 Detail-page aggregation function must stay
+//      Sidebar-specific — CC explicitly declined generalizing/merging
+//      it with buildCaseOverviewForMobile_ into one "universal"
+//      function, matching this project's standing bias against
+//      premature shared-code generalization across UI surfaces.
+//
+// ─── Definition of Done ──────────────────────────────────────────────
+//   ✓ DlpSidebarTab_UIContract.md v2 written, all 5 of CC's resolutions
+//   and both new disciplines incorporated (19 sections).
+//   ✓ Zero runtime files touched during either drafting pass — verified
+//   both times via repo-wide diff against the pre-session upload; the
+//   same 7 files (3 Mobile Console enhancement + 4 REVIEW-006-era
+//   governance) are the only ones that differ, unchanged by this
+//   Contract work.
+//   ✓ Every Command signature/enum/gate cited in the Contract (§§5-9,
+//   13, 15) verified directly against 918/911/900's actual current code
+//   during drafting, not recalled from earlier in the conversation.
+//
+// ─── Definition of Production-Ready — N/A, explicitly ──────────────────
+//   ★ There is no Runtime code for this Tab yet. This review certifies
+//   the DESIGN is settled for Phase 1, nothing about readiness for real
+//   use — that question doesn't arise until something exists to ask it
+//   about. Don't read this REVIEW-007 entry as any kind of GO signal the
+//   way REVIEW-002's Disposition was; it's a different kind of review.
+//
+// ─── Disposition ──────────────────────────────────────────────────────
+//   Design APPROVED for Phase 1 by CC. Implementation NOT STARTED —
+//   zero 922/947/945/946 Runtime changes exist for this Tab. Tracked as
+//   00_Product_Backlog.js BL-7 pending CC's explicit go-ahead to begin
+//   coding (approving this Contract was not that go-ahead, per CC's own
+//   explicit instruction each round of this negotiation).
+//
+// ─── Next Steps ──────────────────────────────────────────────────────
+//   1. CC gives explicit authorization to begin implementation (separate
+//   from Contract approval).
+//   2. Likely build order per the Contract's own §19: 922's new
+//   projection functions → 947 glue (dlp_* additions, per ADR-P20) →
+//   945 UI (new DLP tab + List/Detail sub-navigation).
+//   3. BL-6 (REVIEW-005 gap) and BL-5 (three pre-2026-08-26 items) both
+//   remain OPEN, untouched by this review, unrelated to it.
+
+
 // ═══════════════════════════════════════════════════════════════════════
 // END OF 00_Review_History.js
 // ═══════════════════════════════════════════════════════════════════════

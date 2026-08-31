@@ -605,11 +605,19 @@
 //   wrapper（console_wrap_ 统一 try/catch），业务逻辑 0% 留在这两个
 //   文件里，全部转发给 Domain 层（910/912/918/922）。ADR-P14 建立。
 // Dependencies: 910, 912, 918（透过后续 DLP Tab，尚未加）, 922
-// Status: ✅ Runtime Complete，实战使用中 (2026-07-29 起)。DLP 专属
-//   Tab（Sidebar 端——跟下面 947/948 的 Mobile Console 是两个不同 UI
-//   Surface，各自独立设计）仍未加入。UI Contract Design 讨论时 CC
-//   明确把 Sidebar DLP Tab 排除在那次范围外
-//   （DlpMobileConsole_UIContract.md §0），需要另外一轮设计对话才会做。
+// Status: ✅ Runtime Complete，实战使用中 (2026-07-29 起)——四个既有
+//   Tab（Dashboard/Add Bill/Properties/History）不受下面这段影响。DLP
+//   专属 Tab（跟 947/948 的 Mobile Console 是两个不同 UI Surface，各自
+//   独立设计——DlpMobileConsole_UIContract.md §0 当时明确排除在那次
+//   范围外）★ 2026-08-31：那"另外一轮设计对话"已经做了——见独立文件
+//   DlpSidebarTab_UIContract.md（Phase 1 已 CC 批准，00_Review_History.js
+//   REVIEW-007、00_Product_Backlog.js BL-7）。明确区分：这是 DESIGN
+//   APPROVED，不是 IMPLEMENTATION DONE——945/946 本身这次一行代码都没改，
+//   DLP Tab 目前仍然不存在于 Runtime 里，此段 Dependencies 里的
+//   "918（透过后续 DLP Tab，尚未加）"字样因此原样保留、还没过时。
+//   Server 架构另有决定（ADR-P20）：这个 Tab 建好后，它的 DLP 相关
+//   google.script.run 呼叫会走 947，不会走 946——946 的 Dependencies
+//   列表因此预期不会因为这个 Tab 而变长。
 
 // 947_DlpConsoleServer.js + 948_MobileConsole.html   ★ 新 (2026-08-19)
 // Purpose: DLP Mobile Console（Phase 9/10 合并交付——原规划是两个
@@ -623,8 +631,12 @@
 // Dependencies: 900（ACTIVE_DLP_CASE_ID/OPERATOR_NAME，MVP
 //   Configuration，非 Domain——见 Contract §9.1/§9.2）, 910
 //   （getProperty）, 918（getPropertyCase/logDailyProgressCheck）,
-//   911（attachEvidence）, 922（getDlpCaseDashboard/
-//   listDefectItemsForDashboard/getCaseTimeline）
+//   911（attachEvidence）, 922（buildCaseOverviewForMobile_ ——★
+//   2026-08-30 修正：这行原本列的是
+//   getDlpCaseDashboard/listDefectItemsForDashboard/getCaseTimeline，
+//   但 947 实际呼叫的是 buildCaseOverviewForMobile_，2026-08-21/22
+//   N+1 修复时就已经换掉，这份 File Map 当时没跟着更新，本次顺手修正，
+//   不是本次才改的呼叫关系）
 // Called By: doGet()（947 本身就是 Web App 入口，没有更上层的呼叫者）
 // Status: ✅ PRODUCTION-READY（Contract §11 的 11 步真机验证 Gate 全部
 //   通过，2026-08-22，见 00_Review_History.js REVIEW-002 Disposition：
@@ -636,6 +648,12 @@
 //   00_Project_State.js 后发现并修正，不是这次才验证通过。范围仅限
 //   Phase 9/10 这个子系统，不代表整个 Property OS 项目已
 //   Production-Ready（同一份区分，见本文件页首 PROJECT STATUS 说明）。
+//   ★ 2026-08-30 新增：buildCaseOverviewForMobile_ 回传的每个 defect
+//   物件补上 itemId/subCategory/remark，948 的 renderOverview_ 卡片
+//   跟着显示。CC 已部署真实 GAS、初步确认无异常（"暂时无误"，非正式
+//   逐项真机验证）。完整记录见 00_Review_History.js REVIEW-006。
+//   PRODUCTION-READY 状态维持不变——这是既有 PRODUCTION-READY 子系统上
+//   的小幅追加，不是重新走一次 Gate。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

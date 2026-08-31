@@ -381,6 +381,65 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-08-31      Sidebar DLP Tab Phase 1 — Design Review 定案，
+//                   ★ 未 coding。DlpMobileConsole_UIContract.md §0 当时
+//                   排除在外的"Sidebar DLP Tab 另一轮设计"，这次做完了：
+//                   Case→Defect List→Defect Detail 三层结构（Case 层另有
+//                   Correspondence/Case Overview 两个平行分支，不挂在
+//                   Defect 底下——Correspondence 在 918 里没有 defectId、
+//                   没有 per-defect query，是这次核对代码才发现、CC 确认
+//                   修正的资料模型落差）；Phase 1 = Update Developer
+//                   Status / Record Owner Verification / Add
+//                   Rectification Event / Add Evidence（完整
+//                   EvidenceType/Phase enum）/ Add Secondary Damage；
+//                   Phase 2 = Close Defect / Reopen Defect / Close
+//                   Case，这轮完全不做、不放 disabled 占位。新增两条
+//                   纪律：Phase 1 不改 Domain Model/Schema，Gap 一律先进
+//                   00_Product_Backlog.js（本次 BL-7）；922 新聚合函式
+//                   明确不跟 buildCaseOverviewForMobile_ 合并成万能函数。
+//                   947 定为两个 UI Surface 共用的唯一 DLP glue 入口，
+//                   946 维持 Property/Obligation/Payment 专属——正式记入
+//                   ADR-P20。完整过程记入 00_Review_History.js
+//                   REVIEW-007。
+//
+//                   ★ 交接细节：完整 Contract 在独立档案
+//                   DlpSidebarTab_UIContract.md，随本次对话交付给 CC，
+//                   但 Claude 没有工具能把它直接放进 CC 自己的
+//                   repository——这份档案目前只存在于交付给 CC 的下载
+//                   档案里，本次撰写时核实过的这份 repository 里没有它
+//                   （ls 直接确认：写这笔 CHANGELOG 当下只有 56 个档案，
+//                   不含它），需要 CC 自己加进去，才会跟
+//                   DlpMobileConsole_UIContract.md 一样成为 repo 的一
+//                   部分。新窗口读到这行时，先重新核对这份档案是否真的
+//                   已经在 repo 里，不要假设它在——这个数字之后自然会变，
+//                   不要拿"56"这个数字本身当依据，只拿它当"当时核实过"
+//                   的证据。
+//
+//   2026-08-30      Mobile Console 栏位显示强化——Case Overview 的
+//                   Defect 卡片补上 itemId/subCategory/remark（ADR-P18
+//                   早就加进 schema，但当时没跟着显示）。只改
+//                   922_DashboardAdapter.js 的
+//                   buildCaseOverviewForMobile_() 与
+//                   948_MobileConsole.html 的 renderOverview_()，
+//                   901/918/947/enrichDefectForDisplay_/三个
+//                   ONETIME_Phase11_*.js/GasShim.js 全部未动（repo-wide
+//                   diff 核实）。buildCaseOverviewForMobile_ 新增 9 条
+//                   专属断言（此前 0 覆盖率），連同既有 regression（918
+//                   144/144、phase11 两个 migration 套件
+//                   71/71+38/38、全 repo node -c）全数通过。CC 已部署到
+//                   真实 GAS 项目、实际打开 Mobile Console 跑过一次，
+//                   回报"暂时无误"——这是初步确认，不是 REVIEW-002 那种
+//                   逐项 Checklist 等级的正式真机验证 Gate，如实标注不
+//                   混为一谈。完整记录见 00_Review_History.js
+//                   REVIEW-006。
+//
+//                   ★ 顺带发现（与本次变更本身无关）：选 REVIEW 编号时
+//                   发现 00_Review_History.js 实际缺 REVIEW-005——
+//                   00_ADR_Log.js（ADR-P19）、本档案下方 2026-08-26
+//                   条目、00_File_Map.js 三处都引用它，但从未真正写入
+//                   这份档案。已记入 00_Product_Backlog.js
+//                   BL-6，未擅自补写；本次记录因此改用 REVIEW-006。
+//
 //   2026-08-26      Phase 11 — DefectItem Schema Consolidation。CC 确认
 //                   真实 Dry Run + Real Import 均已成功后，决定将
 //                   OriginalReference 併入 ItemID（ItemID 成为唯一

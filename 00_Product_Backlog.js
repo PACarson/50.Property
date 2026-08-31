@@ -208,3 +208,84 @@
 //
 // 依赖：无——三项都是纯讨论/决定层级的事，不涉及 Runtime/Schema 变更
 // 本身。均不阻塞 CC 目前的真实 DLP workflow 使用。
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-6 — 00_Review_History.js 缺 REVIEW-005（提出于 2026-08-30，Mobile
+// Console 栏位显示强化收尾 Governance 记录期间发现）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 发现经过：这次要为 Mobile Console itemId/subCategory/remark 栏位显示
+// 强化写一笔新的 REVIEW 记录，选编号前先 grep 00_Review_History.js 核实
+// 目前实际记录到哪——结果发现 00_ADR_Log.js（ADR-P19 CONSEQUENCES 段）、
+// 00_Project_State.js（2026-08-26 CHANGELOG 条目）、00_File_Map.js
+// （947/948 Status 段落 Next Steps）三处，都把"00_Review_History.js
+// REVIEW-005"当成已经存在、可查阅的正式条目在引用——但
+// 00_Review_History.js 里实际逐条核对，只有 REVIEW-001～004，没有
+// REVIEW-005。
+//
+// 从这三处引用的描述拼出来，REVIEW-005 应该要包含：(a) ADR-P19
+// OriginalReference→ItemID consolidation 的完整逐档案 impact
+// analysis/verification（918 addDefectItem、ONETIME_Phase11_
+// DefectImporter.js 的 dedup 逻辑与 staging schema、922
+// enrichDefectForDisplay_ 输出栏位，三者的变更验证）；(b) 一份 Next
+// Steps，记录 CC 决定两个 ONETIME migration 工具（Importer +
+// SchemaReorderMigration）暂时都保留，等真实 onboarding 全部完成、确认
+// 不再需要 rollback/rerun 后再议。
+//
+// 这跟 BL-5（1）的 ADR-P17 缺档不是同一种落差——ADR-P19 自己在
+// 00_ADR_Log.js 里的条目、连同 900/901 的 schema 变更，都确实存在于这份
+// repository；单单 00_Review_History.js 该有的 REVIEW-005 本身没写进去
+// （或者写了但没有被包含在交付给 CC 的档案集里、CC 那边也没收到——两种
+// 可能 Claude都无法从这份 repository 本身分辨）。
+//
+// 没有当场补写的原因：跟 ADR-P17 缺档同一个原则——这份 REVIEW 记的是
+// "impact analysis 与 verification"，本质是对当时那次真实 Consolidation
+// 工作的忠实记录，而 Claude 不是那次对话/那次真实操作的亲历者，手上没有
+// 当时逐档案比对、逐项验证的第一手依据，现在补写等于是事后编一份看起来
+// 像是当场写的记录，不诚实。
+//
+// CC 若想补：Claude 可以根据现有 repository 里 ADR-P19 变更后的实际代码
+// （918/922/Importer 三处的 OriginalReference→ItemID 改动都还能直接读到、
+// 直接核对）加上这三处引用描述的范围，草拟一份忠于"现在能查证到什么"的
+// REVIEW-005 重建版本，明确标注是事后重建、不是当场记录，供 CC
+// 核对/决定是否採用，而不是自己直接定案写入正式 Log。
+//
+// 依赖：无——纯文件缺口，不影响 Runtime，不阻塞 CC 目前的真实 DLP
+// workflow 使用，也不阻塞本次（2026-08-30）Mobile Console 栏位显示
+// 强化的 Governance 记录本身——本次改用 REVIEW-006，刻意跳过
+// 005，把这个编号留给上述缺档，避免两份内容完全不相关的记录共用同一个
+// 编号。
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-7 — Sidebar DLP Tab Phase 1（提出于 2026-08-31，设计已 CC 批准，
+// 尚未开始实作）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 状态：DESIGN APPROVED，IMPLEMENTATION NOT STARTED。这是一个真正的
+// pending backlog 项目，不是完成记录——跟 BL-1～6 记录"发现的缺口/待办"
+// 不完全一样，这笔记的是"设计定案、还没排进 Runtime"的实作工作本身。
+//
+// 范围：DlpSidebarTab_UIContract.md（独立文件，随本次交付给 CC，Claude
+// 没有工具能直接把它加进 CC 自己的 repository——需要 CC 自己动作，跟
+// BL-5(2) 那 6 个孤立档案同一种"Claude 只能交付档案、不能代替 CC 操作
+// repository"限制）定案的 Phase 1：Defect List/Detail 查看、Update
+// Developer Status、Record Owner Verification、Add Rectification
+// Event、Add Evidence、Add Secondary Damage、Case 层级 Correspondence
+// 查看。完整规格与所有决定见该文件 + 00_Review_History.js REVIEW-007 +
+// 00_ADR_Log.js ADR-P20（947 统一 DLP glue 的架构决定）。
+//
+// 尚未做、需要之后另外授权才开始的：
+// 922 新增 Sidebar 专属聚合函式（Defect + Rectification Events +
+// Evidence + Secondary Damage，single-pass，明确不跟
+// buildCaseOverviewForMobile_ 合并）、947 新增对应 dlp_* wrapper、945
+// 新增 DLP tab + List/Detail 二层导航、enrichDefectForDisplay_ 补
+// subCategory/remark。全部 0 行 Runtime 代码目前存在。
+//
+// Phase 2（明确不在这次 BL-7 范围内，本身也还没设计）：Close
+// Defect、Reopen Defect、Close Case——见 Contract §15。
+//
+// 依赖：无 Runtime 依赖——纯粹是"设计完成，等 CC 下一次明确授权才
+// coding"这件事本身需要一个 backlog 条目追踪，否则新窗口没有单一
+// 入口知道这件事定案到哪、还没做什么。

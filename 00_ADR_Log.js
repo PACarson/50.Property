@@ -1047,3 +1047,60 @@
 //   that track genuinely different real-world facts, not a redundant
 //   pair like ItemID/OriginalReference turned out to be).
 
+
+// ═══════════════════════════════════════════════════════════════════════
+// ADR-P20 — Sidebar DLP Tab: Server Glue Lives in 947, Not 946
+// ═══════════════════════════════════════════════════════════════════════
+//
+// STATUS: APPROVED (2026-08-31)
+//
+// CONTEXT:
+//   Sidebar DLP Tab Phase 1 design (this session, see 00_Review_History.js
+//   REVIEW-007 and the standalone DlpSidebarTab_UIContract.md) needed to
+//   decide where its new google.script.run server wrappers live.
+//   945_OperatorConsole.html + 946_OperatorConsoleServer.js already exist
+//   and are Runtime Complete for Property/Obligation/Payment
+//   (console_* wrappers around 910/912), in production use since
+//   2026-07-29. 947_DlpConsoleServer.js already exists and already
+//   serves 948 Mobile Console's dlp_* calls — and its own header
+//   comment, written back in Phase 9/10, already states it's intended
+//   to also serve "the future Sidebar DLP Tab."
+//
+// DECISION:
+//   947_DlpConsoleServer.js becomes the single server-glue entry point
+//   for every DLP-related client call, from both UI surfaces —
+//   948 Mobile Console (already true) and 945 Sidebar's new DLP tab
+//   (new). 946_OperatorConsoleServer.js's scope is NOT expanded to
+//   include DLP; it stays Property/Obligation/Payment only.
+//
+//   Concretely: 945_OperatorConsole.html's DLP tab's google.script.run
+//   calls target 947's dlp_* functions; its existing four tabs
+//   (Dashboard/Add Bill/Properties/History) keep targeting 946's
+//   console_* functions, unchanged. One HTML file, two different
+//   server-file backends, selected by which tab is active — not a
+//   single unified backend behind 945.
+//
+// CONSEQUENCES:
+//   947 grows into "DLP presentation/RPC glue for every UI surface,"
+//   not Mobile-specific glue that happens to also exist — its own
+//   in-file comments should account for two different callers going
+//   forward. 946 stays scoped/bounded rather than becoming an
+//   ever-growing catch-all for every Domain Engine's wrappers, which
+//   was a deliberate goal of this decision, not a side effect. Any
+//   future third DLP-consuming UI surface defaults to also calling
+//   through 947 absent a reason to reconsider.
+//
+// ALTERNATIVES CONSIDERED:
+//   A new console_dlp_* wrapper set inside 946 — rejected. Would
+//   fragment DLP's server-glue layer across two files for no technical
+//   reason, when 947 already exists and already states this exact
+//   intent in its own header comment.
+//
+// Related ADRs: none directly — 947/948's pairing dates to Phase 9/10;
+//   this is the first decision about 945/946's relationship to 947.
+//   See 00_Review_History.js REVIEW-007 for the full Phase 1 design
+//   this ADR is one part of (Command scope, field alignment, the
+//   Domain/Schema freeze discipline — none of which are architecture
+//   decisions in this ADR's sense, so they're recorded there, not
+//   here).
+
