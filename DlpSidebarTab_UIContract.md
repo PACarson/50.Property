@@ -1,7 +1,10 @@
-# DLP Sidebar Tab — UI Contract / Design Review (Phase 1 draft)
+# DLP Sidebar Tab — UI Contract / Design Review (Phase 1)
 
-**Status: DRAFT — awaiting CC review/approval. No code written against this
-document yet.**
+**Status: Phase 1 design RESOLVED — CC approved 2026-08-30. Still not
+coding.** This revision incorporates CC's five decisions on the draft's
+open questions, plus two new disciplines CC added this round (§14, §18).
+Implementation is a separate, later step CC will explicitly authorize —
+approving this Contract is not that authorization.
 
 This is the "own design pass later" that `DlpMobileConsole_UIContract.md`
 §0 explicitly deferred: *"The Sidebar 'DLP' Tab (945/946) is a Desktop
@@ -9,11 +12,6 @@ management surface and is explicitly out of scope for this document."*
 That document's boundary stands — this one is its sibling, not a revision
 of it. Mobile Console's own scope (Daily Check + read-only Case Overview
 + Evidence attach) is unchanged by anything here.
-
-Everything in this draft reflects decisions CC already made in the
-2026-08-30 planning note, plus technical detail verified directly against
-the current 918/911/900 code (not assumed). Points CC has not explicitly
-settled are marked **OPEN**.
 
 ---
 
@@ -29,100 +27,106 @@ management UI should look like.
 
 ---
 
-## 1. Phase 1 — Command Scope (this round, pending approval)
+## 1. Phase 1 — Command Scope — RESOLVED 2026-08-30
 
 **In scope:**
 - View Defect List (Active Case)
 - View Defect Detail (full record)
 - Update Developer Status (`recordDeveloperStatus`)
 - Record Owner Verification (`recordOwnerVerification`)
-- View + attach Evidence for a defect (`listEvidenceForDefect` /
-  `attachEvidence`)
-- View + log Secondary Damage for a defect (`listSecondaryDamageForDefect`
-  / `logSecondaryDamage`)
-- View Case-level Correspondence (`listCorrespondenceForCase` — see §9,
-  this is NOT defect-scoped in the data model, unlike Evidence/Secondary
-  Damage)
+- View + Add Rectification Event (`logRectificationEvent`) — **added
+  this round**, CC's reasoning: Rectification Events are defect-scoped
+  and are the core record of the defect rectification lifecycle itself,
+  belongs in Defect Management. Explicit constraint: uses the *existing*
+  Command as-is — this is not licence to redesign the Repair Cycle
+  Domain Model.
+- View + attach Evidence for a defect
+- View + log Secondary Damage for a defect
+- View Case-level Correspondence — **moved out of Defect Detail this
+  round**, see §2/§10.
 
-**Explicitly Phase 2 (§13), not this round:** Close Defect, Reopen
+**Explicitly Phase 2 (§15), not this round:** Close Defect, Reopen
 Defect, Close Case. CC's reasoning, verified against the actual code:
 `closeDefectItem` hard-requires `OwnerVerificationStatus === 'Verified'`
 first; `reopenDefectItem` hard-requires a `reason`. Both are state-machine
 / workflow decisions, not data entry — bundling them in "for completeness"
 is exactly the scope creep this project has avoided elsewhere.
 
-**Not mentioned in CC's note, flagging rather than assuming — OPEN:**
-`logRectificationEvent` / `listRectificationEventsForDefect` also already
-exist in 918 and are defect-scoped, same shape as Secondary Damage. CC's
-list didn't include Rectification Event logging in Phase 1. Deliberate
-omission, or an oversight? If real DLP correspondence with the developer
-starts referencing scheduled rectification dates, this is the Command
-that would record them.
-
 ---
 
-## 2. Navigation Model — Case → Defect List → Defect Detail
+## 2. Navigation Model — RESOLVED 2026-08-30
 
 New 5th tab in 945's existing `#tabs` nav (`Dashboard` / `Add Bill` /
 `Properties` / `History` today) — `<button data-view="dlp">DLP</button>`,
 a `<div id="view-dlp" class="view">` alongside the other four, same
 `setupTabs()` mechanism, no new navigation framework.
 
-Within that one tab, a **second navigation level** — List → Detail → back
-to List — which is new for 945; its existing four tabs are each flat,
-single-screen views. Worth naming explicitly as a new interaction pattern
-being introduced here, not a silent extension of something that already
-exists.
+Within that tab, the Case is the root, with three siblings hanging off
+it — not a single flat screen, and not everything nested under Defect
+Detail either:
 
-- **DLP tab default view**: Defect List for `PROPERTY_CONFIG.
-  ACTIVE_DLP_CASE_ID` (same Case-scoping mechanism Mobile Console's
-  bootstrap already uses — MVP Configuration, not Truth Layer, per
-  Contract §9.1; this document inherits that same caveat rather than
-  re-litigating it).
-- **Row click** → Defect Detail for that DefectID.
-- **Detail page** → back-link to List (no deep-link/URL-routing needed —
-  945 doesn't do that today for its other tabs either).
+```
+DLP Tab
+└─ Case (ACTIVE_DLP_CASE_ID)
+   ├─ Case Overview          (case-level summary)
+   ├─ Correspondence          (case-level — §10)
+   └─ Defect List             (default view)
+       └─ Defect Detail       (on row click)
+          ├─ Rectification Events (§7)
+          ├─ Evidence              (§8)
+          └─ Secondary Damage      (§9)
+```
+
+Defect List → Defect Detail is the one actual navigation *level change*
+(back-link, no deep-link/URL-routing needed — 945 doesn't do that for its
+other tabs either). Case Overview and Correspondence are peers of the
+Defect List, reachable directly from the Case level, not nested under
+any one Defect.
 
 ---
 
 ## 3. Defect List — Fields and Layout
 
-Per CC: **ItemID, Category, SubCategory, Description, Remark, Location,
-Priority, Status, DeveloperStatus, OwnerVerificationStatus** — ten
-columns. Wider than 948's compact card (which omits Description/
-Priority) — reasonable given desktop's larger canvas; not a requirement
-to mirror Mobile's exact field set.
+Ten columns: **ItemID, Category, SubCategory, Description, Remark,
+Location, Priority, Status, DeveloperStatus, OwnerVerificationStatus.**
+Wider than 948's compact card (which omits Description/Priority) —
+reasonable given desktop's larger canvas; not a requirement to mirror
+Mobile's exact field set.
 
-**ItemID as the primary identifier** (CC's explicit instruction): the UI
-leads with ItemID, not `DefectID`. Technical note for whoever implements
-this — `DefectID` is still the actual key every Command below takes
-(`recordDeveloperStatus`, `recordOwnerVerification`, `attachEvidence`'s
-`relatedDefectId`, etc.); it has to travel with each row even though it's
-never the thing shown to CC. Likely a data attribute on the row rather
-than a visible column.
+**ItemID as the primary identifier**: the UI leads with ItemID, not
+`DefectID`. Technical note for whoever implements this — `DefectID` is
+still the actual key every Command below takes (`recordDeveloperStatus`,
+`recordOwnerVerification`, `attachEvidence`'s `relatedDefectId`, etc.);
+it has to travel with each row even though it's never the thing shown to
+CC. Likely a data attribute on the row rather than a visible column.
 
-A likely table, not cards (945's existing `Properties`/`History` tabs are
-already table-like — matches precedent over inventing a new list widget).
+A likely table, not cards (945's existing `Properties`/`History` tabs
+are already table-like — matches precedent over inventing a new list
+widget).
 
 ---
 
-## 4. Defect Detail — Full Record + Actions
+## 4. Defect Detail — Full Record + Actions — RESOLVED 2026-08-30
 
-"查看完整资料" — proposing all 19 DefectItem schema fields are visible
-somewhere on this page (the 10 from the List, plus SubmittedAt,
-RectificationStartDate, DeveloperClaimedCompletedDate, OwnerVerifiedDate,
-ClosedDate, CreatedAt, UpdatedAt) — genuinely complete, not a second copy
-of the List's 10. **OPEN**: some of those (CreatedAt/UpdatedAt
-especially) may be more audit-trail than something CC actually wants
-staring back at them during real fieldwork — flag for trim once CC sees
-a draft.
+Shows the full DefectItem record (the List's 10 fields plus
+SubmittedAt/RectificationStartDate/DeveloperClaimedCompletedDate/
+OwnerVerifiedDate/ClosedDate/CreatedAt/UpdatedAt), **plus** — per CC's
+final structure — its Rectification Events (§7), Evidence (§8), and
+Secondary Damage (§9), each shown as its own list scoped to this
+DefectID.
 
-Actions panel below the record: Update Developer Status, Record Owner
-Verification, Evidence, Secondary Damage (§§5–8). No Close/Reopen
-control at all in Phase 1 — proposing they're simply **absent** rather
-than present-but-disabled, since a visible dead button invites "why can't
-I click this" more than an absent one does. **OPEN** if CC would rather
-see a disabled placeholder as a visible signpost for what's coming.
+**Actions panel** — exactly five, per CC:
+- Update Developer Status (§5)
+- Record Owner Verification (§6)
+- Add Rectification Event (§7)
+- Add Evidence (§8)
+- Add Secondary Damage (§9)
+
+**Close/Reopen — RESOLVED: absent entirely, not even disabled.** CC's
+explicit reasoning: a disabled/"Coming Soon" placeholder implies the
+feature is just "temporarily off," which is its own kind of misleading UI
+signal. Phase 1 simply doesn't show it. It appears only once Phase 2
+actually designs the lifecycle.
 
 ---
 
@@ -167,7 +171,39 @@ optional free text, appended to Timeline. Same Closed-defect block as §5.
 
 ---
 
-## 7. Evidence — View + Attach
+## 7. Action: Add Rectification Event — NEW 2026-08-30 (CC-added)
+
+`logRectificationEvent({caseId, defectId, eventType, eventDate,
+entryTime, exitTime, contractorCompany, contractorPersonnel, notes,
+source, clientRequestId})` — `caseId` required, `defectId` optional at
+the Command level but always supplied here since this Action lives on
+one specific Defect's Detail page.
+
+- `eventType` — required, one of 900's `RECTIFICATION_EVENT_TYPES`:
+  `AccessRequested` / `AccessGranted` / `RectificationStarted` /
+  `RectificationCompleted` / `RectificationRejected` /
+  `ReinspectionRequired` / `DeveloperClaimedCompleted` (7 values).
+- `source` — one of `RECTIFICATION_SOURCES`: `DeveloperProvided` /
+  `OwnerObserved` (2 values), defaults to `OwnerObserved` if omitted.
+- `entryTime`/`exitTime`/`contractorCompany`/`contractorPersonnel`/
+  `notes` — all optional detail.
+- Blocked if the *Case* is Closed (not defect-level — verified in the
+  Command itself).
+- **Already has full `clientRequestId` idempotency support today** —
+  unlike the five Commands in §13, this one doesn't need any reliability
+  decision; it already matches the same pattern `addDefectItem` /
+  `logDailyProgressCheck` / `attachEvidence` use.
+- Append-only by design (918's own doc-comment, CC Review Approval
+  2026-08-15) — never a "correct the last entry" affordance, only ever
+  "log a new one." The UI shouldn't offer an edit/delete on existing
+  Rectification Event rows.
+- Explicit constraint per CC: Phase 1 uses this Command exactly as it
+  exists. No new EventType, no new field, no Repair Cycle redesign —
+  see §14.
+
+---
+
+## 8. Evidence — View + Attach — RESOLVED 2026-08-30 (full enum)
 
 `listEvidenceForDefect(defectId)` for the view; `attachEvidence({
 relatedCaseId, relatedDefectId, evidenceType, phase, source, description,
@@ -177,23 +213,18 @@ for attaching (911, not 918 — a different Engine, same Lock discipline).
 set to the Detail page's DefectID is what scopes it to this one defect
 rather than the whole Case.
 
-Unlike Mobile Console — which hardcodes `evidenceType: 'Photo'` /
-`phase: 'NotApplicable'` (Contract §5, deliberately simplified for a
-30-second on-site capture) — proposing Sidebar exposes the **full**
-choice sets, since this is the desktop/deliberate surface: `EVIDENCE_
-TYPES` (10 values: Photo/Video/Email/PDF/WhatsAppScreenshot/
-DeveloperReport/ContractorReport/InspectionReport/
+**RESOLVED**: Sidebar exposes the full choice sets, not Mobile's
+simplified capture. CC's reasoning: Sidebar is the management surface and
+should record accurate, complete Evidence metadata; Mobile Console stays
+optimized for fast on-site capture. The two are complementary, not
+required to match: `EVIDENCE_TYPES` (10 values: Photo/Video/Email/PDF/
+WhatsAppScreenshot/DeveloperReport/ContractorReport/InspectionReport/
 MobileAppSubmissionProof/Other) and `EVIDENCE_PHASES` (Before/During/
-After/NotApplicable). **OPEN**: confirm this reading — CC's note didn't
-specify evidence-type granularity, this is Claude's inference from the
-Mobile Contract's own "those distinctions matter more for ... a
-Sidebar-only workflow" line, not something CC has stated directly for
-Evidence specifically (that line was about RectificationEvent
-documentation).
+After/NotApplicable), both exposed as real choices here.
 
 ---
 
-## 8. Secondary Damage — View + Log
+## 9. Secondary Damage — View + Log
 
 `listSecondaryDamageForDefect(defectId)` for the view; `logSecondaryDamage
 ({caseId, parentDefectId, rectificationEventId?, damageType, description,
@@ -212,39 +243,35 @@ neutral free-text by design (918's own doc-comment: the system never
 infers legal responsibility) — the UI shouldn't add any validation logic
 that implies otherwise.
 
----
-
-## 9. Correspondence — Case-Level, Not Defect-Level (data-model correction)
-
-CC's note grouped Correspondence with Evidence/Secondary Damage as
-something the Defect Detail page shows. Verified directly against
-`logCorrespondence`'s actual input — `{caseId, date, direction, sender,
-recipient, subject, responseStatus, responseRequestedDate,
-responseWorkingDays, responseDueDate, clientRequestId}` — **there is no
-defectId field at all**, and no `listCorrespondenceForDefect` query
-exists (only `listCorrespondenceForCase`). Correspondence in this Domain
-Model is a Case-wide concern, not a per-defect one.
-
-Proposing Correspondence move to the **Defect List screen** (a Case-wide
-panel, e.g. alongside or above the list) rather than nest under one
-Defect's Detail page — showing it on Detail would misrepresent it as
-being "about" that specific defect when the data model makes no such
-claim. **OPEN — asking CC to confirm or override**: is there a reason to
-want it on Detail anyway (e.g. filtering by keyword/defect mention in
-`subject` client-side)? That's presentation-layer filtering over
-case-wide data, not a new Domain capability, so it's possible without
-touching 918 if CC wants it — just flagging that it's not the same thing
-as "this correspondence belongs to this defect."
+`rectificationEventId` is an optional cross-link to §7's records — Phase
+1 doesn't need to build a picker for this; leaving it unset is a valid,
+common case.
 
 ---
 
-## 10. Field Alignment — ItemID / SubCategory / Remark Across Both Surfaces
+## 10. Correspondence — Case-Level — RESOLVED 2026-08-30 (CC approved)
 
-CC's explicit instruction, diverging from Claude's original "leave
-`enrichDefectForDisplay_` untouched" boundary from the Mobile Console
-round: since Sidebar work is starting now, align the full data model
-across both UI surfaces in the same pass rather than let Mobile and
-Sidebar drift into two different field sets that get reconciled later.
+Verified directly against `logCorrespondence`'s actual input —
+`{caseId, date, direction, sender, recipient, subject, responseStatus,
+responseRequestedDate, responseWorkingDays, responseDueDate,
+clientRequestId}` — **no defectId field at all**, and no
+`listCorrespondenceForDefect` query exists (only `listCorrespondenceForCase`).
+Correspondence in this Domain Model is a Case-wide concern, not a
+per-defect one.
+
+CC's ruling: the Domain is explicitly `Case → Correspondence`, not
+`Case → Defect → Correspondence` — the UI must not invent an association
+the data model doesn't have. Correspondence lives at the **Case level**
+(§2's diagram — a sibling of Defect List, not nested under any Defect
+Detail).
+
+---
+
+## 11. Field Alignment — ItemID / SubCategory / Remark Across Both Surfaces
+
+Since Sidebar work is starting now, the full data model is aligned across
+both UI surfaces in the same pass rather than left to drift into two
+different field sets that get reconciled later.
 
 - **901 (Schema)**: unchanged — all three fields already exist, this is
   presentation, not schema design.
@@ -252,12 +279,9 @@ Sidebar drift into two different field sets that get reconciled later.
 - **922 (Projection)**: `enrichDefectForDisplay_` gains `subCategory` /
   `remark` (it already has `itemId` from the earlier rename) — the same
   kind of additive, defaulted-to-`''` change already made to
-  `buildCaseOverviewForMobile_` for Mobile Console. A **new** projection
-  function is also needed for the Detail page's fuller bundle (defect +
-  its Evidence + its Secondary Damage) — no such aggregation exists yet;
-  proposing something like `buildDefectDetailForSidebar_`, same
-  single-pass-read discipline `buildCaseOverviewForMobile_` already
-  established, not a naive per-field round-trip.
+  `buildCaseOverviewForMobile_` for Mobile Console. A **new** Detail-page
+  aggregation function is also needed — see §18 for its explicit
+  constraints.
 - **UI (945/948)**: both present the same field set for what they each
   choose to show — Mobile Console's compact card and Sidebar's fuller
   List/Detail aren't required to show identical layouts, but neither
@@ -266,52 +290,87 @@ Sidebar drift into two different field sets that get reconciled later.
 
 ---
 
-## 11. Layer Responsibilities
+## 12. Layer Responsibilities — RESOLVED 2026-08-30
 
 - **918** — Truth Layer. Every write in this document goes through an
-  existing Command (§§5, 6, 7, 8) — zero new Domain logic, zero Schema
-  change, zero dedup-logic change, matching CC's explicit boundary.
-- **922** — Projection. New/extended presentation-only functions per §10.
-  Reads only; never itself calls a 918 Command.
-- **946 / 947** — thin `wrap_`-style glue, same discipline 946's own
-  header comment already states and 947 already follows for Mobile:
-  catches whatever a Command/Query throws, returns `{success, data|error,
-  code}`. **OPEN**: new `dlp_*` functions added to 947 itself (947's own
-  header comment already anticipated serving "the future Sidebar DLP Tab"
-  too, so this is the more consistent home) vs a parallel `console_dlp_*`
-  set in 946 — proposing 947, for the reason in its own comment, but this
-  is a real fork CC should confirm rather than Claude picking silently.
+  existing Command (§§5–9) — zero new Domain logic, zero Schema change,
+  zero dedup-logic change.
+- **922** — Projection. New/extended presentation-only functions per
+  §11/§18. Reads only; never itself calls a 918 Command.
+- **947** — **all** DLP server-side glue, for both surfaces. CC's ruling:
+
+  ```
+  948 Mobile Console  ──┐
+                         ├──▶ 947 DlpConsoleServer  ──▶ 918/911/922 (DLP)
+  945 Sidebar (DLP tab) ─┘
+
+  945 Sidebar (other tabs: Dashboard/Add Bill/
+  Properties/History)   ───▶ 946 OperatorConsoleServer ──▶ Property/
+                                                            Obligation Engines
+  ```
+
+  945 therefore calls into **two different server files** depending on
+  which of its own tabs is active — its existing four tabs keep going
+  through 946 exactly as today; only the new DLP tab's `google.script.run`
+  calls go to 947 instead. CC's reasoning: 947 already states its own
+  intent to serve "the future Sidebar DLP Tab" in its header comment, and
+  this keeps 946 from becoming an ever-growing catch-all for every
+  Engine's wrappers.
 - **945** — new `view-dlp` div + the List/Detail sub-navigation in §2.
   Zero business logic — same rule 948 already follows.
 
 ---
 
-## 12. Reliability — `clientRequestId` Explicitly Deferred
+## 13. Reliability — `clientRequestId`
 
 Verified: **none** of `recordDeveloperStatus` / `recordOwnerVerification`
 / `closeDefectItem` / `reopenDefectItem` / `closeCase` have
 `clientRequestId` idempotency support today, unlike every Command
-currently reachable from Mobile Console (`createPropertyCase`,
-`addDefectItem`, `logDailyProgressCheck`, `attachEvidence` — all have
-it).
+currently reachable from Mobile Console — and unlike `logRectificationEvent`
+(§7), which already has it.
 
-CC's explicit decision: **do not retrofit it for this Sidebar work.**
-Sidebar is desktop + a relatively stable connection + a deliberate
-management action, unlike Mobile's on-site + flaky-connection + needs-
-retry-safety profile that motivated the pattern in the first place.
-Mechanically adding idempotency to 918 just because its current absence
-was noticed here would be exactly the "found a gap, so expand Domain
-while we're at it" pattern this project keeps deliberately avoiding. If
-real Sidebar usage later surfaces an actual duplicate-submission problem
-on a *specific* Command, that Command gets it then — not all five,
-speculatively, now.
+CC's explicit decision: **do not retrofit it onto those five for this
+Sidebar work.** Sidebar is desktop + a relatively stable connection + a
+deliberate management action, unlike Mobile's on-site + flaky-connection
++ needs-retry-safety profile that motivated the pattern in the first
+place. Mechanically adding idempotency to 918 just because its current
+absence was noticed here would be exactly the "found a gap, so expand
+Domain while we're at it" pattern this project keeps deliberately
+avoiding. If real Sidebar usage later surfaces an actual
+duplicate-submission problem on a *specific* Command, that Command gets
+it then — not all five, speculatively, now.
 
 ---
 
-## 13. Phase 2 — Explicitly Deferred (not this round)
+## 14. Phase 1 Domain/Schema Freeze + Feedback/Gap Log — NEW 2026-08-30 (CC-added)
 
-Split into two distinct lifecycles per CC's instruction — the UI should
-never present a single generic "Close" button that blurs them:
+**Phase 1 does not modify Domain Model or Schema.** Every write in this
+document is an existing 918/911 Command, used as-is (§7's explicit
+constraint on `logRectificationEvent` generalizes to all of them).
+
+CC's reasoning: real defect data is now running through the system via
+Mobile Console. Two independent streams of feedback are about to start
+arriving at once — CC's own real-workflow usage ("I need a new field,"
+"this workflow isn't enough," "this status isn't enough") and whatever
+Claude notices while actually building the Sidebar UI against these
+Commands. Both go into a **Feedback/Gap log first** — the same
+`00_Product_Backlog.js` convention BL-4/BL-5/BL-6 already established —
+**not** a same-session "saw a problem, fixed it" edit to 918. This keeps
+both streams landing in the same place so they can be reviewed together
+in one future round, rather than Sidebar-development gaps getting
+silently patched ad hoc while real-usage gaps wait in the backlog.
+
+This is a Phase 1 rule, not a permanent one — a genuine data-integrity or
+safety bug found during Sidebar work is still handled immediately, same
+standing exception CC has stated throughout this project. Everything
+short of that: log it, don't fix it in the moment.
+
+---
+
+## 15. Phase 2 — Explicitly Deferred (not this round)
+
+Split into two distinct lifecycles — the UI must never present a single
+generic "Close" button that blurs them:
 
 - **Defect-level**: Close Defect (`closeDefectItem` — hard-gated on
   `OwnerVerificationStatus === 'Verified'`), Reopen Defect
@@ -325,14 +384,13 @@ never present a single generic "Close" button that blurs them:
 
 Not designed in this document at all — genuinely next-phase, once Phase 1
 is live and real usage informs what the Close/Reopen UX actually needs
-to feel like (matching CC's own stated rhythm: real usage → feedback →
-next Contract slice, not Claude designing it speculatively now).
+to feel like.
 
 ---
 
-## 14. Error / Success / Concurrency Behavior
+## 16. Error / Success / Concurrency Behavior
 
-Proposing Sidebar reuses the same shape 946/947 already establish —
+Sidebar reuses the same shape 946/947 already establish —
 `{success, data|error, code}` from `console_wrap_`/`dlp_wrap_`, rendered
 as 945's existing toast pattern (945's own visual language, not a new
 one). Every write Command above already throws a specific `code` (e.g.
@@ -345,40 +403,53 @@ to build here, this isn't a gap the way idempotency is.
 
 ---
 
-## 15. Explicitly NOT Doing (This Phase)
+## 17. Explicitly NOT Doing (This Phase)
 
-- Close Defect / Reopen Defect / Close Case UI (§13)
-- `clientRequestId` retrofit on any of the five Commands (§12)
-- Rectification Event logging UI (§1 — flagged as unmentioned, not
-  assumed in scope)
+- Close Defect / Reopen Defect / Close Case UI, in any form — not even a
+  disabled placeholder (§4, §15)
+- `clientRequestId` retrofit on the five Commands in §13
+- Any redesign of the Repair Cycle Domain Model — `logRectificationEvent`
+  used exactly as it exists (§7)
 - Any change to 901 (Schema), 918 (Domain logic/dedup), or existing
-  Mobile Console (948) behavior
-- A generalized "correspondence about this defect" capability — §9's
-  proposal keeps Correspondence at the Case level, matching what the data
-  model actually supports today
+  Mobile Console (948) behavior (§14)
+- A generalized "correspondence about this defect" capability —
+  Correspondence stays Case-level (§10), matching what the data model
+  actually supports
+- Turning `buildCaseOverviewForMobile_` into a shared/universal function
+  for both surfaces (§18) — a separate, purpose-built Sidebar function
+  instead
 
 ---
 
-## 16. Open Questions — Needs CC Decision
+## 18. Architecture Constraint — the New 922 Function — RESOLVED 2026-08-30
 
-1. Rectification Event logging — intentionally excluded from Phase 1, or
-   an oversight in the original note? (§1)
-2. Detail page: absent Close/Reopen entirely, or a visible-but-disabled
-   placeholder as a signpost? (§4)
-3. Evidence Type/Phase — full choice sets on Sidebar (Claude's proposal)
-   or keep it simple like Mobile? (§7)
-4. Correspondence — confirm moving it to the Case-level List screen
-   rather than nested in Defect Detail, or is there a reason to want it
-   on Detail anyway? (§9)
-5. New `dlp_*` glue lives in 947 (Claude's proposal, matching 947's own
-   stated intent) or a new `console_dlp_*` set in 946? (§11)
+CC approved a new 922 aggregation function for the Detail page (defect +
+its Rectification Events + Evidence + Secondary Damage), with two
+explicit constraints:
+
+1. **Single-pass discipline**: read what's needed once, build the
+   projection, return it — the same discipline `buildCaseOverviewForMobile_`
+   already established for Mobile Console's N+1 fix. Not a naive
+   per-field round-trip to the Sheet.
+2. **Sidebar-specific, not a shared "universal" function.** CC's explicit
+   ruling: do not generalize or merge this into `buildCaseOverviewForMobile_`
+   to avoid writing two functions. Mobile Console's function stays
+   exactly what it is — Mobile-specific, and this new one is a separate,
+   purpose-built Sidebar function, even though both ultimately read
+   overlapping DefectItem data. Precedent already in this codebase for
+   *not* prematurely generalizing shared-looking code across the two UI
+   surfaces (922's own docblock makes the same call for
+   `getDlpCaseDashboard`/`listDefectItemsForDashboard` staying untouched
+   when `buildCaseOverviewForMobile_` was added).
 
 ---
 
-## 17. Next Steps
+## 19. Next Steps
 
-Per CC's instruction: **not coding.** This draft is for review — once CC
-approves (with whatever changes come out of §16), the actual build order
-would likely be 922's new/extended projection functions → 947 (or 946)
-glue → 945 UI, mirroring how Mobile Console itself was built only after
-its own Contract was settled. Stopping here.
+Contract is now resolved for Phase 1 design. Per CC's explicit
+instruction: **still not coding.** Approving this document is not
+authorization to start implementation — that's a separate go-ahead CC
+will give explicitly, at which point the likely build order is 922's new
+projection functions → 947 glue (§12) → 945 UI, mirroring how Mobile
+Console itself was only built after its own Contract was settled.
+Stopping here.
