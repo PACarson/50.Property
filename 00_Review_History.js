@@ -688,5 +688,179 @@
 
 
 // ═══════════════════════════════════════════════════════════════════════
+// REVIEW-008 — Sidebar DLP Tab Phase 1: Vertical Slice 1 Implementation
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Date: 2026-08-31 (continued session)
+// Profile: Implementation-completion record, same kind as REVIEW-006 —
+//   real Runtime code exists now, this documents what and how it was
+//   verified. Comparable in weight to REVIEW-006, not REVIEW-002's full
+//   11-step Gate (no real-device verification has happened yet — see
+//   Disposition).
+// Scope: Following REVIEW-007's Design Review and CC's subsequent
+//   bounded Implementation Authorization (explicit STOP points
+//   preserved, Phase 2 and Domain/Schema changes explicitly excluded),
+//   CC further narrowed this round to the first of two vertical slices:
+//   Case Overview, Defect List, Defect Detail, Update Developer Status,
+//   Record Owner Verification. Rectification Event, Evidence, Secondary
+//   Damage, and Correspondence are the second slice — deliberately not
+//   started this round, so that any real-usage feedback on slice 1 can
+//   be absorbed before slice 2 begins.
+// Owner: CC (solo dev)
+//
+// ─── Pre-Coding Audit ─────────────────────────────────────────────────
+//   Read DlpSidebarTab_UIContract.md in full (all 19 sections, including
+//   the truncated middle on first view — re-viewed by explicit line
+//   range to get the rest) before writing anything. Independently
+//   verified CC's three Rectification Event claims directly against
+//   918/900 (not taken on trust from the Contract or CC's message):
+//   logRectificationEvent has full clientRequestId cache-check/cache-
+//   write idempotency (lines ~1360-1434); exactly 7
+//   RECTIFICATION_EVENT_TYPES and 2 RECTIFICATION_SOURCES with
+//   OwnerObserved as the stated default, both in 900_PropertyConfig.js.
+//   All matched the Contract and CC's message exactly — no discrepancy
+//   found. Also read 901's DefectItem schema (19 columns), 918's
+//   recordDeveloperStatus/recordOwnerVerification/getDefectItem/
+//   listDefectItemsForCase, 922's enrichDefectForDisplay_/
+//   buildCaseOverviewForMobile_/getDlpCaseDashboard/
+//   listDefectItemsForDashboard, 946's console_wrap_ pattern, and 947's
+//   existing dlp_wrap_/dlp_getCaseOverview (including its
+//   JSON.stringify workaround and why it's scoped to that one function)
+//   before writing any new code. Established a clean baseline first:
+//   918 144/144, 922 46/46, full node -c, all before touching anything.
+//
+// ─── Key Implementation Decisions ──────────────────────────────────────
+//   1. No new 922 aggregation function this round. Case Overview and
+//      Defect List reuse getDlpCaseDashboard/listDefectItemsForDashboard
+//      as-is — both already existed and were already earmarked in their
+//      own docblocks for this exact future use. The Contract §18
+//      Detail-page aggregation (bundling Rectification Events/Evidence/
+//      Secondary Damage) is genuinely needed only once those three
+//      exist — building it now would mean guessing at a shape likely to
+//      be replaced next round.
+//   2. dlp_getSidebarDefectDetail is a bare pass-through of
+//      getDefectItem() — raw PascalCase field names, not remapped to
+//      the List's camelCase shape. Field remapping is a 922 Projection-
+//      layer concern (Contract §12); inventing one now, ahead of the
+//      real aggregation function slice 2 will need, risked building the
+//      wrong shape twice.
+//   3. New Sidebar-facing dlp_* wrappers do NOT use the JSON.stringify
+//      workaround dlp_getCaseOverview uses — that fix is scoped to the
+//      Mobile Web App's doGet() google.script.run boundary specifically
+//      (its own comment cites the 2026-08-21 real-device root cause).
+//      945's four existing tabs already return comparably-nested plain
+//      objects through console_wrap_ with no such issue, so the new
+//      wrappers follow that already-proven Sidebar pattern instead.
+//   4. Defect List is a real <table> (per Contract §3's explicit "not
+//      cards" instruction, all 10 specified columns present), but
+//      945's Sidebar shell is a narrow ~300-380px width in practice
+//      (showSidebar(), not a wide desktop canvas) — a literal 10-column
+//      cram would be unusable. Wrapped in a horizontal-scroll container
+//      with a sticky ItemID column and truncated/tooltip cells so every
+//      column is genuinely present and reachable, not silently dropped.
+//   5. Case Overview intentionally renders only caseInfo + defectCounts
+//      from getDlpCaseDashboard's full return shape — not
+//      secondaryDamageCount/correspondence/upcomingRectification/
+//      upcomingReinspection/recentTimeline, even though the wrapper
+//      passes all of it through untouched. Keeps this round's visible
+//      UI scope matched to what's actually actionable this round.
+//   6. No pre-check/disabled state on the two action forms for a Closed
+//      defect — literal reading of Contract §5/§6 ("doesn't need to
+//      pre-check, just render whatever error comes back"). Confirmed via
+//      smoke test (see below) that DEFECT_ITEM_CLOSED surfaces cleanly.
+//
+// ─── Definition of Done ──────────────────────────────────────────────
+//   ✓ Exactly 4 files changed — verified via repo-wide diff against the
+//   untouched original upload (a second pristine extraction, not a
+//   mental diff): 922_DashboardAdapter.js (+7 lines,
+//   enrichDefectForDisplay_ gains subCategory/remark),
+//   947_DlpConsoleServer.js (+97 lines, 6 new dlp_* wrappers),
+//   945_OperatorConsole.html (+399 lines, new 5th DLP tab), and
+//   local_precheck_test_922.js (+51 lines, new tests). 918/900/901/946/
+//   948, every ONETIME_*.js, and every 00_*.js governance file confirmed
+//   byte-for-byte unchanged by the same diff.
+//   ✓ 918 regression: 144/144 (unchanged, confirms Domain untouched).
+//   ✓ 922: 53/53 (46 pre-existing + 7 new — fully-populated / both-
+//   omitted / partial-population / no-cross-defect-leakage / regression-
+//   on-pre-existing-fields, mirroring the exact assertion shape
+//   REVIEW-006's buildCaseOverviewForMobile_ block already established,
+//   plus confirming listDefectItemsForDashboard surfaces the two new
+//   fields transitively).
+//   ✓ Full node -c across every .js file, plus 945's embedded <script>
+//   extracted separately and checked on its own — both clean.
+//   ✓ Every new 945 function name cross-checked (defined-once, called-
+//   at-least-once); every new DOM id cross-checked (declared in markup,
+//   referenced in JS — including the three dynamically-built
+//   dlpSub{Overview,List,Detail} ids); every dlp_* RPC name cross-
+//   checked 1:1 between 945's calls and 947's definitions. All clean.
+//   ✓ An ad-hoc smoke test for the 6 new 947 wrappers (scratch-only, NOT
+//   committed to the repo — 946/947 remain outside the local harness's
+//   FILES list, same as every dlp_* wrapper before them): 16/16,
+//   including the DEFECT_ITEM_CLOSED block surfacing correctly through
+//   both new write wrappers, and FailedVerification correctly staying
+//   re-recordable (Contract §6, not one-way).
+//
+// ─── Definition of Production-Ready — N/A, explicitly ──────────────────
+//   ★ Zero real-GAS deployment, zero real-device verification. Unlike
+//   REVIEW-006 (which at least had CC's initial "暂时无误" after
+//   deploying), this round has not been opened in a real Sidebar at all
+//   yet. Nothing here should be read as any kind of readiness signal —
+//   only that local verification (syntax, regression, and this round's
+//   own smoke test) is clean.
+//
+// ─── Findings ─────────────────────────────────────────────────────────
+//   No real-device debugging this round (none has happened yet). Two
+//   Gaps surfaced during implementation, logged per Contract §14
+//   (00_Product_Backlog.js BL-8/BL-9), neither fixed:
+//   1. listDefectItemsForCase (918) never checks case existence — only
+//      filters DefectItems by CaseID — so listDefectItemsForDashboard,
+//      and therefore the new dlp_listSidebarDefects, silently returns
+//      an empty array for a non-matching caseId, unlike
+//      getDlpCaseDashboard which throws DLP_CASE_NOT_FOUND for the same
+//      input. Confirmed via the smoke test, not assumed. Dormant today
+//      — ACTIVE_DLP_CASE_ID is correct — but would surface as "Case
+//      Overview errors, Defect List silently looks empty" if that ever
+//      became misconfigured.
+//   2. local_precheck_test_phase11_defectitem_reorder_migration.js has a
+//      failing assertion. Confirmed via a second pristine extraction of
+//      the original upload that this predates this session entirely
+//      (byte-identical failure on the untouched original) — a stale
+//      test still expecting OriginalReference, which ADR-P19's later
+//      consolidation removed. Unrelated to Sidebar DLP work; not
+//      touched.
+//
+// ─── Disposition ─────────────────────────────────────────────────────
+//   Local layer DONE for vertical slice 1: implementation complete,
+//   diff clean, all new and pre-existing local verification passing.
+//   Real-device layer: NOT STARTED — deployment and manual verification
+//   are CC's own next step, per this project's standing Deployment
+//   boundary (Claude doesn't have write access to CC's real GAS
+//   project). No STOP-point trigger fired during this round (checked
+//   against all 8: no new Schema, no 918 semantics change, no Command
+//   found insufficient, no new business rule, no status-machine change,
+//   no idempotency retrofit, no Contract-vs-code mismatch beyond the two
+//   Gaps above — which are pre-existing code behavior, not Contract
+//   inaccuracy — and no new Gap from real data, since Phase 1 doesn't
+//   touch real data at all).
+//
+// ─── Next Steps ─────────────────────────────────────────────────────
+//   1. CC deploys these 4 files to the real GAS project and verifies the
+//   new DLP tab manually — no formal checklist exists for this yet the
+//   way MANUAL_VERIFICATION_CHECKLIST.md covers Phase 9/10; CC may want
+//   one before or instead of ad-hoc verification, at CC's discretion.
+//   2. Vertical slice 2 (Rectification Event / Evidence / Secondary
+//   Damage / Correspondence) needs its own explicit go-ahead — not
+//   authorized by this REVIEW, per CC's own stated pacing (absorb
+//   slice-1 feedback first).
+//   3. BL-8/BL-9 (this round's two Gaps) remain OPEN, same as BL-5/BL-6.
+//   4. Noticed in passing, unrelated to this session: README.md still
+//   describes a property-os-tests/ Node-sandbox layout (shim/GasShim.js,
+//   tests/*.js subdirectories) that doesn't match this repo's actual
+//   flat structure (GasShim.js and every local_precheck_test_*.js file
+//   sit at repo root, no property-os-tests/ directory exists here). Not
+//   investigated further, not touched — flagged only.
+
+
+// ═══════════════════════════════════════════════════════════════════════
 // END OF 00_Review_History.js
 // ═══════════════════════════════════════════════════════════════════════

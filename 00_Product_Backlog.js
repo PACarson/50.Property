@@ -260,12 +260,18 @@
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // BL-7 — Sidebar DLP Tab Phase 1（提出于 2026-08-31，设计已 CC 批准，
-// 尚未开始实作）
+// vertical slice 1 已实作，vertical slice 2 待另外授权）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-// 状态：DESIGN APPROVED，IMPLEMENTATION NOT STARTED。这是一个真正的
-// pending backlog 项目，不是完成记录——跟 BL-1～6 记录"发现的缺口/待办"
-// 不完全一样，这笔记的是"设计定案、还没排进 Runtime"的实作工作本身。
+// 状态：★ 2026-08-31（同日稍晚）更新——DESIGN APPROVED →
+// IMPLEMENTATION PARTIAL。CC 给出有边界的 Implementation Authorization
+// 后，进一步把 Phase 1 拆成两个 vertical slice，先做第一个：Case
+// Overview / Defect List / Defect Detail / Update Developer Status /
+// Record Owner Verification——已实作完成，本地验证通过（完整记录见
+// 00_Review_History.js REVIEW-008）。第二个 vertical slice
+// （Rectification Event / Evidence / Secondary Damage /
+// Correspondence）刻意留到吸收第一批真实使用回馈之后，尚未开始，需要
+// CC 另外明确授权才开工——这不是自动接续的下一步。
 //
 // 范围：DlpSidebarTab_UIContract.md（独立文件，随本次交付给 CC，Claude
 // 没有工具能直接把它加进 CC 自己的 repository——需要 CC 自己动作，跟
@@ -276,16 +282,90 @@
 // 查看。完整规格与所有决定见该文件 + 00_Review_History.js REVIEW-007 +
 // 00_ADR_Log.js ADR-P20（947 统一 DLP glue 的架构决定）。
 //
-// 尚未做、需要之后另外授权才开始的：
-// 922 新增 Sidebar 专属聚合函式（Defect + Rectification Events +
+// 已实作（vertical slice 1，2026-08-31）：922 的
+// enrichDefectForDisplay_ 补 subCategory/remark；947 新增 6 个 dlp_*
+// Sidebar wrapper（沿用既有 getDlpCaseDashboard/
+// listDefectItemsForDashboard，未新增 922 聚合函式）；945 新增 DLP tab
+// + Overview/Defects 子导航 + Detail 双动作表单。尚未部署到真实 GAS
+// 项目、尚未真机验证——这是 CC 的下一步。
+//
+// 尚未做、需要之后另外授权才开始的（vertical slice 2）：922 新增
+// Sidebar 专属 Detail-page 聚合函式（Defect + Rectification Events +
 // Evidence + Secondary Damage，single-pass，明确不跟
-// buildCaseOverviewForMobile_ 合并）、947 新增对应 dlp_* wrapper、945
-// 新增 DLP tab + List/Detail 二层导航、enrichDefectForDisplay_ 补
-// subCategory/remark。全部 0 行 Runtime 代码目前存在。
+// buildCaseOverviewForMobile_ 合并）、对应 947 dlp_* wrapper、945 的
+// Rectification Event/Evidence/Secondary Damage/Correspondence UI。
 //
 // Phase 2（明确不在这次 BL-7 范围内，本身也还没设计）：Close
 // Defect、Reopen Defect、Close Case——见 Contract §15。
 //
-// 依赖：无 Runtime 依赖——纯粹是"设计完成，等 CC 下一次明确授权才
-// coding"这件事本身需要一个 backlog 条目追踪，否则新窗口没有单一
-// 入口知道这件事定案到哪、还没做什么。
+// 依赖：无 Runtime 依赖——纯粹是"vertical slice 1 已完成、vertical
+// slice 2 等 CC 下一次明确授权才 coding"这件事本身需要一个 backlog
+// 条目追踪，否则新窗口没有单一入口知道这件事定案到哪、做到哪、还没做
+// 什么。
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-8 — listDefectItemsForCase 对不存在的 caseId 不 throw（发现于
+// 2026-08-31，BL-7 vertical slice 1 实作过程中，记录不修）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 现象：918_DefectEngine.js 的 listDefectItemsForCase(caseId) 只对
+// DefectItem 表做 CaseID 过滤，从不检查这个 caseId 对应的 PropertyCase
+// 是否真的存在——不存在的 caseId 会静默回传空阵列 []，而不是像
+// getDlpCaseDashboard(caseId) 那样在同样情况下 throw
+// DLP_CASE_NOT_FOUND。922_DashboardAdapter.js 的
+// listDefectItemsForDashboard 直接沿用这个行为（未额外检查），947 新增
+// 的 dlp_listSidebarDefects 也一样（纯 thin wrapper，忠实反映
+// listDefectItemsForDashboard 的真实行为，未在 wrapper 层额外加检查）。
+// 用 ad-hoc smoke test 直接验证确认，非推测——见
+// 00_Review_History.js REVIEW-008 Findings。
+//
+// 影响：目前休眠、不影响实际运作——PROPERTY_CONFIG.ACTIVE_DLP_CASE_ID
+// 是对的真实值。只有在这个值未来被错误改掉时才会体现：Case
+// Overview（走 getDlpCaseDashboard）会正确报错，但 Defect List（走
+// listDefectItemsForDashboard）会静默显示"没有 defect"，看起来像是
+// Case 本身是空的，而非配置错误——两个本该反映同一件事的画面会给出不
+// 一致的讯号。
+//
+// 设计草图（如果之后决定要修）：在 listDefectItemsForCase 或
+// listDefectItemsForDashboard 里加一段 caseExists_(caseId) 检查（918
+// 已有这个 helper，getDlpCaseDashboard 内部就是这样用的），不存在时
+// throw 同一个 DLP_CASE_NOT_FOUND，让两个 Query 行为一致。这会是一次
+// 918/922 的 Domain/Projection 层改动，不是单纯 947/945 UI 层可以处理
+// 的事——照 Contract §14 的规矩，不在 Sidebar UI 工作的同一 session
+// 里顺手改。
+//
+// 依赖：无——纯粹记录一个真实存在、目前休眠的行为不一致，等 CC 决定
+// 要不要修、什么时候修。
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-9 — local_precheck_test_phase11_defectitem_reorder_migration.js
+// 有个失效已久的断言（发现于 2026-08-31，BL-7 实作过程中顺带跑全套
+// regression 时发现，与 Sidebar DLP 工作本身无关，记录不处理）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 现象：这个测试文件对应 ONETIME_Phase11_DefectItemSchemaReorderMigration.js
+// （较早的一次 schema 重排 migration），其中一条断言仍然预期
+// OriginalReference 栏位存在，但 ADR-P19（2026-08-26 Schema
+// Consolidation）已经把 OriginalReference 併入 ItemID、从 901 schema
+// 里拿掉——这个测试没有跟着 ADR-P19 更新，变成一个针对已经不存在栏位的
+// 过时断言。
+//
+// 已核实非本次改动造成：用一份干净的、未经任何本次改动的原始上传单独
+// 解压跑同一个测试文件，产生完全相同的失败（同一行、同一段错误讯息）——
+// 这次 Sidebar DLP Tab vertical slice 1 的改动完全没有碰过这个测试
+// 文件或它对应的 migration 脚本。
+//
+// 影响：不影响 Phase 1 Sidebar DLP 工作，也不影响任何已 Production-
+// Ready 的子系统——ONETIME_Phase11_DefectItemSchemaReorderMigration.js
+// 本身早于 ADR-P19 的合併，跟 ONETIME_Phase11_
+// DefectItemSchemaConsolidationMigration.js（后者的测试全数通过，
+// 38/38）已经是被取代的关系。00_Product_Backlog.js 顶部"Phase 11 Gap
+// 收集说明"段落已记录 CC 的既有决定：三个 ONETIME_Phase11_*.js
+// 脚本保留不归档，等真实资料 onboarding 完全跑完、不再有 rollback/
+// rerun 风险后再重新检视——这个失效断言可以留到那次检视一并处理，不需
+// 要现在单独修。
+//
+// 依赖：无——纯粹记录一个跟本次 Sidebar 工作无关、但顺带核实过的既有
+// 缺口，避免之后有人重新发现同一件事却以为是新问题。

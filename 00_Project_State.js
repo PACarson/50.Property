@@ -381,6 +381,47 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-08-31 (b)  Sidebar DLP Tab Phase 1 — vertical slice 1
+//                   implemented（Case Overview / Defect List / Defect
+//                   Detail / Update Developer Status / Record Owner
+//                   Verification）。CC 给出有边界的 Implementation
+//                   Authorization——STOP points 保留、明确排除 Phase 2
+//                   （Close/Reopen/Close Case）、排除 Rectification
+//                   Event/Evidence/Secondary Damage/Correspondence
+//                   （vertical slice 2，刻意留待吸收这批真实回馈之后）、
+//                   排除任何 Domain/Schema 改动、排除给五个 Command 补
+//                   clientRequestId、排除合并 Mobile/Sidebar
+//                   projection。改动仅 4 个档案：922_DashboardAdapter.js
+//                   （enrichDefectForDisplay_ 补 subCategory/remark，+7
+//                   行）、947_DlpConsoleServer.js（新增 6 个 dlp_*
+//                   Sidebar wrapper，沿用既有
+//                   getDlpCaseDashboard/listDefectItemsForDashboard，
+//                   未新增 922 聚合函式，+97 行）、
+//                   945_OperatorConsole.html（新第 5 个 DLP tab，
+//                   Overview/Defects 子导航 + Detail 双动作表单，+399
+//                   行）、local_precheck_test_922.js（补 7 条
+//                   enrichDefectForDisplay_ 专属断言，+51 行）。
+//                   918/900/901/946/948 与所有治理文件核实未动
+//                   （repo-wide diff -rq，对照一份干净的原始上传）。
+//                   Verification：918 144/144、922 53/53（46 旧+7
+//                   新）、全 repo node -c（含 945 内嵌 script 单独抽出
+//                   检查）全过、947 新 wrapper 的 ad-hoc smoke
+//                   test（未提交进仓库，946/947 本来就在既有 local
+//                   harness 覆盖范围外）16/16。STOP 清单 8 项一个都没
+//                   触发。发现 2 个 Gap，记录不修（Contract §14，见
+//                   00_Product_Backlog.js BL-8/BL-9）：(1)
+//                   listDefectItemsForCase/Dashboard 对不存在的
+//                   caseId 静默回传空阵列，跟 getDlpCaseDashboard 会
+//                   throw DLP_CASE_NOT_FOUND 不一致，目前休眠；(2)
+//                   local_precheck_test_phase11_defectitem_reorder_
+//                   migration.js 有个失败，用干净原始上传单独跑一遍
+//                   确认是这次改动之前就存在、与 Sidebar 工作无关。
+//                   ★ 尚未部署到真实 GAS 项目、尚未真机验证——这点与
+//                   REVIEW-006/2026-08-30 那笔不同，本次连"部署后初步
+//                   确认"都还没有，如实标注不要混为一谈。完整记录见
+//                   00_Review_History.js REVIEW-008。BL-7 更新为
+//                   IMPLEMENTATION PARTIAL 状态。
+//
 //   2026-08-31      Sidebar DLP Tab Phase 1 — Design Review 定案，
 //                   ★ 未 coding。DlpMobileConsole_UIContract.md §0 当时
 //                   排除在外的"Sidebar DLP Tab 另一轮设计"，这次做完了：

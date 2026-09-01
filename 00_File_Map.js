@@ -505,8 +505,15 @@
 //   2026-07-29)；DLP Dashboard 部分 (Phase 8, 2026-08-17) —
 //   getDlpCaseDashboard/getCaseTimeline/listDefectItemsForDashboard/
 //   enrichPropertyCaseForDisplay_/enrichDefectForDisplay_/
-//   isRectificationEventUpcoming_。914/915/916/917 尚未建，届时若
-//   要加对应 Dashboard 数据，比照同一组合模式扩充，不需要重新设计。
+//   isRectificationEventUpcoming_。★ buildCaseOverviewForMobile_
+//   (2026-08-21/22，单一 pass 版，947 的 dlp_getCaseOverview 用它) 当时
+//   没同步补进这份清单，本次一并补上——它本身早就是 Runtime Complete，
+//   不是这次新变更。★ 2026-08-31：enrichDefectForDisplay_ 补
+//   subCategory/remark（Sidebar DLP Tab Phase 1 vertical slice
+//   1，00_Review_History.js REVIEW-008）——listDefectItemsForDashboard
+//   组合使用这个函式，因此自动一起带出这两个新栏位，未额外改动。
+//   914/915/916/917 尚未建，届时若要加对应 Dashboard 数据，比照同一
+//   组合模式扩充，不需要重新设计。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -604,40 +611,56 @@
 //   google.script.run.withSuccessHandler() 呼叫 946 的 console_* thin
 //   wrapper（console_wrap_ 统一 try/catch），业务逻辑 0% 留在这两个
 //   文件里，全部转发给 Domain 层（910/912/918/922）。ADR-P14 建立。
-// Dependencies: 910, 912, 918（透过后续 DLP Tab，尚未加）, 922
+// Dependencies: 910, 912, 918（非直接——透过 947，2026-08-31 DLP Tab
+//   vertical slice 1 起才成立，945 本身从不直接呼叫 918）, 922, 947
+//   （新，2026-08-31，DLP Tab 专用 wrapper，见下方 947 条目）
 // Status: ✅ Runtime Complete，实战使用中 (2026-07-29 起)——四个既有
 //   Tab（Dashboard/Add Bill/Properties/History）不受下面这段影响。DLP
 //   专属 Tab（跟 947/948 的 Mobile Console 是两个不同 UI Surface，各自
 //   独立设计——DlpMobileConsole_UIContract.md §0 当时明确排除在那次
-//   范围外）★ 2026-08-31：那"另外一轮设计对话"已经做了——见独立文件
-//   DlpSidebarTab_UIContract.md（Phase 1 已 CC 批准，00_Review_History.js
-//   REVIEW-007、00_Product_Backlog.js BL-7）。明确区分：这是 DESIGN
-//   APPROVED，不是 IMPLEMENTATION DONE——945/946 本身这次一行代码都没改，
-//   DLP Tab 目前仍然不存在于 Runtime 里，此段 Dependencies 里的
-//   "918（透过后续 DLP Tab，尚未加）"字样因此原样保留、还没过时。
-//   Server 架构另有决定（ADR-P20）：这个 Tab 建好后，它的 DLP 相关
-//   google.script.run 呼叫会走 947，不会走 946——946 的 Dependencies
-//   列表因此预期不会因为这个 Tab 而变长。
+//   范围外）设计已于 2026-08-31 定案（DlpSidebarTab_UIContract.md，
+//   00_Review_History.js REVIEW-007、00_Product_Backlog.js BL-7）。
+//   ★ 2026-08-31（同日稍晚）：Phase 1 的 vertical slice 1（Case
+//   Overview / Defect List / Defect Detail / Update Developer Status /
+//   Record Owner Verification）已实作——新第 5 个 "DLP" Tab，
+//   Overview/Defects 子导航 + Detail 双动作表单，走 947 的新 dlp_*
+//   wrapper（不走 946，如 ADR-P20 既定架构，946 本身这次确认零改动）。
+//   vertical slice 2（Rectification Event/Evidence/Secondary
+//   Damage/Correspondence）仍未开始，待另外授权。尚未部署到真实 GAS
+//   项目、尚未真机验证。完整记录见 00_Review_History.js REVIEW-008。
 
-// 947_DlpConsoleServer.js + 948_MobileConsole.html   ★ 新 (2026-08-19)
+// 947_DlpConsoleServer.js + 948_MobileConsole.html   ★ 新 (2026-08-19)，
+//   ★ 2026-08-31 起共用 Glue Point 从"架构决定"变成"实际运作中"
+//   （ADR-P20，见下方）
 // Purpose: DLP Mobile Console（Phase 9/10 合并交付——原规划是两个
 //   Phase，因为 Daily Check 变成整个落地页而非加在通用 Shell 之后的
 //   功能，合并成一次交付）。947 是 doGet() Web App 入口 + dlp_* thin
 //   wrapper（dlp_wrap_ 统一 try/catch，跟 946 的 console_wrap_ 同一
 //   纪律），948 是独立页面本身（Daily Check 表单 + Saved 状态 + 拍照
 //   Evidence + 唯读 Case Overview）。947 设计上预留给未来 Sidebar DLP
-//   Tab 共用，避免两个 UI Surface 各自重复一套 wrapper。完整设计
-//   过程/理由/未来变更边界见独立文件 DlpMobileConsole_UIContract.md。
+//   Tab 共用，避免两个 UI Surface 各自重复一套 wrapper——★ 2026-08-31
+//   (b)：这个预留正式兑现，945 的新 DLP Tab（vertical slice 1）已经在
+//   用 947 的新 dlp_* wrapper。完整设计过程/理由/未来变更边界见独立
+//   文件 DlpMobileConsole_UIContract.md（Mobile 原始设计）+
+//   DlpSidebarTab_UIContract.md（Sidebar 设计，2026-08-31）。
 // Dependencies: 900（ACTIVE_DLP_CASE_ID/OPERATOR_NAME，MVP
 //   Configuration，非 Domain——见 Contract §9.1/§9.2）, 910
-//   （getProperty）, 918（getPropertyCase/logDailyProgressCheck）,
-//   911（attachEvidence）, 922（buildCaseOverviewForMobile_ ——★
-//   2026-08-30 修正：这行原本列的是
+//   （getProperty）, 918（getPropertyCase/logDailyProgressCheck；★
+//   2026-08-31 (b) 新增 getDefectItem/recordDeveloperStatus/
+//   recordOwnerVerification，Sidebar DLP Tab 专用的新 dlp_* wrapper
+//   使用）, 911（attachEvidence）, 922（buildCaseOverviewForMobile_
+//   ——★ 2026-08-30 修正：这行原本列的是
 //   getDlpCaseDashboard/listDefectItemsForDashboard/getCaseTimeline，
-//   但 947 实际呼叫的是 buildCaseOverviewForMobile_，2026-08-21/22
-//   N+1 修复时就已经换掉，这份 File Map 当时没跟着更新，本次顺手修正，
-//   不是本次才改的呼叫关系）
-// Called By: doGet()（947 本身就是 Web App 入口，没有更上层的呼叫者）
+//   但 dlp_getCaseOverview 实际呼叫的是 buildCaseOverviewForMobile_，
+//   2026-08-21/22 N+1 修复时就已经换掉，这份 File Map 当时没跟着更新，
+//   当次顺手修正；★ 2026-08-31 (b) 新增的 Sidebar 专属
+//   dlp_getSidebarCaseDashboard/dlp_listSidebarDefects 两个 wrapper 则
+//   确实呼叫回 getDlpCaseDashboard/listDefectItemsForDashboard 本身
+//   ——两条依赖因此都准确，不是互相矛盾）
+// Called By: doGet()（Mobile Web App 入口）+ ★ 2026-08-31 (b) 起，
+//   945_OperatorConsole.html（透过 google.script.run，DLP Tab 专用的
+//   6 个新 dlp_* wrapper）——947 不再只有 doGet() 一个呼叫者，这正是
+//   ADR-P20 的设计意图
 // Status: ✅ PRODUCTION-READY（Contract §11 的 11 步真机验证 Gate 全部
 //   通过，2026-08-22，见 00_Review_History.js REVIEW-002 Disposition：
 //   "GO。DLP Defect Engine Phase 9/10（Mobile Web Console）
@@ -654,6 +677,15 @@
 //   逐项真机验证）。完整记录见 00_Review_History.js REVIEW-006。
 //   PRODUCTION-READY 状态维持不变——这是既有 PRODUCTION-READY 子系统上
 //   的小幅追加，不是重新走一次 Gate。
+//   ★ 2026-08-31 (b) 新增：6 个 dlp_* Sidebar wrapper
+//   （dlp_getSidebarCaseDashboard/dlp_listSidebarDefects/
+//   dlp_getSidebarDefectDetail/dlp_recordDeveloperStatus/
+//   dlp_recordOwnerVerification/dlp_getSidebarFormOptions，详见 945/946
+//   条目、00_Review_History.js REVIEW-008）。这部分本身尚未部署、尚未
+//   真机验证——上面这段 PRODUCTION-READY 认证范围仅限原有的 Mobile
+//   Console 4 个 dlp_* 函式（dlp_getMobileBootstrap/dlp_logDailyCheck/
+//   dlp_attachEvidence/dlp_getCaseOverview），不自动延伸覆盖这次新增的
+//   6 个，如实标注避免混淆。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
