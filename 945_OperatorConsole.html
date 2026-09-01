@@ -128,6 +128,72 @@
   .summary-breakdown { font-size: 11px; color: #5f6368; margin-top: 4px; }
   .loading { text-align: center; color: #9aa0a6; padding: 20px; font-size: 12px; }
   .search-box { margin-bottom: 8px; }
+
+  /* ── DLP Tab (Sidebar Phase 1, 2026-08-31) ───────────────────────── */
+  .sub-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+  .sub-tab-btn {
+    padding: 5px 10px;
+    border: 1px solid #dadce0;
+    border-radius: 14px;
+    background: #fff;
+    color: #5f6368;
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .sub-tab-btn.active { background: #1a73e8; border-color: #1a73e8; color: #fff; font-weight: 600; }
+  .dlp-sub { display: none; }
+  .dlp-sub.active { display: block; }
+  .back-link { display: inline-block; color: #1a73e8; font-size: 12px; cursor: pointer; margin-bottom: 10px; }
+  .dlp-table-wrap { overflow-x: auto; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; }
+  table.dlp-table { border-collapse: collapse; width: 100%; font-size: 11px; }
+  table.dlp-table th, table.dlp-table td {
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid #f1f3f4;
+    white-space: nowrap;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  table.dlp-table th {
+    position: sticky; top: 0;
+    background: #f8f9fa;
+    color: #5f6368;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    font-size: 10px;
+  }
+  table.dlp-table th:first-child, table.dlp-table td:first-child {
+    position: sticky; left: 0;
+    background: #fff;
+    font-weight: 600;
+    box-shadow: 1px 0 0 #f1f3f4;
+  }
+  table.dlp-table th:first-child { background: #f8f9fa; }
+  table.dlp-table tbody tr { cursor: pointer; }
+  table.dlp-table tbody tr:hover td { background: #f8f9fa; }
+  table.dlp-table tbody tr:hover td:first-child { background: #f1f7fe; }
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: #f1f3f4;
+    color: #5f6368;
+  }
+  .badge.status-open, .badge.status-pending, .badge.status-notchecked { background: #fce8e6; color: #c5221f; }
+  .badge.status-inprogress, .badge.status-scheduled, .badge.status-partiallyverified { background: #fef7e0; color: #b06000; }
+  .badge.status-pendingverification, .badge.status-claimedcompleted { background: #e8f0fe; color: #1a73e8; }
+  .badge.status-verified, .badge.status-closed { background: #e6f4ea; color: #188038; }
+  .badge.status-failedverification { background: #fce8e6; color: #c5221f; }
+  .detail-grid { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px; margin-bottom: 12px; }
+  .detail-field { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid #f8f9fa; font-size: 12px; }
+  .detail-field:last-child { border-bottom: none; }
+  .detail-label { color: #5f6368; flex-shrink: 0; }
+  .detail-value { text-align: right; word-break: break-word; }
+  .detail-value.empty { color: #bdc1c6; }
 </style>
 </head>
 <body>
@@ -137,6 +203,7 @@
   <button data-view="addBill">Add Bill</button>
   <button data-view="properties">Properties</button>
   <button data-view="history">History</button>
+  <button data-view="dlp">DLP</button>
 </nav>
 
 <div id="propertyFilterBar">
@@ -288,13 +355,54 @@
   <div id="historyList"></div>
 </div>
 
+<div id="view-dlp" class="view">
+  <div class="sub-tabs">
+    <button class="sub-tab-btn active" data-dlpsub="overview">Overview</button>
+    <button class="sub-tab-btn" data-dlpsub="list">Defects</button>
+  </div>
+
+  <div id="dlpSubOverview" class="dlp-sub active">
+    <div id="dlpOverviewLoading" class="loading">Loading…</div>
+    <div id="dlpOverviewContent" style="display:none"></div>
+  </div>
+
+  <div id="dlpSubList" class="dlp-sub">
+    <div id="dlpListLoading" class="loading">Loading…</div>
+    <div id="dlpListContent" style="display:none">
+      <div class="dlp-table-wrap">
+        <table class="dlp-table">
+          <thead>
+            <tr>
+              <th>ItemID</th><th>Category</th><th>SubCategory</th><th>Description</th>
+              <th>Remark</th><th>Location</th><th>Priority</th><th>Status</th>
+              <th>Developer</th><th>Owner Verif.</th>
+            </tr>
+          </thead>
+          <tbody id="dlpDefectRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="dlpSubDetail" class="dlp-sub">
+    <span class="back-link" id="dlpBackToList">← Back to Defect List</span>
+    <div id="dlpDetailLoading" class="loading">Loading…</div>
+    <div id="dlpDetailContent" style="display:none"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 var state = {
   properties: [],
   formOptions: null,
-  currentPropertyFilter: ''
+  currentPropertyFilter: '',
+  dlp: {
+    formOptions: null,
+    defects: [],
+    currentDefectId: null
+  }
 };
 
 document.addEventListener('DOMContentLoaded', init);
@@ -305,6 +413,7 @@ function init() {
   setupAddBillForm();
   setupPropertiesView();
   setupHistoryView();
+  setupDlpView();
   loadFormOptions();
   loadProperties();
   loadDashboard();
@@ -320,6 +429,7 @@ function setupTabs() {
       btn.classList.add('active');
       document.getElementById('view-' + btn.dataset.view).classList.add('active');
       if (btn.dataset.view === 'history') loadHistory();
+      if (btn.dataset.view === 'dlp') loadDlpTab();
     });
   });
 }
@@ -617,6 +727,293 @@ function fillSelect(id, values) {
     opt.value = v; opt.textContent = v;
     sel.appendChild(opt);
   });
+}
+
+// ─── DLP Tab (Sidebar Phase 1, 2026-08-31) ──────────────────────────
+// Case Overview / Defect List / Defect Detail + Update Developer Status
+// + Record Owner Verification only, per this round's vertical slice.
+// Rectification Event / Evidence / Secondary Damage / Correspondence
+// are not yet built — next round, per Contract §1/§2 and CC's pacing.
+
+function setupDlpView() {
+  document.querySelectorAll('.sub-tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () { showDlpSub(btn.dataset.dlpsub); });
+  });
+  document.getElementById('dlpBackToList').addEventListener('click', function () {
+    showDlpSub('list');
+  });
+}
+
+function showDlpSub(name) {
+  document.querySelectorAll('.dlp-sub').forEach(function (el) { el.classList.remove('active'); });
+  var panelId = 'dlpSub' + name.charAt(0).toUpperCase() + name.slice(1);
+  document.getElementById(panelId).classList.add('active');
+  // Detail is a drill-down from List, not its own top-level sub-tab —
+  // keep "Defects" looking active while viewing it.
+  var activeSubTab = (name === 'detail') ? 'list' : name;
+  document.querySelectorAll('.sub-tab-btn').forEach(function (btn) {
+    btn.classList.toggle('active', btn.dataset.dlpsub === activeSubTab);
+  });
+}
+
+function loadDlpTab() {
+  if (!state.dlp.formOptions) loadDlpFormOptions();
+  loadDlpCaseOverview();
+  loadDlpDefectList();
+}
+
+function loadDlpFormOptions() {
+  google.script.run
+    .withSuccessHandler(function (opts) { state.dlp.formOptions = opts; })
+    .withFailureHandler(function (err) { showToast('Failed to load DLP form options: ' + err.message, true); })
+    .dlp_getSidebarFormOptions();
+}
+
+// ─── Case Overview ───────────────────────────────────────────────
+
+function loadDlpCaseOverview() {
+  document.getElementById('dlpOverviewLoading').style.display = 'block';
+  document.getElementById('dlpOverviewContent').style.display = 'none';
+  google.script.run
+    .withSuccessHandler(function (res) {
+      document.getElementById('dlpOverviewLoading').style.display = 'none';
+      document.getElementById('dlpOverviewContent').style.display = 'block';
+      if (!res.success) { showToast(res.error, true); return; }
+      renderDlpCaseOverview(res.data);
+    })
+    .withFailureHandler(function (err) {
+      document.getElementById('dlpOverviewLoading').style.display = 'none';
+      showToast('Failed to load Case Overview: ' + err.message, true);
+    })
+    .dlp_getSidebarCaseDashboard();
+}
+
+// Deliberately renders caseInfo + defectCounts only. getDlpCaseDashboard
+// also returns secondaryDamageCount/correspondence/upcomingRectification/
+// upcomingReinspection/lastChecked/recentTimeline (918/922 already
+// compute all of it, wrapper passes it through untouched) — but
+// Rectification Event/Evidence/Secondary Damage/Correspondence UI is
+// next round's work, so this round's Overview doesn't surface summaries
+// of domains it can't yet let CC act on.
+function renderDlpCaseOverview(dash) {
+  var c = dash.caseInfo;
+  var dc = dash.defectCounts;
+  var html = '<div class="detail-grid">' +
+    dlpField('Property', c.propertyName + (c.unitLabel ? (' · ' + c.unitLabel) : '')) +
+    dlpField('Case', c.caseTitle || c.caseId) +
+    dlpField('Management Office', c.managementOffice) +
+    dlpField('DLP Start', c.dlpStartDate) +
+    dlpField('DLP End', c.dlpEndDate + (c.dlpEndDateIsEstimated ? ' (est.)' : '')) +
+    dlpField('Case Status', c.status) +
+    dlpField('Defects', dc.total + ' total (' + c.originalDefectCount + ' original)') +
+    '</div>';
+
+  html += '<h3>By Status</h3><div class="summary-box">' + dlpCountsLine(dc.byStatus) + '</div>';
+  html += '<h3>By Developer Status</h3><div class="summary-box">' + dlpCountsLine(dc.byDeveloperStatus) + '</div>';
+  html += '<h3>By Owner Verification</h3><div class="summary-box">' + dlpCountsLine(dc.byOwnerVerificationStatus) + '</div>';
+
+  document.getElementById('dlpOverviewContent').innerHTML = html;
+}
+
+function dlpCountsLine(counts) {
+  var parts = Object.keys(counts).map(function (k) { return escapeHtml(k) + ': ' + counts[k]; });
+  return '<div class="summary-breakdown" style="margin-top:0">' + parts.join(' · ') + '</div>';
+}
+
+// ─── Defect List ─────────────────────────────────────────────────
+
+function loadDlpDefectList() {
+  document.getElementById('dlpListLoading').style.display = 'block';
+  document.getElementById('dlpListContent').style.display = 'none';
+  google.script.run
+    .withSuccessHandler(function (res) {
+      document.getElementById('dlpListLoading').style.display = 'none';
+      document.getElementById('dlpListContent').style.display = 'block';
+      if (!res.success) { showToast(res.error, true); return; }
+      state.dlp.defects = res.data;
+      renderDlpDefectList(res.data);
+    })
+    .withFailureHandler(function (err) {
+      document.getElementById('dlpListLoading').style.display = 'none';
+      showToast('Failed to load Defect List: ' + err.message, true);
+    })
+    .dlp_listSidebarDefects();
+}
+
+function renderDlpDefectList(defects) {
+  var tbody = document.getElementById('dlpDefectRows');
+  tbody.innerHTML = '';
+  if (!defects || defects.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" class="empty">No defects found for this Case.</td></tr>';
+    return;
+  }
+  defects.forEach(function (d) {
+    var tr = document.createElement('tr');
+    tr.dataset.defectId = d.defectId;
+    tr.innerHTML =
+      '<td title="' + escapeHtml(d.itemId) + '">' + escapeHtml(d.itemId || '—') + '</td>' +
+      '<td title="' + escapeHtml(d.category) + '">' + escapeHtml(d.category) + '</td>' +
+      '<td title="' + escapeHtml(d.subCategory) + '">' + escapeHtml(d.subCategory || '—') + '</td>' +
+      '<td title="' + escapeHtml(d.description) + '">' + escapeHtml(d.description) + '</td>' +
+      '<td title="' + escapeHtml(d.remark) + '">' + escapeHtml(d.remark || '—') + '</td>' +
+      '<td title="' + escapeHtml(d.location) + '">' + escapeHtml(d.location) + '</td>' +
+      '<td>' + escapeHtml(d.priority) + '</td>' +
+      '<td>' + dlpBadge(d.status) + '</td>' +
+      '<td>' + dlpBadge(d.developerStatus) + '</td>' +
+      '<td>' + dlpBadge(d.ownerVerificationStatus) + '</td>';
+    tr.addEventListener('click', function () { openDlpDefectDetail(d.defectId); });
+    tbody.appendChild(tr);
+  });
+}
+
+function dlpBadge(value) {
+  var cls = 'status-' + String(value || '').toLowerCase().replace(/[^a-z]/g, '');
+  return '<span class="badge ' + cls + '">' + escapeHtml(value) + '</span>';
+}
+
+function dlpField(label, value) {
+  var isEmpty = !value && value !== 0;
+  return '<div class="detail-field"><span class="detail-label">' + escapeHtml(label) + '</span>' +
+    '<span class="detail-value' + (isEmpty ? ' empty' : '') + '">' +
+    (isEmpty ? '—' : escapeHtml(String(value))) + '</span></div>';
+}
+
+// ─── Defect Detail ───────────────────────────────────────────────
+
+function openDlpDefectDetail(defectId) {
+  state.dlp.currentDefectId = defectId;
+  showDlpSub('detail');
+  document.getElementById('dlpDetailLoading').style.display = 'block';
+  document.getElementById('dlpDetailContent').style.display = 'none';
+  google.script.run
+    .withSuccessHandler(function (res) {
+      document.getElementById('dlpDetailLoading').style.display = 'none';
+      document.getElementById('dlpDetailContent').style.display = 'block';
+      if (!res.success) { showToast(res.error, true); return; }
+      renderDlpDefectDetail(res.data);
+    })
+    .withFailureHandler(function (err) {
+      document.getElementById('dlpDetailLoading').style.display = 'none';
+      showToast('Failed to load Defect Detail: ' + err.message, true);
+    })
+    .dlp_getSidebarDefectDetail(defectId);
+}
+
+// defect is 918's raw DefectItem shape (PascalCase field names) —
+// dlp_getSidebarDefectDetail is a bare pass-through of getDefectItem(),
+// not remapped to the List's camelCase shape (see that wrapper's own
+// comment in 947 for why). Rectification Events/Evidence/Secondary
+// Damage are not shown here yet — next round, once their own 922
+// aggregation function exists (Contract §18).
+function renderDlpDefectDetail(defect) {
+  var html = '<div class="detail-grid">' +
+    dlpField('ItemID', defect.ItemID) +
+    dlpField('Category', defect.Category) +
+    dlpField('SubCategory', defect.SubCategory) +
+    dlpField('Description', defect.Description) +
+    dlpField('Remark', defect.Remark) +
+    dlpField('Location', defect.Location) +
+    dlpField('Priority', defect.Priority) +
+    '<div class="detail-field"><span class="detail-label">Status</span><span class="detail-value">' + dlpBadge(defect.Status) + '</span></div>' +
+    '<div class="detail-field"><span class="detail-label">Developer Status</span><span class="detail-value">' + dlpBadge(defect.DeveloperStatus) + '</span></div>' +
+    '<div class="detail-field"><span class="detail-label">Owner Verification</span><span class="detail-value">' + dlpBadge(defect.OwnerVerificationStatus) + '</span></div>' +
+    dlpField('Submitted', defect.SubmittedAt) +
+    dlpField('Rectification Start', defect.RectificationStartDate) +
+    dlpField('Developer Claimed Completed', defect.DeveloperClaimedCompletedDate) +
+    dlpField('Owner Verified', defect.OwnerVerifiedDate) +
+    dlpField('Closed', defect.ClosedDate) +
+    dlpField('Created', defect.CreatedAt) +
+    dlpField('Updated', defect.UpdatedAt) +
+    '</div>';
+
+  html += '<h3>Update Developer Status</h3><div class="detail-grid">' +
+    '<div class="field"><label>Status</label><select id="dlp_devStatus"></select></div>' +
+    '<div class="field" id="dlp_devDateField"><label>Claimed Completed Date (optional — defaults to now)</label><input id="dlp_devDate" type="date"></div>' +
+    '<div class="field"><label>Note (optional)</label><textarea id="dlp_devNote" rows="2"></textarea></div>' +
+    '<button class="btn" id="dlp_devSubmit" style="width:100%">Update Developer Status</button>' +
+    '</div>';
+
+  html += '<h3>Record Owner Verification</h3><div class="detail-grid">' +
+    '<div class="field"><label>Verification Status</label><select id="dlp_ownerStatus"></select></div>' +
+    '<div class="field"><label>Verified Date (optional — defaults to now)</label><input id="dlp_ownerDate" type="date"></div>' +
+    '<div class="field"><label>Reason (optional)</label><textarea id="dlp_ownerReason" rows="2"></textarea></div>' +
+    '<button class="btn" id="dlp_ownerSubmit" style="width:100%">Record Owner Verification</button>' +
+    '</div>';
+
+  document.getElementById('dlpDetailContent').innerHTML = html;
+
+  var opts = state.dlp.formOptions || { developerStatuses: [], ownerVerificationStatuses: [] };
+  fillSelect('dlp_devStatus', opts.developerStatuses);
+  document.getElementById('dlp_devStatus').value = defect.DeveloperStatus;
+  fillSelect('dlp_ownerStatus', opts.ownerVerificationStatuses);
+  document.getElementById('dlp_ownerStatus').value = defect.OwnerVerificationStatus;
+
+  toggleDlpDevDateField();
+  document.getElementById('dlp_devStatus').addEventListener('change', toggleDlpDevDateField);
+
+  document.getElementById('dlp_devSubmit').addEventListener('click', function () {
+    submitDlpDeveloperStatus(defect.DefectID);
+  });
+  document.getElementById('dlp_ownerSubmit').addEventListener('click', function () {
+    submitDlpOwnerVerification(defect.DefectID);
+  });
+}
+
+function toggleDlpDevDateField() {
+  var isClaimedCompleted = document.getElementById('dlp_devStatus').value === 'ClaimedCompleted';
+  document.getElementById('dlp_devDateField').style.display = isClaimedCompleted ? 'block' : 'none';
+}
+
+// claimedCompletedDate is only sent when ClaimedCompleted is selected AND
+// a date was actually entered — otherwise omitted so 918's own
+// defaults-to-now applies (Contract §5), not a client-guessed date.
+function submitDlpDeveloperStatus(defectId) {
+  var btn = document.getElementById('dlp_devSubmit');
+  var developerStatus = document.getElementById('dlp_devStatus').value;
+  var input = {
+    defectId: defectId,
+    developerStatus: developerStatus,
+    note: document.getElementById('dlp_devNote').value || ''
+  };
+  if (developerStatus === 'ClaimedCompleted') {
+    var dateVal = document.getElementById('dlp_devDate').value;
+    if (dateVal) input.claimedCompletedDate = dateVal;
+  }
+  btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function (res) {
+      btn.disabled = false;
+      if (!res.success) { showToast(res.error, true); return; }
+      showToast('Developer status updated.');
+      openDlpDefectDetail(defectId);
+      loadDlpDefectList();
+    })
+    .withFailureHandler(function (err) { btn.disabled = false; showToast(err.message, true); })
+    .dlp_recordDeveloperStatus(input);
+}
+
+// Deliberately always enabled, never locked after a first verification —
+// FailedVerification is re-recordable (Contract §6, NOT a one-way field).
+function submitDlpOwnerVerification(defectId) {
+  var btn = document.getElementById('dlp_ownerSubmit');
+  var input = {
+    defectId: defectId,
+    ownerVerificationStatus: document.getElementById('dlp_ownerStatus').value,
+    reason: document.getElementById('dlp_ownerReason').value || ''
+  };
+  var dateVal = document.getElementById('dlp_ownerDate').value;
+  if (dateVal) input.verifiedDate = dateVal;
+  btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function (res) {
+      btn.disabled = false;
+      if (!res.success) { showToast(res.error, true); return; }
+      showToast('Owner verification recorded.');
+      openDlpDefectDetail(defectId);
+      loadDlpDefectList();
+    })
+    .withFailureHandler(function (err) { btn.disabled = false; showToast(err.message, true); })
+    .dlp_recordOwnerVerification(input);
 }
 
 // ─── Utilities ─────────────────────────────────────────────────────

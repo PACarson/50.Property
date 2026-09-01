@@ -202,6 +202,56 @@ console.log('\n=== buildCaseOverviewForMobile_ — itemId/subCategory/remark (Mo
   throws('unknown caseId still throws cleanly (unchanged by this addition)', () => run(ctx, `buildCaseOverviewForMobile_('CASE-nope');`));
 }
 
+console.log('\n=== enrichDefectForDisplay_ — subCategory/remark (Sidebar DLP Tab Phase 1, 2026-08-31) ===');
+{
+  // enrichDefectForDisplay_ had zero direct test coverage before this
+  // block (confirmed by grep — the "listDefectItemsForDashboard" block
+  // above exercises it only indirectly, and didn't check subCategory/
+  // remark since they didn't exist on its output yet at the time it was
+  // written). Same 3-defect fully/all-omitted/partial shape as the
+  // buildCaseOverviewForMobile_ block above, deliberately mirrored so
+  // the two sibling functions are held to the same evidence standard.
+  const ctx = fresh();
+  const pid = run(ctx, `createProperty({
+    propertyName: 'Est8 Seputeh', addressLine1: 'A-19-11', purchasePrice: 1, freeholdLeasehold: 'Leasehold',
+    propertyType: 'RESIDENTIAL_CONDO', vpDate: '2026-07-18', developmentName: 'Est8 Seputeh', unitLabel: 'A-19-11'
+  }).propertyId`);
+  const caseId = run(ctx, `createPropertyCase({ propertyId: '${pid}', originalSubmissionDate: '2026-08-13' }).caseId`);
+
+  const d1 = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'Leaking pipe under sink', category: 'Plumbing', subCategory: 'Leaking Pipe', itemId: 'IMP-001', remark: 'Access via service riser' });`);
+  const d2 = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'Hairline crack in wall', category: 'Wall' });`);
+  const d3 = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'Scratched window pane', category: 'Window', itemId: 'IMP-003' });`);
+
+  const e1 = run(ctx, `enrichDefectForDisplay_(getDefectItem('${d1.defectId}'));`);
+  const e2 = run(ctx, `enrichDefectForDisplay_(getDefectItem('${d2.defectId}'));`);
+  const e3 = run(ctx, `enrichDefectForDisplay_(getDefectItem('${d3.defectId}'));`);
+
+  check('(1) fully populated defect — subCategory/remark both correct',
+    e1.subCategory === 'Leaking Pipe' && e1.remark === 'Access via service riser');
+  check('(2) both omitted — subCategory/remark are empty strings, never undefined/null',
+    typeof e2.subCategory === 'string' && e2.subCategory === '' &&
+    typeof e2.remark === 'string' && e2.remark === '');
+  check('(2) always real own-keys on the returned object (never absent)',
+    'subCategory' in e2 && 'remark' in e2);
+  check('(3) partial population (itemId set, subCategory/remark not) — correctly blank, not leaked from d1',
+    e3.itemId === 'IMP-003' && e3.subCategory === '' && e3.remark === '');
+  check('regression — pre-existing fields (itemId/category/propertyName/unitLabel/status) untouched by this change',
+    e1.itemId === 'IMP-001' && e1.category === 'Plumbing' &&
+    e1.propertyName === 'Est8 Seputeh' && e1.unitLabel === 'A-19-11' &&
+    e1.status === 'Open' && e1.developerStatus === 'Pending' && e1.ownerVerificationStatus === 'NotChecked');
+
+  console.log('\n=== listDefectItemsForDashboard — confirms subCategory/remark now flow through (composition, not re-implemented) ===');
+  const rows = run(ctx, `listDefectItemsForDashboard('${caseId}');`);
+  const rowById = {};
+  rows.forEach(r => { rowById[r.defectId] = r; });
+  check('every row carries subCategory/remark as real own-keys',
+    rows.every(r => 'subCategory' in r && 'remark' in r));
+  check('values correctly line up per row (no cross-defect leakage) via the same underlying enrichment',
+    rowById[d1.defectId].subCategory === 'Leaking Pipe' && rowById[d1.defectId].remark === 'Access via service riser' &&
+    rowById[d2.defectId].subCategory === '' && rowById[d2.defectId].remark === '' &&
+    rowById[d3.defectId].subCategory === '' && rowById[d3.defectId].remark === '');
+}
+
 console.log('\n' + '='.repeat(60));
 console.log(fail === 0 ? `ALL ${pass} CHECKS PASSED (0 failures)` : `${pass} passed, ${fail} FAILED`);
 process.exit(fail === 0 ? 0 : 1);

@@ -144,3 +144,99 @@ function dlp_getCaseOverview() {
   // the other three dlp_* calls are already confirmed working real-device.
   return JSON.stringify(result);
 }
+
+// ─── Sidebar DLP Tab (Phase 1, 2026-08-31) ─────────────────────────────
+// New dlp_* wrappers for 945_OperatorConsole.html's DLP tab, per
+// DlpSidebarTab_UIContract.md §12/§18/§1 (Case Overview, Defect List,
+// Defect Detail, Update Developer Status, Record Owner Verification —
+// this vertical slice only; Rectification Event/Evidence/Secondary
+// Damage/Correspondence come in the next round per CC's pacing). Same
+// dlp_wrap_ discipline as the Mobile-facing functions above — zero new
+// business logic, every write still goes through its existing 918
+// Command untouched, 918/922 semantics unchanged.
+//
+// Deliberately reuse getDlpCaseDashboard/listDefectItemsForDashboard
+// as-is rather than adding a new 922 aggregation function: both already
+// exist, both already carry their own docblock intent to serve "the
+// future Sidebar DLP Tab" (Contract §18 cites this exact precedent), and
+// listDefectItemsForDashboard now surfaces subCategory/remark for free
+// via enrichDefectForDisplay_'s §11 edit above — no new 922 code needed
+// for this batch. The one genuinely new-shape read is
+// dlp_getSidebarDefectDetail, which is just getDefectItem() (918) with a
+// not-found check; no new 922 function either, since batch 1's Detail
+// view is the record's own fields only, no Rectification Event/Evidence/
+// Secondary Damage join (that bundle, and the 922 function it needs, is
+// explicitly deferred — Contract §18 — to the next round).
+//
+// No JSON.stringify here, unlike dlp_getCaseOverview above: that was a
+// fix scoped to the Mobile Web App's doGet() google.script.run boundary
+// specifically (see that function's own comment, and its real-device
+// 2026-08-21 root cause). 945's four existing tabs already return
+// comparably-nested plain objects/arrays through console_wrap_ with no
+// such issue (e.g. console_getDashboardSnapshot's nested
+// byCategory/overdue/dueThisWeek shape) — the Sidebar-facing wrappers
+// here follow that already-proven Sidebar pattern instead.
+
+function dlp_getSidebarCaseDashboard() {
+  return dlp_wrap_(function () {
+    return getDlpCaseDashboard(PROPERTY_CONFIG.ACTIVE_DLP_CASE_ID);
+  });
+}
+
+function dlp_listSidebarDefects() {
+  return dlp_wrap_(function () {
+    return listDefectItemsForDashboard(PROPERTY_CONFIG.ACTIVE_DLP_CASE_ID);
+  });
+}
+
+// Bare pass-through of the raw DefectItem record (918's own field names —
+// DefectID/ItemID/Category/... — not remapped to the List's camelCase
+// shape here). Deliberate: remapping is a 922 Projection-layer concern
+// (Contract §12), and building a proper 922 shape for this is exactly
+// what the next round's fuller Detail-page aggregation function will do
+// once it also needs to bundle in Rectification Events/Evidence/
+// Secondary Damage (§18) — not worth inventing a shape now that would
+// likely just be replaced then. 945's Detail view reads the raw field
+// names directly for this batch.
+function dlp_getSidebarDefectDetail(defectId) {
+  return dlp_wrap_(function () {
+    var defect = getDefectItem(defectId);
+    if (!defect) {
+      throw propertyError_('DLP_SIDEBAR_DEFECT_NOT_FOUND', 'No DefectItem found for defectId ' + defectId + '.');
+    }
+    return defect;
+  });
+}
+
+function dlp_recordDeveloperStatus(input) {
+  return dlp_wrap_(function () {
+    input = input || {};
+    return recordDeveloperStatus({
+      defectId: input.defectId,
+      developerStatus: input.developerStatus,
+      claimedCompletedDate: input.claimedCompletedDate || undefined,
+      note: input.note || ''
+    });
+  });
+}
+
+function dlp_recordOwnerVerification(input) {
+  return dlp_wrap_(function () {
+    input = input || {};
+    return recordOwnerVerification({
+      defectId: input.defectId,
+      ownerVerificationStatus: input.ownerVerificationStatus,
+      verifiedDate: input.verifiedDate || undefined,
+      reason: input.reason || ''
+    });
+  });
+}
+
+// Static config, no wrapping needed — can't throw (same precedent as
+// 946_OperatorConsoleServer.js's console_getFormOptions).
+function dlp_getSidebarFormOptions() {
+  return {
+    developerStatuses: PROPERTY_CONFIG.DEVELOPER_STATUSES,
+    ownerVerificationStatuses: PROPERTY_CONFIG.OWNER_VERIFICATION_STATUSES
+  };
+}

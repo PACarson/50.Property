@@ -193,8 +193,14 @@ function enrichDefectForDisplay_(defect) {
     caseId: defect.CaseID,
     itemId: defect.ItemID,
     category: defect.Category,
+    // 2026-08-31 — Sidebar DLP Tab Phase 1 field alignment (Contract §11):
+    // both optional on DefectItem, defaulted to '' so the client never
+    // receives undefined/null for an unset value — same convention
+    // buildCaseOverviewForMobile_ already established for these two.
+    subCategory: defect.SubCategory || '',
     location: defect.Location,
     description: defect.Description,
+    remark: defect.Remark || '',
     priority: defect.Priority,
     status: defect.Status,
     developerStatus: defect.DeveloperStatus,
