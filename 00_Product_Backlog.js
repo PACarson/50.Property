@@ -260,18 +260,29 @@
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // BL-7 — Sidebar DLP Tab Phase 1（提出于 2026-08-31，设计已 CC 批准，
-// vertical slice 1 已实作，vertical slice 2 待另外授权）
+// 两个 vertical slice 均已实作，待真机验证）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-// 状态：★ 2026-08-31（同日稍晚）更新——DESIGN APPROVED →
-// IMPLEMENTATION PARTIAL。CC 给出有边界的 Implementation Authorization
-// 后，进一步把 Phase 1 拆成两个 vertical slice，先做第一个：Case
-// Overview / Defect List / Defect Detail / Update Developer Status /
-// Record Owner Verification——已实作完成，本地验证通过（完整记录见
-// 00_Review_History.js REVIEW-008）。第二个 vertical slice
-// （Rectification Event / Evidence / Secondary Damage /
-// Correspondence）刻意留到吸收第一批真实使用回馈之后，尚未开始，需要
-// CC 另外明确授权才开工——这不是自动接续的下一步。
+// 状态：★ 2026-09-01 更新——IMPLEMENTATION PARTIAL → IMPLEMENTATION
+// COMPLETE（本地层面）。vertical slice 1（Case Overview / Defect List /
+// Defect Detail / Update Developer Status / Record Owner Verification）
+// 与 vertical slice 2（Rectification Event / Evidence / Secondary
+// Damage / Correspondence）均已实作完成、本地验证通过。CC 已对 slice 1
+// 做过一轮真机测试：Defect List/Detail/两个写入动作全部正常，Case
+// Overview 空白——已定位根因（getCaseTimeline 排序对非字符串 OccurredAt
+// 直接 throw）并修复，同时对 dlp_getSidebarCaseDashboard 加了跟
+// dlp_getCaseOverview 同款的 JSON.stringify 防御。这个修复本身也还没
+// 真机验证。完整记录见 00_Review_History.js REVIEW-008（slice 1）+
+// REVIEW-009（slice 2 + Overview 修复）。
+//
+// ★ 流程备注：CC 授权继续 slice 2 时，slice 1 其实还没试——这跟"先吸收
+// slice 1 真实回馈再做 slice 2"这个当初讲好的节奏正好相反。Claude 当场
+// 提醒过一次，判断 slice 2 大部分是新增/独立功能、被牵连改写的风险不高，
+// 照 CC 指示继续做了。事后来看，正因为这样"没等 slice 1 回馈"，slice 2
+// 的新增函式（enrichRectificationEventForDisplay_ 等）才主动补了
+// slice 1 当时还没有的防御性日期处理——等于是把从 Overview 那次真机
+// 回馈里学到的教训，提前套用到了还没测试过的新代码上，而不是真的完全没
+// 从这次真机回馈里受益。
 //
 // 范围：DlpSidebarTab_UIContract.md（独立文件，随本次交付给 CC，Claude
 // 没有工具能直接把它加进 CC 自己的 repository——需要 CC 自己动作，跟
@@ -282,18 +293,22 @@
 // 查看。完整规格与所有决定见该文件 + 00_Review_History.js REVIEW-007 +
 // 00_ADR_Log.js ADR-P20（947 统一 DLP glue 的架构决定）。
 //
-// 已实作（vertical slice 1，2026-08-31）：922 的
+// 已实作（vertical slice 1，2026-08-31，★ 真机部分确认：List/Detail/
+// 两个写入动作正常，Overview 原本空白已修复待复测）：922 的
 // enrichDefectForDisplay_ 补 subCategory/remark；947 新增 6 个 dlp_*
 // Sidebar wrapper（沿用既有 getDlpCaseDashboard/
 // listDefectItemsForDashboard，未新增 922 聚合函式）；945 新增 DLP tab
-// + Overview/Defects 子导航 + Detail 双动作表单。尚未部署到真实 GAS
-// 项目、尚未真机验证——这是 CC 的下一步。
+// + Overview/Defects 子导航 + Detail 双动作表单。
 //
-// 尚未做、需要之后另外授权才开始的（vertical slice 2）：922 新增
-// Sidebar 专属 Detail-page 聚合函式（Defect + Rectification Events +
-// Evidence + Secondary Damage，single-pass，明确不跟
-// buildCaseOverviewForMobile_ 合并）、对应 947 dlp_* wrapper、945 的
-// Rectification Event/Evidence/Secondary Damage/Correspondence UI。
+// 已实作（vertical slice 2，2026-08-31/09-01，尚未真机验证）：922 新增
+// buildDefectDetailForSidebar_（Contract §18 的 Detail-page 聚合函式，
+// single-pass，明确不跟 buildCaseOverviewForMobile_ 合并）+ 4 个 enrich
+// 函式；947 新增 4 个 dlp_* wrapper（dlp_addRectificationEvent/
+// dlp_attachDefectEvidence/dlp_addSecondaryDamage/
+// dlp_listSidebarCorrespondence），dlp_getSidebarDefectDetail 升级为
+// 呼叫新聚合函式；945 新增 Correspondence 第 3 个子导航、Detail 页面
+// 三个新区块（各自一个既有记录列表 + 一个 details/summary 收合式
+// Add 表单）。
 //
 // Phase 2（明确不在这次 BL-7 范围内，本身也还没设计）：Close
 // Defect、Reopen Defect、Close Case——见 Contract §15。

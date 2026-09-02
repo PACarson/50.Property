@@ -252,6 +252,124 @@ console.log('\n=== enrichDefectForDisplay_ — subCategory/remark (Sidebar DLP T
     rowById[d3.defectId].subCategory === '' && rowById[d3.defectId].remark === '');
 }
 
+console.log('\n=== buildDefectDetailForSidebar_ — Rectification Event/Evidence/Secondary Damage bundle (Sidebar DLP Tab vertical slice 2, 2026-08-31) ===');
+{
+  const ctx = fresh();
+  const pid = run(ctx, `createProperty({
+    propertyName: 'Est8 Seputeh', addressLine1: 'A-19-11', purchasePrice: 1, freeholdLeasehold: 'Leasehold',
+    propertyType: 'RESIDENTIAL_CONDO'
+  }).propertyId`);
+  const caseId = run(ctx, `createPropertyCase({ propertyId: '${pid}', originalSubmissionDate: '2026-08-13' }).caseId`);
+  const d1 = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'Leaking pipe', category: 'Plumbing', itemId: 'IMP-001' });`);
+  const d2 = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'Cracked tile', category: 'Floor', itemId: 'IMP-002' });`);
+
+  // d1 gets one of each related record; d2 gets none — confirms both the
+  // "fully populated" and "genuinely empty, not broken" paths, same
+  // discipline as the enrichDefectForDisplay_ block above.
+  run(ctx, `logRectificationEvent({ caseId: '${caseId}', defectId: '${d1.defectId}', eventType: 'AccessGranted', contractorCompany: 'ABC Renovation', notes: 'Access granted 9am' });`);
+  run(ctx, `attachEvidence({ relatedCaseId: '${caseId}', relatedDefectId: '${d1.defectId}', evidenceType: 'Photo', phase: 'Before', description: 'Leak close-up', driveFileId: 'FAKE-DRIVE-ID-1' });`);
+  run(ctx, `logSecondaryDamage({ caseId: '${caseId}', parentDefectId: '${d1.defectId}', damageType: 'Cabinet', description: 'Water-damaged cabinet base', observedBy: 'CC' });`);
+
+  const detail1 = run(ctx, `buildDefectDetailForSidebar_('${d1.defectId}');`);
+  check('(1) defect sub-object: List fields present via enrichDefectForDisplay_ (itemId/category)',
+    detail1.defect.itemId === 'IMP-001' && detail1.defect.category === 'Plumbing');
+  check('(1) defect sub-object: Detail-only timestamp fields present as real own-keys (empty string, not undefined, since none were set)',
+    'rectificationStartDate' in detail1.defect && detail1.defect.rectificationStartDate === '' &&
+    'createdAt' in detail1.defect && typeof detail1.defect.createdAt === 'string' && detail1.defect.createdAt !== '');
+  check('(1) rectificationEvents: one entry, correctly shaped (camelCase)',
+    detail1.rectificationEvents.length === 1 &&
+    detail1.rectificationEvents[0].eventType === 'AccessGranted' &&
+    detail1.rectificationEvents[0].contractorCompany === 'ABC Renovation' &&
+    detail1.rectificationEvents[0].source === 'OwnerObserved'); // default, per Contract §7
+  check('(1) evidence: one entry, correctly shaped',
+    detail1.evidence.length === 1 &&
+    detail1.evidence[0].evidenceType === 'Photo' && detail1.evidence[0].phase === 'Before' &&
+    detail1.evidence[0].driveFileId === 'FAKE-DRIVE-ID-1');
+  check('(1) secondaryDamage: one entry, correctly shaped, boolean coerced',
+    detail1.secondaryDamage.length === 1 &&
+    detail1.secondaryDamage[0].damageType === 'Cabinet' &&
+    detail1.secondaryDamage[0].status === 'Reported' && // Command always sets this on create
+    detail1.secondaryDamage[0].administrativeSubmissionRequired === false);
+
+  const detail2 = run(ctx, `buildDefectDetailForSidebar_('${d2.defectId}');`);
+  check('(2) a defect with none of the 3 related records: all three are real empty arrays, not missing/undefined/null',
+    Array.isArray(detail2.rectificationEvents) && detail2.rectificationEvents.length === 0 &&
+    Array.isArray(detail2.evidence) && detail2.evidence.length === 0 &&
+    Array.isArray(detail2.secondaryDamage) && detail2.secondaryDamage.length === 0);
+  check('(2) no cross-defect leakage — d1’s records don’t appear on d2’s bundle',
+    detail1.rectificationEvents[0].rectificationEventId !==
+    (detail2.rectificationEvents[0] && detail2.rectificationEvents[0].rectificationEventId));
+
+  throws('unknown defectId throws DLP_SIDEBAR_DEFECT_NOT_FOUND (947 relies on this — see dlp_getSidebarDefectDetail)',
+    () => run(ctx, `buildDefectDetailForSidebar_('DEFECT-nope');`));
+}
+
+console.log('\n=== enrichCorrespondenceForDisplay_ — Case-level, view-only (Contract §1/§10) ===');
+{
+  const ctx = fresh();
+  const pid = run(ctx, `createProperty({
+    propertyName: 'Est8 Seputeh', addressLine1: 'A-19-11', purchasePrice: 1, freeholdLeasehold: 'Leasehold',
+    propertyType: 'RESIDENTIAL_CONDO'
+  }).propertyId`);
+  const caseId = run(ctx, `createPropertyCase({ propertyId: '${pid}', originalSubmissionDate: '2026-08-13' }).caseId`);
+  run(ctx, `logCorrespondence({ caseId: '${caseId}', date: '2026-08-20', direction: 'Sent', sender: 'CC', recipient: 'Developer', subject: 'Defect list submission' });`);
+
+  const rows = run(ctx, `listCorrespondenceForCase('${caseId}').map(enrichCorrespondenceForDisplay_);`);
+  check('one row, correctly shaped (camelCase), no defectId anywhere on it (Domain Model has none)',
+    rows.length === 1 && rows[0].subject === 'Defect list submission' &&
+    rows[0].sender === 'CC' && !('defectId' in rows[0]));
+}
+
+console.log('\n=== getCaseTimeline / getDlpCaseDashboard — real-device regression: OccurredAt as a native Date object must not crash (2026-08-31/09-01) ===');
+{
+  // Reproduces the actual failure CC hit on a real device: Overview
+  // loaded blank while Defect List/Detail worked fine. Root cause
+  // (verified against source, not assumed): getCaseTimeline's sort
+  // called .localeCompare() directly on OccurredAt with no type guard —
+  // fine as long as every cell comes back as a string, but Sheets can
+  // silently hand back a native Date object for a date-looking value on
+  // any column that isn't explicitly text-formatted (dateColumns
+  // protection in ensureSheetSchema_ only applies `if (isNewSheet)`, so
+  // a sheet that already existed before dateColumns was added to its
+  // schema never gets it retroactively). This directly pokes a real
+  // Date object into the mock sheet — GasShim's FakeRange.setValues is
+  // faithful enough to let this simulate exactly that scenario.
+  const ctx = fresh();
+  const pid = run(ctx, `createProperty({
+    propertyName: 'Est8 Seputeh', addressLine1: 'A-19-11', purchasePrice: 1, freeholdLeasehold: 'Leasehold',
+    propertyType: 'RESIDENTIAL_CONDO'
+  }).propertyId`);
+  const caseId = run(ctx, `createPropertyCase({ propertyId: '${pid}', originalSubmissionDate: '2026-08-13' }).caseId`);
+  run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'Timeline regression defect', category: 'Plumbing' });`);
+  // createPropertyCase + addDefectItem together write 2 PropertyCaseTimeline
+  // rows (CASE_CREATED, then DEFECT_ITEM_ADDED) — confirm that starting
+  // count before corrupting one of them, rather than assuming just 1.
+  const before = run(ctx, `getCaseTimeline('${caseId}');`);
+  check('setup: 2 timeline rows exist before the corruption (CASE_CREATED + DEFECT_ITEM_ADDED)', before.length === 2);
+
+  // Directly overwrite row 2's OccurredAt cell (column 4) with a real
+  // Date object, bypassing every write-path coercion — simulating what
+  // a real un-protected Sheets column can silently do on its own. Which
+  // logical entry that physically is doesn't matter for this test; what
+  // matters is that ONE row now has a Date object instead of a string.
+  run(ctx, `
+    var sheet = propertyCaseTimelineSheet_();
+    sheet.getRange(2, 4, 1, 1).setValues([[new Date('2026-08-31T10:00:00.000Z')]]);
+  `);
+
+  const timeline = run(ctx, `getCaseTimeline('${caseId}');`);
+  check('getCaseTimeline does not throw with a Date-object OccurredAt on one row, still returns both rows',
+    timeline.length === 2);
+  check('the corrupted row is coerced to a real ISO string, not left as a Date object or crashed on',
+    timeline.some(function (t) { return t.OccurredAt === '2026-08-31T10:00:00.000Z'; }));
+  check('every OccurredAt in the result is a real string (both the untouched row and the corrupted one)',
+    timeline.every(function (t) { return typeof t.OccurredAt === 'string'; }));
+
+  const dash = run(ctx, `getDlpCaseDashboard('${caseId}');`);
+  check('getDlpCaseDashboard (what dlp_getSidebarCaseDashboard wraps) does not throw either — the actual Overview crash path, end to end',
+    dash.recentTimeline.length === 2 && dash.recentTimeline.every(function (t) { return typeof t.OccurredAt === 'string'; }));
+}
+
 console.log('\n' + '='.repeat(60));
 console.log(fail === 0 ? `ALL ${pass} CHECKS PASSED (0 failures)` : `${pass} passed, ${fail} FAILED`);
 process.exit(fail === 0 ? 0 : 1);

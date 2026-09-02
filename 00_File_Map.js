@@ -512,6 +512,16 @@
 //   subCategory/remark（Sidebar DLP Tab Phase 1 vertical slice
 //   1，00_Review_History.js REVIEW-008）——listDefectItemsForDashboard
 //   组合使用这个函式，因此自动一起带出这两个新栏位，未额外改动。
+//   ★ 2026-09-01（vertical slice 2 + Overview 真机 crash 修复，
+//   00_Review_History.js REVIEW-009）：新增
+//   buildDefectDetailForSidebar_（Contract §18 的 Detail-page 聚合
+//   函式）+ 4 个 enrich 函式（RectificationEvent/Evidence/
+//   SecondaryDamage/Correspondence）。同时新增
+//   coerceIsoDateTimeForDisplay_ 防御工具（对齐 901
+//   coerceToIsoDateString_ 的同一类防御，但这个留在 922、不放进
+//   901——精度也不同，前者是完整 datetime、后者是纯日期），修好
+//   getCaseTimeline 排序对非字符串 OccurredAt 直接
+//   throw 的真机 crash（CC 真机测试 Case Overview 空白，定位到这里）。
 //   914/915/916/917 尚未建，届时若要加对应 Dashboard 数据，比照同一
 //   组合模式扩充，不需要重新设计。
 
@@ -625,9 +635,17 @@
 //   Record Owner Verification）已实作——新第 5 个 "DLP" Tab，
 //   Overview/Defects 子导航 + Detail 双动作表单，走 947 的新 dlp_*
 //   wrapper（不走 946，如 ADR-P20 既定架构，946 本身这次确认零改动）。
-//   vertical slice 2（Rectification Event/Evidence/Secondary
-//   Damage/Correspondence）仍未开始，待另外授权。尚未部署到真实 GAS
-//   项目、尚未真机验证。完整记录见 00_Review_History.js REVIEW-008。
+//   ★ 2026-09-01：CC 对 slice 1 做了真机测试——Defect List/Detail/两个
+//   写入动作全部正常；Case Overview 空白，定位到 922 的
+//   getCaseTimeline 排序 bug（详见 947/948 条目、
+//   00_Review_History.js REVIEW-009），已修复但这个修复本身还没真机
+//   验证。同一轮也完成了 vertical slice 2（Rectification
+//   Event/Evidence/Secondary Damage/Correspondence）：新第 3 个子导航
+//   （Correspondence，唯读），Defect Detail 新增三个区块（各自一个
+//   既有记录列表 + 一个 details/summary 收合式 Add 表单），
+//   renderDlpDefectDetail 因应 947 回传形状升级而整个改写（raw
+//   PascalCase → camelCase bundle）。BL-7 状态为
+//   IMPLEMENTATION COMPLETE（本地层面），真机验证是 CC 下一步。
 
 // 947_DlpConsoleServer.js + 948_MobileConsole.html   ★ 新 (2026-08-19)，
 //   ★ 2026-08-31 起共用 Glue Point 从"架构决定"变成"实际运作中"
@@ -647,20 +665,25 @@
 //   Configuration，非 Domain——见 Contract §9.1/§9.2）, 910
 //   （getProperty）, 918（getPropertyCase/logDailyProgressCheck；★
 //   2026-08-31 (b) 新增 getDefectItem/recordDeveloperStatus/
-//   recordOwnerVerification，Sidebar DLP Tab 专用的新 dlp_* wrapper
-//   使用）, 911（attachEvidence）, 922（buildCaseOverviewForMobile_
-//   ——★ 2026-08-30 修正：这行原本列的是
+//   recordOwnerVerification；★ 2026-09-01 新增
+//   logRectificationEvent/listRectificationEventsForDefect/
+//   logSecondaryDamage/listSecondaryDamageForDefect/
+//   listCorrespondenceForCase，Sidebar DLP Tab 新 dlp_* wrapper 使用）,
+//   911（attachEvidence；★ 2026-09-01 新增 listEvidenceForDefect）, 922
+//   （buildCaseOverviewForMobile_ ——★ 2026-08-30 修正：这行原本列的是
 //   getDlpCaseDashboard/listDefectItemsForDashboard/getCaseTimeline，
 //   但 dlp_getCaseOverview 实际呼叫的是 buildCaseOverviewForMobile_，
 //   2026-08-21/22 N+1 修复时就已经换掉，这份 File Map 当时没跟着更新，
 //   当次顺手修正；★ 2026-08-31 (b) 新增的 Sidebar 专属
 //   dlp_getSidebarCaseDashboard/dlp_listSidebarDefects 两个 wrapper 则
 //   确实呼叫回 getDlpCaseDashboard/listDefectItemsForDashboard 本身
-//   ——两条依赖因此都准确，不是互相矛盾）
+//   ——两条依赖因此都准确，不是互相矛盾；★ 2026-09-01 新增
+//   buildDefectDetailForSidebar_，dlp_getSidebarDefectDetail 从直接呼叫
+//   getDefectItem 升级为呼叫这个新聚合函式）
 // Called By: doGet()（Mobile Web App 入口）+ ★ 2026-08-31 (b) 起，
 //   945_OperatorConsole.html（透过 google.script.run，DLP Tab 专用的
-//   6 个新 dlp_* wrapper）——947 不再只有 doGet() 一个呼叫者，这正是
-//   ADR-P20 的设计意图
+//   6 个新 dlp_* wrapper，★ 2026-09-01 再新增 4 个）——947 不再只有
+//   doGet() 一个呼叫者，这正是 ADR-P20 的设计意图
 // Status: ✅ PRODUCTION-READY（Contract §11 的 11 步真机验证 Gate 全部
 //   通过，2026-08-22，见 00_Review_History.js REVIEW-002 Disposition：
 //   "GO。DLP Defect Engine Phase 9/10（Mobile Web Console）
@@ -686,6 +709,20 @@
 //   Console 4 个 dlp_* 函式（dlp_getMobileBootstrap/dlp_logDailyCheck/
 //   dlp_attachEvidence/dlp_getCaseOverview），不自动延伸覆盖这次新增的
 //   6 个，如实标注避免混淆。
+//   ★ 2026-09-01：CC 对上面这 6 个 wrapper 做了真机测试——
+//   dlp_listSidebarDefects/dlp_getSidebarDefectDetail/
+//   dlp_recordDeveloperStatus/dlp_recordOwnerVerification 确认正常；
+//   dlp_getSidebarCaseDashboard 报空白，定位到 922 的 getCaseTimeline
+//   排序对非字符串 OccurredAt 直接 throw（真机上某个 Sheet
+//   儲存格被 Sheets 自动转成原生 Date 物件所致），已修复——同时该
+//   wrapper 也补上跟 dlp_getCaseOverview 同款的 JSON.stringify（此前
+//   没加是因为当时判断 945 既有 4 个 Tab 已证明"嵌套物件不需要
+//   stringify"，真机结果证明这个判断对更深/更複杂的物件不成立，本次
+//   订正）。完整记录见 00_Review_History.js REVIEW-009。这个修复本身
+//   还没真机验证。新增 4 个 dlp_* wrapper（dlp_addRectificationEvent/
+//   dlp_attachDefectEvidence/dlp_addSecondaryDamage/
+//   dlp_listSidebarCorrespondence，vertical slice 2）同样不在
+//   PRODUCTION-READY 范围内，零真机验证。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

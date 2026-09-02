@@ -177,10 +177,23 @@ function dlp_getCaseOverview() {
 // byCategory/overdue/dueThisWeek shape) — the Sidebar-facing wrappers
 // here follow that already-proven Sidebar pattern instead.
 
+// 2026-09-01 update: originally a plain dlp_wrap_ return, reasoned (at
+// the time) to be safe because 945's existing tabs already return
+// comparably-nested plain objects with no issue. Real-device testing
+// (CC, 2026-08-31/09-01) proved that reasoning wrong specifically for
+// THIS endpoint: Overview loaded blank while Defect List/Detail worked
+// fine. The underlying crash (getCaseTimeline's unguarded
+// .localeCompare() on a possibly-non-string OccurredAt — see 922) is
+// now fixed, but this object is still the deepest/richest one crossing
+// this boundary (case info + 3-dimensional defect counts + a
+// timeline) — same class of object as dlp_getCaseOverview above, which
+// already needed this exact fix for the same reason. Applying it here
+// too, not just trusting the getCaseTimeline fix alone to be sufficient.
 function dlp_getSidebarCaseDashboard() {
-  return dlp_wrap_(function () {
+  var result = dlp_wrap_(function () {
     return getDlpCaseDashboard(PROPERTY_CONFIG.ACTIVE_DLP_CASE_ID);
   });
+  return JSON.stringify(result);
 }
 
 function dlp_listSidebarDefects() {
@@ -192,19 +205,20 @@ function dlp_listSidebarDefects() {
 // Bare pass-through of the raw DefectItem record (918's own field names —
 // DefectID/ItemID/Category/... — not remapped to the List's camelCase
 // shape here). Deliberate: remapping is a 922 Projection-layer concern
-// (Contract §12), and building a proper 922 shape for this is exactly
-// what the next round's fuller Detail-page aggregation function will do
-// once it also needs to bundle in Rectification Events/Evidence/
-// Secondary Damage (§18) — not worth inventing a shape now that would
-// likely just be replaced then. 945's Detail view reads the raw field
-// names directly for this batch.
+// Vertical slice 1 note (superseded 2026-08-31, same day): this used to
+// be a bare pass-through of getDefectItem() — deliberately unshaped,
+// since the proper 922 aggregation for this didn't exist yet (see
+// REVIEW-008's Key Decision #2). Now that buildDefectDetailForSidebar_
+// exists (vertical slice 2, bundling Rectification Events/Evidence/
+// Secondary Damage alongside the defect record itself), this wrapper
+// calls that instead. Return shape changed accordingly — see
+// buildDefectDetailForSidebar_'s own comment in 922 for exactly what's
+// in it. 945's renderDlpDefectDetail was updated in the same round to
+// match (raw PascalCase defect fields are gone; everything is now the
+// same camelCase shape the Defect List already uses).
 function dlp_getSidebarDefectDetail(defectId) {
   return dlp_wrap_(function () {
-    var defect = getDefectItem(defectId);
-    if (!defect) {
-      throw propertyError_('DLP_SIDEBAR_DEFECT_NOT_FOUND', 'No DefectItem found for defectId ' + defectId + '.');
-    }
-    return defect;
+    return buildDefectDetailForSidebar_(defectId);
   });
 }
 
@@ -232,11 +246,104 @@ function dlp_recordOwnerVerification(input) {
   });
 }
 
+// ─── Vertical slice 2 (2026-08-31, continued): Rectification Event /
+// Evidence / Secondary Damage / Correspondence ─────────────────────────
+// Same dlp_wrap_ discipline, same "no clientRequestId from this surface"
+// reasoning as vertical slice 1 (Contract §13 — Sidebar's stable-
+// connection profile doesn't carry Mobile's flaky-connection motivation
+// for the pattern, even though these 3 Commands already support it,
+// unlike Update Developer Status/Record Owner Verification's Commands).
+// Double-submit is handled the same way slice 1's two actions already
+// handle it: 945 disables the submit button on click, same as before.
+
+function dlp_addRectificationEvent(input) {
+  return dlp_wrap_(function () {
+    input = input || {};
+    return logRectificationEvent({
+      caseId: PROPERTY_CONFIG.ACTIVE_DLP_CASE_ID,
+      defectId: input.defectId,
+      eventType: input.eventType,
+      eventDate: input.eventDate || undefined,
+      entryTime: input.entryTime || '',
+      exitTime: input.exitTime || '',
+      contractorCompany: input.contractorCompany || '',
+      contractorPersonnel: input.contractorPersonnel || '',
+      notes: input.notes || '',
+      source: input.source || undefined
+    });
+  });
+}
+
+// Distinct from dlp_attachEvidence above (Mobile-only — hardcoded
+// evidenceType:'Photo'/phase:'NotApplicable', requires a checkId, always
+// relatedEntityType:'DailyProgressCheck'). This one is for attaching
+// Evidence directly to a Defect from the Sidebar, with the full
+// EvidenceType/Phase enum (Contract §8 — "management surface, complete
+// metadata", unlike Mobile's simplified always-Photo capture). 945's own
+// UI only drives the upload path (base64Data/fileName/mimeType) — same
+// as Mobile, no "pick an existing Drive file" UI concept exists — but
+// driveFileId is still forwarded here so this wrapper doesn't silently
+// disable a path attachEvidence (911) itself explicitly supports.
+function dlp_attachDefectEvidence(input) {
+  return dlp_wrap_(function () {
+    input = input || {};
+    if (!input.defectId) {
+      throw propertyError_('DLP_SIDEBAR_EVIDENCE_MISSING_DEFECT', 'defectId is required — this wrapper is for attaching Evidence to a specific Defect.');
+    }
+    return attachEvidence({
+      relatedCaseId: PROPERTY_CONFIG.ACTIVE_DLP_CASE_ID,
+      relatedDefectId: input.defectId,
+      evidenceType: input.evidenceType || undefined,
+      phase: input.phase || undefined,
+      description: input.description || '',
+      driveFileId: input.driveFileId || undefined,
+      base64Data: input.base64Data,
+      fileName: input.fileName,
+      mimeType: input.mimeType
+    });
+  });
+}
+
+function dlp_addSecondaryDamage(input) {
+  return dlp_wrap_(function () {
+    input = input || {};
+    return logSecondaryDamage({
+      caseId: PROPERTY_CONFIG.ACTIVE_DLP_CASE_ID,
+      parentDefectId: input.defectId,
+      damageType: input.damageType || undefined,
+      description: input.description,
+      observedDate: input.observedDate || undefined,
+      observedBy: input.observedBy || '',
+      responsibleParty: input.responsibleParty || '',
+      administrativeSubmissionRequired: !!input.administrativeSubmissionRequired,
+      separateSubmissionId: input.separateSubmissionId || '',
+      dlpPrejudiceStatus: input.dlpPrejudiceStatus || '',
+      contractualBasis: input.contractualBasis || ''
+    });
+  });
+}
+
+// View-only — no dlp_addCorrespondence exists, deliberately (Contract
+// §1/§10: Phase 1 only lists "View" for Correspondence, and the Domain
+// Model has no defectId on it at all — see buildDefectDetailForSidebar_'s
+// sibling enrichCorrespondenceForDisplay_ in 922 for the same note).
+function dlp_listSidebarCorrespondence() {
+  return dlp_wrap_(function () {
+    return listCorrespondenceForCase(PROPERTY_CONFIG.ACTIVE_DLP_CASE_ID).map(enrichCorrespondenceForDisplay_);
+  });
+}
+
 // Static config, no wrapping needed — can't throw (same precedent as
-// 946_OperatorConsoleServer.js's console_getFormOptions).
+// 946_OperatorConsoleServer.js's console_getFormOptions). Extended
+// 2026-08-31 (vertical slice 2) with the enums slice 1 didn't need.
 function dlp_getSidebarFormOptions() {
   return {
     developerStatuses: PROPERTY_CONFIG.DEVELOPER_STATUSES,
-    ownerVerificationStatuses: PROPERTY_CONFIG.OWNER_VERIFICATION_STATUSES
+    ownerVerificationStatuses: PROPERTY_CONFIG.OWNER_VERIFICATION_STATUSES,
+    rectificationEventTypes: PROPERTY_CONFIG.RECTIFICATION_EVENT_TYPES,
+    rectificationSources: PROPERTY_CONFIG.RECTIFICATION_SOURCES,
+    evidenceTypes: PROPERTY_CONFIG.EVIDENCE_TYPES,
+    evidencePhases: PROPERTY_CONFIG.EVIDENCE_PHASES,
+    secondaryDamageTypes: PROPERTY_CONFIG.SECONDARY_DAMAGE_TYPES
   };
 }

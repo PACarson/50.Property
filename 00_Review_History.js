@@ -862,5 +862,241 @@
 
 
 // ═══════════════════════════════════════════════════════════════════════
+// REVIEW-009 — Sidebar DLP Tab Phase 1: Vertical Slice 2 Implementation +
+// Real-Device Overview Crash Fix
+// ═══════════════════════════════════════════════════════════════════════
+//
+// Date: 2026-08-31/2026-09-01 (continued session, spanning CC's real-
+//   device test of vertical slice 1)
+// Profile: Two causally-linked pieces of work kept as one entry rather
+//   than split: vertical slice 2's implementation (Rectification Event/
+//   Evidence/Secondary Damage/Correspondence), and a real-device bug fix
+//   CC's testing of slice 1 surfaced mid-slice-2-work. Comparable in
+//   weight to REVIEW-008 for the implementation half; the bug-fix half
+//   is closer to REVIEW-006's "genuine bug, fixed immediately" territory
+//   than a normal Gap-log entry (Contract §14's own stated exception).
+// Scope: CC authorized continuing to vertical slice 2 explicitly, while
+//   also stating slice 1 had not yet been tested on a real device —
+//   directly at odds with CC's own stated rationale for splitting into
+//   two slices ("absorb slice 1 feedback before starting slice 2").
+//   Claude flagged this tension once, plainly, then proceeded (judged
+//   slice 2's work as largely additive/independent, low risk of being
+//   wasted by whatever slice 1 feedback might surface) — CC's call to
+//   make, not Claude's to block on. CC then tested slice 1 for real
+//   (before slice 2's own UI work was finished) and reported: DLP tab
+//   opens, Defect List/Detail/both write actions all work; Case Overview
+//   loads blank. CC separately supplied a written diagnostic (style and
+//   structure distinct from CC's own — likely another AI's output CC
+//   was relaying, though CC did not say so explicitly) proposing a root
+//   cause and fix.
+//
+// ─── Handling the third-party diagnostic ───────────────────────────────
+//   Per CC's own stated preference (profile: "prefers verified claims
+//   over third-party analyses"), the diagnostic was treated as a
+//   hypothesis to check against actual source, not accepted at face
+//   value. Verified directly:
+//   - Claim (getCaseTimeline's sort calls .localeCompare() directly on
+//     OccurredAt with no type guard): TRUE — read at
+//     922_DashboardAdapter.js, confirmed. getDlpCaseDashboard calls
+//     getCaseTimeline, so this crash would take down the whole Case
+//     Dashboard call — exactly matching "Overview blank, List/Detail
+//     fine" (neither of those touches this function).
+//   - Claim (getDlpCaseDashboard reads ~8 sheets): TRUE — read and
+//     counted directly (PropertyCase, DefectItem, SecondaryDamage,
+//     Correspondence, RectificationEvent, DailyProgressCheck,
+//     PropertyCaseTimeline, plus Property via the join).
+//   - Corroborating precedent found independently (not in the
+//     diagnostic): 901_PropertySchema.js already has a
+//     coerceToIsoDateString_ utility with a comment explicitly citing
+//     the same risk class ("belt-and-suspenders in case manual edit
+//     bypassed text formatting"), with its own prior test coverage —
+//     this project has hit and fixed this exact class of bug before.
+//     Also found: ensureSheetSchema_'s dateColumns text-format
+//     protection only applies `if (isNewSheet)`, so a sheet that
+//     already existed before dateColumns was added to its schema never
+//     gets it retroactively — a concrete mechanism for how a real ISO
+//     string, written correctly, can still come back as a native Date
+//     object from an older sheet.
+//   - Rejected: the diagnostic's proposed architectural fix (build a new,
+//     leaner Overview-only aggregation function that reads only 2 sheets
+//     instead of 8). This would reverse vertical slice 1's own explicit,
+//     reasoned decision to reuse getDlpCaseDashboard/
+//     listDefectItemsForDashboard rather than build new 922 functions —
+//     exactly the kind of unilateral scope expansion CC's Implementation
+//     Authorization was structured to prevent. The verified crash is
+//     fully fixed by making the sort defensive; no sheet-count reduction
+//     is needed to fix it, so none was made.
+//   - Rejected: the diagnostic's broader "type-sanitize every date field
+//     in every aggregation function" ask. Checked the two other date-
+//     touching call sites inside getDlpCaseDashboard's chain
+//     (isCorrespondenceOverdue_, isRectificationEventUpcoming_) — both
+//     already route through parseIsoDate_, which does String(value)
+//     defensively, so neither shares getCaseTimeline's crash risk (wrong
+//     "Invalid Date" result on a real Date input is a lesser, separate
+//     concern, not verified as an actual problem, not touched). Scope
+//     kept to the one verified crash, not a system-wide date-safety
+//     audit — 912/913/910 etc. were not touched.
+//
+// ─── Why this was fixed immediately, not logged as a Gap ──────────────
+//   Contract §14's own text carves out an explicit exception: "a genuine
+//   data-integrity or safety bug found during Sidebar work is still
+//   handled immediately... everything short of that: log it, don't fix
+//   it in the moment." A confirmed real-device crash that makes an
+//   entire panel permanently unusable is squarely inside that exception,
+//   not the general Gap-logging rule — the fix itself required no new
+//   design decision (a straightforward defensive-coercion fix, using the
+//   same idiom this codebase already established), so there was nothing
+//   to actually STOP-and-ask CC about.
+//
+// ─── Vertical slice 2 implementation ───────────────────────────────────
+//   New 922: buildDefectDetailForSidebar_ (Contract §18's Detail-page
+//   bundle — defect + Rectification Events + Evidence + Secondary
+//   Damage, single-pass, camelCase throughout, builds on
+//   enrichDefectForDisplay_ rather than duplicating its Property/Case
+//   join) plus 4 enrichment helpers (enrichRectificationEventForDisplay_/
+//   enrichEvidenceForDisplay_/enrichSecondaryDamageForDisplay_/
+//   enrichCorrespondenceForDisplay_ — the last View-only, matching
+//   Contract §1/§10's "View" verb with no matching "Add"). All new date
+//   fields defensively coerced via the same helper the crash fix uses
+//   (coerceIsoDateTimeForDisplay_, new, lives in 922 — not
+//   coerceToIsoDateString_/901, which truncates to date-only and would
+//   have been the wrong precision for these datetime fields) — proactive
+//   for code that had zero real-device confirmation yet, unlike
+//   enrichDefectForDisplay_, which was deliberately left untouched
+//   (already confirmed working, no reason to risk it for a fix it
+//   hasn't demonstrated needing).
+//
+//   dlp_getSidebarDefectDetail (947) upgraded from vertical slice 1's
+//   bare getDefectItem() pass-through to call the new bundle function —
+//   a deliberate, planned shape change (REVIEW-008 already flagged this
+//   as deferred, not accidental breakage). 4 new wrappers:
+//   dlp_addRectificationEvent, dlp_attachDefectEvidence (distinct from
+//   the existing Mobile-only dlp_attachEvidence — that one hardcodes
+//   evidenceType:'Photo'/phase:'NotApplicable' and requires a checkId,
+//   not reusable here), dlp_addSecondaryDamage,
+//   dlp_listSidebarCorrespondence (view-only). dlp_getSidebarFormOptions
+//   extended with 5 more enum arrays. None of the 3 new write actions
+//   generate/pass a clientRequestId, even though logRectificationEvent/
+//   attachEvidence/logSecondaryDamage all already support it (verified
+//   directly) — same Contract §13 reasoning vertical slice 1 already
+//   established for the other two Commands (Sidebar's stable-connection
+//   profile doesn't carry Mobile's flaky-connection motivation),
+//   extended here to Commands that happen to already have the mechanism
+//   rather than lack it. Double-submit is handled the same way slice 1's
+//   two actions already handle it: submit buttons disable on click.
+//
+//   945: 3rd sub-tab (Correspondence, view-only) added alongside
+//   Overview/Defects. renderDlpDefectDetail rewritten for the new
+//   camelCase bundle shape (defect.itemId, not defect.ItemID — every
+//   call site updated, cross-checked). 3 new sections on Defect Detail
+//   (Rectification Events/Evidence/Secondary Damage), each a list of
+//   existing records plus a collapsed-by-default <details> "Add" form
+//   (reusing 945's own pre-existing details/summary styling — nothing
+//   new needed). Evidence upload mirrors 948_MobileConsole.html's own
+//   FileReader-to-base64 pattern exactly (same
+//   reader.result.split(',')[1] approach), so the client-side half of
+//   the upload path is proven against the one already confirmed working
+//   real-device — the server-side half (attachEvidence's actual Drive
+//   write) has no local test coverage, same limitation vertical slice 1
+//   already had for Mobile's equivalent, and remains CC's to verify on a
+//   real device.
+//
+// ─── Panel error-handling fix (applies to all 4 DLP panels, not just
+// Overview) ─────────────────────────────────────────────────────────────
+//   Root cause of the visible symptom, in 945 itself (found by tracing
+//   the old code, not from the diagnostic): the old success handler
+//   unconditionally hid Loading and showed the Content div BEFORE
+//   checking res.success — so a business failure, or res arriving as
+//   null/malformed, left the panel with neither a Loading message nor
+//   rendered content: genuinely blank, matching CC's exact report.
+//   Rewritten with 3 shared helpers (dlpSetPanelLoading_/
+//   dlpSetPanelError_/dlpSetPanelContent_) that make loading/error/
+//   content mutually exclusive and always visible, applied uniformly to
+//   all 4 panels' load functions (Overview/List/Detail/Correspondence),
+//   not just the one CC happened to hit — the same latent bug existed
+//   in all of them, just hadn't manifested yet. Errors are rendered into
+//   each panel's repurposed "…Loading" slot rather than its Content div,
+//   so a static skeleton (the Defect List's <table>) is never destroyed
+//   by an error the way overwriting Content's innerHTML would risk.
+//   dlp_getSidebarCaseDashboard (947) also now JSON.stringify's its
+//   result before crossing the google.script.run boundary, mirroring
+//   dlp_getCaseOverview's already-established, already-proven fix for
+//   the same GAS RPC serialization risk — applied here specifically
+//   (not to every dlp_* wrapper reflexively) because this is the one
+//   endpoint with real-device evidence of the problem, and it remains
+//   the deepest/richest object crossing this boundary even after the
+//   getCaseTimeline fix. 945's response handling (dlpParseResponse_)
+//   transparently handles both stringified and plain-object responses,
+//   so this doesn't create two different client-side code paths to
+//   maintain.
+//
+// ─── Definition of Done ──────────────────────────────────────────────
+//   ✓ Same 4 files as before (922/947/945/local_precheck_test_922.js) —
+//   repo-wide diff against the untouched original upload confirms
+//   exactly these 4 plus the governance files changed, nothing else;
+//   901 specifically stayed untouched despite the crash fix touching
+//   date-coercion logic (the new coerceIsoDateTimeForDisplay_ helper was
+//   deliberately placed in 922, not 901, to preserve that line).
+//   ✓ 918: 144/144 (unchanged). 922: 67/67 (62 from slice 2's own new
+//   coverage + 5 new regression checks specifically reproducing the real
+//   crash — a Date object directly poked into a mock sheet cell via
+//   GasShim's FakeRange.setValues, confirmed to throw
+//   TypeError: b.OccurredAt.localeCompare is not a function against a
+//   temporarily-reverted copy of the fix, then confirmed clean against
+//   the real fix — the regression test's own validity was checked, not
+//   just assumed).
+//   ✓ Full node -c clean, including 945's embedded script re-extracted
+//   and checked after the splice.
+//   ✓ Ad-hoc ACTIVE_DLP_CASE_ID smoke test (947, scratch-only, same
+//   non-committed status as vertical slice 1's): extended to 29/29,
+//   including a real end-to-end pass of dlp_getSidebarCaseDashboard's
+//   full JSON.stringify round trip with the same Date-object corruption
+//   scenario. Along the way this found and required fixing a genuine
+//   implementation gap: dlp_attachDefectEvidence never forwarded
+//   driveFileId (attachEvidence's own existing-file path), silently
+//   making it unreachable through this wrapper — caught by the smoke
+//   test, not by inspection, and fixed.
+//   ✓ New testing technique discovered and used: PROPERTY_CONFIG is
+//   declared with `var`, so its binding (not the frozen object itself)
+//   can be repointed within a test's VM context to the test's own
+//   caseId — lets ACTIVE_DLP_CASE_ID-dependent wrappers' happy paths be
+//   exercised for real in tests, not just their error-propagation paths
+//   the way vertical slice 1's smoke test was limited to.
+//
+// ─── Definition of Production-Ready — still N/A ────────────────────────
+//   Vertical slice 1's write actions and Defect List/Detail are now
+//   real-device confirmed working (CC, this session) — Overview was not,
+//   until this fix, which itself has zero real-device confirmation yet.
+//   Vertical slice 2, in its entirety, has zero real-device confirmation.
+//   Nothing in this entry should be read as a readiness signal beyond
+//   "local verification is clean."
+//
+// ─── Disposition ─────────────────────────────────────────────────────
+//   Local layer DONE for both the Overview fix and vertical slice 2.
+//   Real-device layer: NOT STARTED for slice 2 or the fix — CC's next
+//   step. No STOP-point trigger fired (the diagnostic's proposed
+//   architectural rework was evaluated and explicitly declined, not
+//   silently implemented; the crash fix itself required no new Schema,
+//   no 918 semantics change, no new business rule, no status-machine
+//   change, no idempotency retrofit, and surfaced no Contract-vs-code
+//   mismatch — it was a straightforward bug in 922 Projection-layer
+//   code). The batch-1-untested/continue-to-batch-2 process tension was
+//   flagged once (see Scope above), not repeated.
+//
+// ─── Next Steps ─────────────────────────────────────────────────────
+//   1. CC deploys and tests: the Overview fix specifically, and vertical
+//   slice 2 in full, on a real device.
+//   2. If Overview still doesn't render correctly after this fix, the
+//   next thing to check is whatever CC's real PropertyCaseTimeline sheet
+//   actually contains for OccurredAt on existing rows (this fix handles
+//   the Date-object case; a genuinely malformed/non-parseable string
+//   would need separate investigation).
+//   3. BL-7 can now close as IMPLEMENTATION COMPLETE (both vertical
+//   slices) pending that real-device confirmation.
+//   4. Phase 2 (Close Defect/Reopen Defect/Close Case) remains
+//   unauthorized and undesigned, same as every prior entry has noted.
+
+
+// ═══════════════════════════════════════════════════════════════════════
 // END OF 00_Review_History.js
 // ═══════════════════════════════════════════════════════════════════════

@@ -359,6 +359,7 @@
   <div class="sub-tabs">
     <button class="sub-tab-btn active" data-dlpsub="overview">Overview</button>
     <button class="sub-tab-btn" data-dlpsub="list">Defects</button>
+    <button class="sub-tab-btn" data-dlpsub="correspondence">Correspondence</button>
   </div>
 
   <div id="dlpSubOverview" class="dlp-sub active">
@@ -382,6 +383,11 @@
         </table>
       </div>
     </div>
+  </div>
+
+  <div id="dlpSubCorrespondence" class="dlp-sub">
+    <div id="dlpCorrespondenceLoading" class="loading">Loading…</div>
+    <div id="dlpCorrespondenceContent" style="display:none"></div>
   </div>
 
   <div id="dlpSubDetail" class="dlp-sub">
@@ -760,6 +766,7 @@ function loadDlpTab() {
   if (!state.dlp.formOptions) loadDlpFormOptions();
   loadDlpCaseOverview();
   loadDlpDefectList();
+  loadDlpCorrespondence();
 }
 
 function loadDlpFormOptions() {
@@ -769,21 +776,72 @@ function loadDlpFormOptions() {
     .dlp_getSidebarFormOptions();
 }
 
+// ─── Shared panel-state helpers (2026-09-01) ────────────────────────
+// Real-device testing (CC) showed Overview loading blank with no
+// visible error when dlp_getSidebarCaseDashboard's response was
+// malformed/failed — the old code hid Loading and showed Content
+// unconditionally, before checking res.success, so a bad response left
+// the panel with no Loading text AND no rendered content: just blank.
+// These three helpers make loading/error/content mutually exclusive and
+// always visible for every DLP panel — repurposing each panel's
+// existing "…Loading" div as a general status slot (shown for either
+// "Loading…" or an error) rather than adding new DOM elements. Content
+// divs are only ever populated on a real success, so a static skeleton
+// (the Defect List's <table>) is never destroyed by an error the way it
+// would be if the error were rendered into the content div itself.
+function dlpSetPanelLoading_(id) {
+  var loadingEl = document.getElementById(id + 'Loading');
+  loadingEl.className = 'loading';
+  loadingEl.style.color = '';
+  loadingEl.textContent = 'Loading…';
+  loadingEl.style.display = 'block';
+  document.getElementById(id + 'Content').style.display = 'none';
+}
+
+function dlpSetPanelError_(id, message) {
+  var loadingEl = document.getElementById(id + 'Loading');
+  loadingEl.className = 'empty';
+  loadingEl.style.color = '#c5221f';
+  loadingEl.textContent = '⚠ ' + message;
+  loadingEl.style.display = 'block';
+  document.getElementById(id + 'Content').style.display = 'none';
+}
+
+function dlpSetPanelContent_(id) {
+  document.getElementById(id + 'Loading').style.display = 'none';
+  document.getElementById(id + 'Content').style.display = 'block';
+}
+
+// Handles both plain-object dlp_* responses and the JSON-stringified
+// ones (dlp_getSidebarCaseDashboard, since 2026-09-01 — see 947's own
+// comment for why that one specifically needs it) with one shared path,
+// so every load function below gets the same defensive treatment
+// whether or not its particular RPC happens to stringify.
+function dlpParseResponse_(raw) {
+  var res;
+  try {
+    res = (typeof raw === 'string') ? JSON.parse(raw) : raw;
+  } catch (e) {
+    return { ok: false, message: 'Could not parse the server response (' + e.message + ').' };
+  }
+  if (!res) return { ok: false, message: 'No response received from the server.' };
+  if (!res.success) return { ok: false, message: res.error || 'Unknown error.' };
+  return { ok: true, data: res.data };
+}
+
 // ─── Case Overview ───────────────────────────────────────────────
 
 function loadDlpCaseOverview() {
-  document.getElementById('dlpOverviewLoading').style.display = 'block';
-  document.getElementById('dlpOverviewContent').style.display = 'none';
+  dlpSetPanelLoading_('dlpOverview');
   google.script.run
-    .withSuccessHandler(function (res) {
-      document.getElementById('dlpOverviewLoading').style.display = 'none';
-      document.getElementById('dlpOverviewContent').style.display = 'block';
-      if (!res.success) { showToast(res.error, true); return; }
-      renderDlpCaseOverview(res.data);
+    .withSuccessHandler(function (raw) {
+      var parsed = dlpParseResponse_(raw);
+      if (!parsed.ok) { dlpSetPanelError_('dlpOverview', parsed.message); return; }
+      renderDlpCaseOverview(parsed.data);
+      dlpSetPanelContent_('dlpOverview');
     })
     .withFailureHandler(function (err) {
-      document.getElementById('dlpOverviewLoading').style.display = 'none';
-      showToast('Failed to load Case Overview: ' + err.message, true);
+      dlpSetPanelError_('dlpOverview', 'Failed to load Case Overview: ' + (err && err.message ? err.message : err));
     })
     .dlp_getSidebarCaseDashboard();
 }
@@ -791,10 +849,10 @@ function loadDlpCaseOverview() {
 // Deliberately renders caseInfo + defectCounts only. getDlpCaseDashboard
 // also returns secondaryDamageCount/correspondence/upcomingRectification/
 // upcomingReinspection/lastChecked/recentTimeline (918/922 already
-// compute all of it, wrapper passes it through untouched) — but
-// Rectification Event/Evidence/Secondary Damage/Correspondence UI is
-// next round's work, so this round's Overview doesn't surface summaries
-// of domains it can't yet let CC act on.
+// compute all of it, wrapper passes it through untouched) — Correspondence
+// now has its own sub-tab (below) with its own real data; the rest stay
+// unsurfaced here since there's no matching Rectification Event/Secondary
+// Damage case-wide view in this Contract, only per-defect ones on Detail.
 function renderDlpCaseOverview(dash) {
   var c = dash.caseInfo;
   var dc = dash.defectCounts;
@@ -823,19 +881,17 @@ function dlpCountsLine(counts) {
 // ─── Defect List ─────────────────────────────────────────────────
 
 function loadDlpDefectList() {
-  document.getElementById('dlpListLoading').style.display = 'block';
-  document.getElementById('dlpListContent').style.display = 'none';
+  dlpSetPanelLoading_('dlpList');
   google.script.run
-    .withSuccessHandler(function (res) {
-      document.getElementById('dlpListLoading').style.display = 'none';
-      document.getElementById('dlpListContent').style.display = 'block';
-      if (!res.success) { showToast(res.error, true); return; }
-      state.dlp.defects = res.data;
-      renderDlpDefectList(res.data);
+    .withSuccessHandler(function (raw) {
+      var parsed = dlpParseResponse_(raw);
+      if (!parsed.ok) { dlpSetPanelError_('dlpList', parsed.message); return; }
+      state.dlp.defects = parsed.data;
+      renderDlpDefectList(parsed.data);
+      dlpSetPanelContent_('dlpList');
     })
     .withFailureHandler(function (err) {
-      document.getElementById('dlpListLoading').style.display = 'none';
-      showToast('Failed to load Defect List: ' + err.message, true);
+      dlpSetPanelError_('dlpList', 'Failed to load Defect List: ' + (err && err.message ? err.message : err));
     })
     .dlp_listSidebarDefects();
 }
@@ -878,52 +934,54 @@ function dlpField(label, value) {
     (isEmpty ? '—' : escapeHtml(String(value))) + '</span></div>';
 }
 
+// 'AccessGranted' -> 'Access Granted'. Client-side mirror of 918's own
+// humanizeEventType_ — display-only, no behavior riding on it.
+function humanizeDlpEnum_(value) {
+  return String(value || '').replace(/([A-Z])/g, ' $1').trim();
+}
+
 // ─── Defect Detail ───────────────────────────────────────────────
 
 function openDlpDefectDetail(defectId) {
   state.dlp.currentDefectId = defectId;
   showDlpSub('detail');
-  document.getElementById('dlpDetailLoading').style.display = 'block';
-  document.getElementById('dlpDetailContent').style.display = 'none';
+  dlpSetPanelLoading_('dlpDetail');
   google.script.run
-    .withSuccessHandler(function (res) {
-      document.getElementById('dlpDetailLoading').style.display = 'none';
-      document.getElementById('dlpDetailContent').style.display = 'block';
-      if (!res.success) { showToast(res.error, true); return; }
-      renderDlpDefectDetail(res.data);
+    .withSuccessHandler(function (raw) {
+      var parsed = dlpParseResponse_(raw);
+      if (!parsed.ok) { dlpSetPanelError_('dlpDetail', parsed.message); return; }
+      renderDlpDefectDetail(parsed.data);
+      dlpSetPanelContent_('dlpDetail');
     })
     .withFailureHandler(function (err) {
-      document.getElementById('dlpDetailLoading').style.display = 'none';
-      showToast('Failed to load Defect Detail: ' + err.message, true);
+      dlpSetPanelError_('dlpDetail', 'Failed to load Defect Detail: ' + (err && err.message ? err.message : err));
     })
     .dlp_getSidebarDefectDetail(defectId);
 }
 
-// defect is 918's raw DefectItem shape (PascalCase field names) —
-// dlp_getSidebarDefectDetail is a bare pass-through of getDefectItem(),
-// not remapped to the List's camelCase shape (see that wrapper's own
-// comment in 947 for why). Rectification Events/Evidence/Secondary
-// Damage are not shown here yet — next round, once their own 922
-// aggregation function exists (Contract §18).
-function renderDlpDefectDetail(defect) {
+// bundle is buildDefectDetailForSidebar_'s shape (922, vertical slice 2):
+// {defect, rectificationEvents, evidence, secondaryDamage}, all camelCase
+// now — supersedes vertical slice 1's raw PascalCase pass-through.
+function renderDlpDefectDetail(bundle) {
+  var defect = bundle.defect;
   var html = '<div class="detail-grid">' +
-    dlpField('ItemID', defect.ItemID) +
-    dlpField('Category', defect.Category) +
-    dlpField('SubCategory', defect.SubCategory) +
-    dlpField('Description', defect.Description) +
-    dlpField('Remark', defect.Remark) +
-    dlpField('Location', defect.Location) +
-    dlpField('Priority', defect.Priority) +
-    '<div class="detail-field"><span class="detail-label">Status</span><span class="detail-value">' + dlpBadge(defect.Status) + '</span></div>' +
-    '<div class="detail-field"><span class="detail-label">Developer Status</span><span class="detail-value">' + dlpBadge(defect.DeveloperStatus) + '</span></div>' +
-    '<div class="detail-field"><span class="detail-label">Owner Verification</span><span class="detail-value">' + dlpBadge(defect.OwnerVerificationStatus) + '</span></div>' +
-    dlpField('Submitted', defect.SubmittedAt) +
-    dlpField('Rectification Start', defect.RectificationStartDate) +
-    dlpField('Developer Claimed Completed', defect.DeveloperClaimedCompletedDate) +
-    dlpField('Owner Verified', defect.OwnerVerifiedDate) +
-    dlpField('Closed', defect.ClosedDate) +
-    dlpField('Created', defect.CreatedAt) +
-    dlpField('Updated', defect.UpdatedAt) +
+    dlpField('ItemID', defect.itemId) +
+    dlpField('Category', defect.category) +
+    dlpField('SubCategory', defect.subCategory) +
+    dlpField('Description', defect.description) +
+    dlpField('Remark', defect.remark) +
+    dlpField('Location', defect.location) +
+    dlpField('Priority', defect.priority) +
+    '<div class="detail-field"><span class="detail-label">Status</span><span class="detail-value">' + dlpBadge(defect.status) + '</span></div>' +
+    '<div class="detail-field"><span class="detail-label">Developer Status</span><span class="detail-value">' + dlpBadge(defect.developerStatus) + '</span></div>' +
+    '<div class="detail-field"><span class="detail-label">Owner Verification</span><span class="detail-value">' + dlpBadge(defect.ownerVerificationStatus) + '</span></div>' +
+    dlpField('Submitted', defect.submittedAt) +
+    dlpField('Rectification Start', defect.rectificationStartDate) +
+    dlpField('Developer Claimed Completed', defect.developerClaimedCompletedDate) +
+    dlpField('Owner Verified', defect.ownerVerifiedDate) +
+    dlpField('Closed', defect.closedDate) +
+    dlpField('Created', defect.createdAt) +
+    dlpField('Updated', defect.updatedAt) +
     '</div>';
 
   html += '<h3>Update Developer Status</h3><div class="detail-grid">' +
@@ -940,22 +998,47 @@ function renderDlpDefectDetail(defect) {
     '<button class="btn" id="dlp_ownerSubmit" style="width:100%">Record Owner Verification</button>' +
     '</div>';
 
+  html += renderDlpRectificationEventsSection_(bundle.rectificationEvents);
+  html += renderDlpEvidenceSection_(bundle.evidence);
+  html += renderDlpSecondaryDamageSection_(bundle.secondaryDamage);
+
   document.getElementById('dlpDetailContent').innerHTML = html;
 
-  var opts = state.dlp.formOptions || { developerStatuses: [], ownerVerificationStatuses: [] };
+  var opts = state.dlp.formOptions || {
+    developerStatuses: [], ownerVerificationStatuses: [], rectificationEventTypes: [],
+    rectificationSources: [], evidenceTypes: [], evidencePhases: [], secondaryDamageTypes: []
+  };
   fillSelect('dlp_devStatus', opts.developerStatuses);
-  document.getElementById('dlp_devStatus').value = defect.DeveloperStatus;
+  document.getElementById('dlp_devStatus').value = defect.developerStatus;
   fillSelect('dlp_ownerStatus', opts.ownerVerificationStatuses);
-  document.getElementById('dlp_ownerStatus').value = defect.OwnerVerificationStatus;
+  document.getElementById('dlp_ownerStatus').value = defect.ownerVerificationStatus;
 
   toggleDlpDevDateField();
   document.getElementById('dlp_devStatus').addEventListener('change', toggleDlpDevDateField);
 
   document.getElementById('dlp_devSubmit').addEventListener('click', function () {
-    submitDlpDeveloperStatus(defect.DefectID);
+    submitDlpDeveloperStatus(defect.defectId);
   });
   document.getElementById('dlp_ownerSubmit').addEventListener('click', function () {
-    submitDlpOwnerVerification(defect.DefectID);
+    submitDlpOwnerVerification(defect.defectId);
+  });
+
+  fillSelect('dlp_rectEventType', opts.rectificationEventTypes);
+  fillSelect('dlp_rectSource', opts.rectificationSources);
+  document.getElementById('dlp_rectSource').value = 'OwnerObserved'; // Contract §7's own default, pre-selected but still overridable
+  document.getElementById('dlp_rectSubmit').addEventListener('click', function () {
+    submitDlpAddRectificationEvent(defect.defectId);
+  });
+
+  fillSelect('dlp_evidenceType', opts.evidenceTypes);
+  fillSelect('dlp_evidencePhase', opts.evidencePhases);
+  document.getElementById('dlp_evidenceSubmit').addEventListener('click', function () {
+    submitDlpAddEvidence(defect.defectId);
+  });
+
+  fillSelect('dlp_damageType', opts.secondaryDamageTypes);
+  document.getElementById('dlp_damageSubmit').addEventListener('click', function () {
+    submitDlpAddSecondaryDamage(defect.defectId);
   });
 }
 
@@ -1014,6 +1097,234 @@ function submitDlpOwnerVerification(defectId) {
     })
     .withFailureHandler(function (err) { btn.disabled = false; showToast(err.message, true); })
     .dlp_recordOwnerVerification(input);
+}
+
+// ─── Rectification Events (2026-08-31, continued — vertical slice 2) ──
+
+function renderDlpRectificationEventsSection_(events) {
+  var html = '<h3>Rectification Events</h3>';
+  if (!events || events.length === 0) {
+    html += '<div class="empty">No rectification events recorded yet.</div>';
+  } else {
+    events.forEach(function (e) {
+      html += '<div class="detail-grid">' +
+        dlpField('Type', humanizeDlpEnum_(e.eventType)) +
+        dlpField('Date', e.eventDate) +
+        dlpField('Source', humanizeDlpEnum_(e.source)) +
+        dlpField('Contractor', e.contractorCompany) +
+        dlpField('Personnel', e.contractorPersonnel) +
+        dlpField('Entry / Exit', (e.entryTime || '—') + ' / ' + (e.exitTime || '—')) +
+        dlpField('Notes', e.notes) +
+        '</div>';
+    });
+  }
+  html += '<details><summary>+ Add Rectification Event</summary><div class="detail-grid">' +
+    '<div class="field"><label>Event Type</label><select id="dlp_rectEventType"></select></div>' +
+    '<div class="field"><label>Source</label><select id="dlp_rectSource"></select></div>' +
+    '<div class="field"><label>Event Date (optional — defaults to now)</label><input id="dlp_rectDate" type="date"></div>' +
+    '<div class="field"><label>Contractor Company (optional)</label><input id="dlp_rectCompany" type="text"></div>' +
+    '<div class="field"><label>Contractor Personnel (optional)</label><input id="dlp_rectPersonnel" type="text"></div>' +
+    '<div class="field-row">' +
+    '<div class="field"><label>Entry Time (optional)</label><input id="dlp_rectEntryTime" type="time"></div>' +
+    '<div class="field"><label>Exit Time (optional)</label><input id="dlp_rectExitTime" type="time"></div>' +
+    '</div>' +
+    '<div class="field"><label>Notes (optional)</label><textarea id="dlp_rectNotes" rows="2"></textarea></div>' +
+    '<button class="btn" id="dlp_rectSubmit" style="width:100%">Add Rectification Event</button>' +
+    '</div></details>';
+  return html;
+}
+
+function submitDlpAddRectificationEvent(defectId) {
+  var btn = document.getElementById('dlp_rectSubmit');
+  var input = {
+    defectId: defectId,
+    eventType: document.getElementById('dlp_rectEventType').value,
+    source: document.getElementById('dlp_rectSource').value,
+    contractorCompany: document.getElementById('dlp_rectCompany').value || '',
+    contractorPersonnel: document.getElementById('dlp_rectPersonnel').value || '',
+    entryTime: document.getElementById('dlp_rectEntryTime').value || '',
+    exitTime: document.getElementById('dlp_rectExitTime').value || '',
+    notes: document.getElementById('dlp_rectNotes').value || ''
+  };
+  var dateVal = document.getElementById('dlp_rectDate').value;
+  if (dateVal) input.eventDate = dateVal;
+  btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function (res) {
+      btn.disabled = false;
+      if (!res.success) { showToast(res.error, true); return; }
+      showToast('Rectification event added.');
+      openDlpDefectDetail(defectId);
+    })
+    .withFailureHandler(function (err) { btn.disabled = false; showToast(err.message, true); })
+    .dlp_addRectificationEvent(input);
+}
+
+// ─── Evidence (2026-08-31, continued — vertical slice 2) ─────────────
+
+function renderDlpEvidenceSection_(evidence) {
+  var html = '<h3>Evidence</h3>';
+  if (!evidence || evidence.length === 0) {
+    html += '<div class="empty">No evidence attached yet.</div>';
+  } else {
+    evidence.forEach(function (e) {
+      var driveUrl = 'https://drive.google.com/file/d/' + encodeURIComponent(e.driveFileId) + '/view';
+      html += '<div class="detail-grid">' +
+        dlpField('Type', e.evidenceType) +
+        dlpField('Phase', e.phase) +
+        dlpField('Description', e.description) +
+        dlpField('Captured', e.capturedAt) +
+        dlpField('Uploaded', e.uploadedAt) +
+        '<div class="detail-field"><span class="detail-label">File</span><span class="detail-value"><a href="' +
+        driveUrl + '" target="_blank" rel="noopener">View File →</a></span></div>' +
+        '</div>';
+    });
+  }
+  html += '<details><summary>+ Add Evidence</summary><div class="detail-grid">' +
+    '<div class="field"><label>Evidence Type</label><select id="dlp_evidenceType"></select></div>' +
+    '<div class="field"><label>Phase</label><select id="dlp_evidencePhase"></select></div>' +
+    '<div class="field"><label>Description (optional)</label><textarea id="dlp_evidenceDescription" rows="2"></textarea></div>' +
+    '<div class="field"><label>File</label><input id="dlp_evidenceFile" type="file" accept="image/*,application/pdf,.doc,.docx"></div>' +
+    '<button class="btn" id="dlp_evidenceSubmit" style="width:100%">Upload Evidence</button>' +
+    '</div></details>';
+  return html;
+}
+
+// Mirrors 948_MobileConsole.html's own FileReader->base64 pattern
+// exactly (same reader.result.split(',')[1] to strip the data URL
+// prefix), so the client-side half of the upload path is proven
+// against the one already confirmed working real-device.
+function submitDlpAddEvidence(defectId) {
+  var btn = document.getElementById('dlp_evidenceSubmit');
+  var fileInput = document.getElementById('dlp_evidenceFile');
+  var file = fileInput.files && fileInput.files[0];
+  if (!file) { showToast('Choose a file first.', true); return; }
+
+  var evidenceType = document.getElementById('dlp_evidenceType').value;
+  var phase = document.getElementById('dlp_evidencePhase').value;
+  var description = document.getElementById('dlp_evidenceDescription').value || '';
+
+  btn.disabled = true;
+  var reader = new FileReader();
+  reader.onload = function () {
+    var base64Data = reader.result.split(',')[1];
+    google.script.run
+      .withSuccessHandler(function (res) {
+        btn.disabled = false;
+        if (!res.success) { showToast(res.error, true); return; }
+        showToast('Evidence uploaded.');
+        openDlpDefectDetail(defectId);
+      })
+      .withFailureHandler(function (err) { btn.disabled = false; showToast(err.message, true); })
+      .dlp_attachDefectEvidence({
+        defectId: defectId,
+        evidenceType: evidenceType,
+        phase: phase,
+        description: description,
+        base64Data: base64Data,
+        fileName: file.name,
+        mimeType: file.type
+      });
+  };
+  reader.onerror = function () {
+    btn.disabled = false;
+    showToast('Failed to read the selected file.', true);
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── Secondary Damage (2026-08-31, continued — vertical slice 2) ─────
+
+function renderDlpSecondaryDamageSection_(damages) {
+  var html = '<h3>Secondary Damage</h3>';
+  if (!damages || damages.length === 0) {
+    html += '<div class="empty">No secondary damage recorded yet.</div>';
+  } else {
+    damages.forEach(function (d) {
+      html += '<div class="detail-grid">' +
+        dlpField('Type', d.damageType) +
+        dlpField('Description', d.description) +
+        dlpField('Observed', d.observedDate + (d.observedBy ? (' by ' + d.observedBy) : '')) +
+        '<div class="detail-field"><span class="detail-label">Status</span><span class="detail-value">' + dlpBadge(d.status) + '</span></div>' +
+        dlpField('Responsible Party', d.responsibleParty) +
+        dlpField('Admin. Submission Required', d.administrativeSubmissionRequired ? 'Yes' : 'No') +
+        dlpField('DLP Prejudice Status', d.dlpPrejudiceStatus) +
+        '</div>';
+    });
+  }
+  html += '<details><summary>+ Add Secondary Damage</summary><div class="detail-grid">' +
+    '<div class="field"><label>Damage Type</label><select id="dlp_damageType"></select></div>' +
+    '<div class="field"><label>Description</label><textarea id="dlp_damageDescription" rows="2"></textarea></div>' +
+    '<div class="field"><label>Observed Date (optional — defaults to now)</label><input id="dlp_damageObservedDate" type="date"></div>' +
+    '<div class="field"><label>Observed By (optional)</label><input id="dlp_damageObservedBy" type="text"></div>' +
+    '<div class="field"><label>Responsible Party (optional)</label><input id="dlp_damageResponsibleParty" type="text">' +
+    '<small style="color:#9aa0a6;">Free text — not a legal determination (901 schema\'s own framing).</small></div>' +
+    '<button class="btn" id="dlp_damageSubmit" style="width:100%">Add Secondary Damage</button>' +
+    '</div></details>';
+  return html;
+}
+
+function submitDlpAddSecondaryDamage(defectId) {
+  var btn = document.getElementById('dlp_damageSubmit');
+  var input = {
+    defectId: defectId,
+    damageType: document.getElementById('dlp_damageType').value,
+    description: document.getElementById('dlp_damageDescription').value,
+    observedBy: document.getElementById('dlp_damageObservedBy').value || '',
+    responsibleParty: document.getElementById('dlp_damageResponsibleParty').value || ''
+  };
+  var dateVal = document.getElementById('dlp_damageObservedDate').value;
+  if (dateVal) input.observedDate = dateVal;
+  btn.disabled = true;
+  google.script.run
+    .withSuccessHandler(function (res) {
+      btn.disabled = false;
+      if (!res.success) { showToast(res.error, true); return; }
+      showToast('Secondary damage recorded.');
+      openDlpDefectDetail(defectId);
+    })
+    .withFailureHandler(function (err) { btn.disabled = false; showToast(err.message, true); })
+    .dlp_addSecondaryDamage(input);
+}
+
+// ─── Correspondence (2026-08-31, continued — vertical slice 2) ───────
+// View-only (Contract §1/§10 — see 922/947's own comments on this).
+
+function loadDlpCorrespondence() {
+  dlpSetPanelLoading_('dlpCorrespondence');
+  google.script.run
+    .withSuccessHandler(function (raw) {
+      var parsed = dlpParseResponse_(raw);
+      if (!parsed.ok) { dlpSetPanelError_('dlpCorrespondence', parsed.message); return; }
+      renderDlpCorrespondence(parsed.data);
+      dlpSetPanelContent_('dlpCorrespondence');
+    })
+    .withFailureHandler(function (err) {
+      dlpSetPanelError_('dlpCorrespondence', 'Failed to load Correspondence: ' + (err && err.message ? err.message : err));
+    })
+    .dlp_listSidebarCorrespondence();
+}
+
+function renderDlpCorrespondence(items) {
+  var el = document.getElementById('dlpCorrespondenceContent');
+  if (!items || items.length === 0) {
+    el.innerHTML = '<div class="empty">No correspondence recorded for this Case.</div>';
+    return;
+  }
+  var html = '';
+  items.forEach(function (c) {
+    html += '<div class="detail-grid">' +
+      dlpField('Date', c.date) +
+      dlpField('Direction', c.direction) +
+      dlpField('Subject', c.subject) +
+      dlpField('Sender', c.sender) +
+      dlpField('Recipient', c.recipient) +
+      '<div class="detail-field"><span class="detail-label">Response Status</span><span class="detail-value">' + dlpBadge(c.responseStatus) + '</span></div>' +
+      dlpField('Response Due', c.responseDueDate) +
+      dlpField('Response Received', c.responseReceivedDate) +
+      '</div>';
+  });
+  el.innerHTML = html;
 }
 
 // ─── Utilities ─────────────────────────────────────────────────────

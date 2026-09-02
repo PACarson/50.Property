@@ -381,6 +381,52 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-01      Sidebar DLP Tab Phase 1 — vertical slice 2
+//                   implemented（Rectification Event / Evidence /
+//                   Secondary Damage / Correspondence），加上 slice 1
+//                   真机测试发现的 Case Overview 空白 crash 修复。CC 对
+//                   slice 1 做了真机测试：List/Detail/两个写入动作正常，
+//                   Overview 空白。CC 另外附了一份第三方风格的诊断文档
+//                   （非 CC 本人惯用文风，推测是转述另一个 AI 的分析）。
+//                   Claude 没有照单全收，逐条对着源码验证：
+//                   getCaseTimeline 排序确实对 OccurredAt 直接调用
+//                   .localeCompare()、无类型防御——确认为真，且
+//                   getDlpCaseDashboard 会呼叫它，精确解释了"List/Detail
+//                   正常、Overview 报错"。独立发现佐证：901 早就有一个
+//                   coerceToIsoDateString_ 防御工具，注释明确写着同一类
+//                   风险（Sheets 手动编辑可能绕过纯文本格式），项目本身
+//                   踩过这个坑。诊断建议的"重写一个只读 2 张表的精简版
+//                   Overview 函式"被否决——会推翻 slice 1"复用既有函式、
+//                   不新建"的既有决定，且验证过的 crash 用防御性排序就能
+//                   完全修好，不需要换掉读表范围。修复：922 新增
+//                   coerceIsoDateTimeForDisplay_（不放进 901，保持
+//                   900/901/918 零改动这条线），getCaseTimeline 排序改用
+//                   它；947 的 dlp_getSidebarCaseDashboard 加上跟
+//                   dlp_getCaseOverview 同款的 JSON.stringify；945
+//                   所有 4 个 DLP 面板的 load 函式重写为统一的
+//                   loading/error/content 三态处理，错误一律显示在面板
+//                   里，不再留白（这是 945 自己代码里的真实 bug，追出来
+//                   的，不是诊断文档指出的）。这个修复本身判定属于
+//                   Contract §14 的"真正 bug 立即修"例外，不进 Gap log。
+//                   ★ 流程备注：CC 授权继续 slice 2 时 slice 1 其实还没
+//                   试，跟当初"先吸收 slice 1 回馈再做 slice 2"的节奏
+//                   相反——Claude 提醒过一次，判断 slice 2 大部分独立、
+//                   风险不高，照 CC 指示继续。新增 4 个 922 enrich 函式
+//                   因此主动补了防御性日期处理，等于把这次真机教训提前
+//                   套用到了还没测试的新代码上。Verification：918
+//                   144/144、922 67/67（含一条直接重现真机 crash 的
+//                   回归测试——先暂时还原修复确认真的会 throw
+//                   TypeError，再确认修复后不会，不是空测试）、947
+//                   smoke test 29/29（过程中还抓到一个真 bug：
+//                   dlp_attachDefectEvidence 忘了转发
+//                   driveFileId，已修）、全 repo node -c 全过。改动文件
+//                   跟上一轮完全相同的 4 个（922/947/945/
+//                   local_precheck_test_922.js），diff 对照原始上传确认
+//                   无其他文件被动。完整记录见 00_Review_History.js
+//                   REVIEW-009。BL-7 更新为 IMPLEMENTATION COMPLETE
+//                   （本地层面）——两个 vertical slice 都做完了，真机
+//                   验证是 CC 下一步。
+//
 //   2026-08-31 (b)  Sidebar DLP Tab Phase 1 — vertical slice 1
 //                   implemented（Case Overview / Defect List / Defect
 //                   Detail / Update Developer Status / Record Owner

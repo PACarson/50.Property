@@ -223,6 +223,38 @@ function enrichDefectForDisplay_(defect) {
  * @param {string} caseId
  * @param {number} [limit] omit for the full history
  */
+/**
+ * Defensive belt-and-suspenders coercion for datetime display fields —
+ * sibling of 901_PropertySchema.js's coerceToIsoDateString_, but this
+ * one lives here in 922 rather than 901 (Projection-layer concern, not
+ * a Schema one — and 901 stays untouched, same as 900/918 throughout
+ * this whole Sidebar DLP Tab effort). coerceToIsoDateString_ itself
+ * isn't reusable here: it normalizes to a DATE-ONLY 'yyyy-MM-dd' via
+ * toIsoDate_, which would silently truncate away the time-of-day
+ * precision a real datetime field (OccurredAt, CreatedAt, etc.) needs
+ * for correct same-day chronological ordering — appendCaseTimelineEntry_
+ * writes OccurredAt via `new Date().toISOString()` directly (918/922
+ * confirmed by direct read), a full ISO instant, not a coerceToIsoDateString_
+ * calendar date.
+ *
+ * Real-device evidence (2026-08-31/2026-09-01, CC): Sidebar DLP Tab's
+ * Overview loaded blank on a real device while Defect List/Detail and
+ * both write actions worked fine — traced to getCaseTimeline's sort
+ * below calling .localeCompare() directly on OccurredAt with no type
+ * guard, which throws if that cell ever comes back as a native Date
+ * object instead of a string (a known, previously-fixed-elsewhere risk
+ * in this codebase — see coerceToIsoDateString_'s own comment, and
+ * dateColumns text-formatting only applying `if (isNewSheet)` in
+ * ensureSheetSchema_, so a sheet that already existed before dateColumns
+ * was added to its schema never got that retroactive protection).
+ */
+function coerceIsoDateTimeForDisplay_(value) {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return String(value);
+}
+
 function getCaseTimeline(caseId, limit) {
   var sheet = propertyCaseTimelineSheet_();
   var lastRow = sheet.getLastRow();
@@ -235,6 +267,8 @@ function getCaseTimeline(caseId, limit) {
     .map(function (row) {
       var obj = {};
       columns.forEach(function (col, i) { obj[col] = row[i]; });
+      obj.OccurredAt = coerceIsoDateTimeForDisplay_(obj.OccurredAt);
+      obj.CreatedAt = coerceIsoDateTimeForDisplay_(obj.CreatedAt);
       return obj;
     });
   entries.sort(function (a, b) { return b.OccurredAt.localeCompare(a.OccurredAt); });
@@ -439,5 +473,120 @@ function buildCaseOverviewForMobile_(caseId, timelineLimit) {
     defectCounts: defectCounts,
     defects: enrichedDefects,
     timeline: timeline.slice(0, timelineLimit || 20)
+  };
+}
+
+// ─── Sidebar DLP Tab — vertical slice 2 (2026-08-31, continued) ────────
+// Rectification Event / Evidence / Secondary Damage / Correspondence.
+
+/**
+ * Single-pass Detail-page bundle for the Sidebar DLP Tab: one defect's
+ * full record plus its Rectification Events, Evidence, and Secondary
+ * Damage — everything Defect Detail (Contract §4/§7/§8/§9) needs, in one
+ * server call. Deliberately separate from buildCaseOverviewForMobile_
+ * above (Contract §18/CC's ruling: no shared/universal aggregation
+ * function across the two UI Surfaces, even though both ultimately read
+ * overlapping data — same precedent this file already set for
+ * getDlpCaseDashboard/listDefectItemsForDashboard staying untouched when
+ * buildCaseOverviewForMobile_ was added).
+ *
+ * Builds on enrichDefectForDisplay_ rather than duplicating its
+ * Property/Case join (List and Detail share the same base defect
+ * shape), then layers on the extra timestamp fields Detail needs that
+ * the List doesn't (RectificationStartDate/DeveloperClaimedCompletedDate/
+ * OwnerVerifiedDate/CreatedAt/UpdatedAt — SubmittedAt/ClosedDate are
+ * already on the List shape). This replaces vertical-slice-1's
+ * dlp_getSidebarDefectDetail, which bare-passed getDefectItem() with no
+ * shaping at all — deliberately deferred until this function existed
+ * (see that wrapper's original comment / REVIEW-008's Key Decision #2).
+ * Each of the 3 related-record reads below hits its own sheet exactly
+ * once — no N+1 here, unlike the Mobile problem buildCaseOverviewForMobile_
+ * fixed (that one came from calling enrichDefectForDisplay_ once PER
+ * DEFECT across a whole Case; this function runs it exactly once, for
+ * exactly one defect).
+ */
+function buildDefectDetailForSidebar_(defectId) {
+  var defect = getDefectItem(defectId);
+  if (!defect) {
+    throw propertyError_('DLP_SIDEBAR_DEFECT_NOT_FOUND', 'No DefectItem found for defectId ' + defectId + '.');
+  }
+  var display = enrichDefectForDisplay_(defect);
+  display.rectificationStartDate = defect.RectificationStartDate ? coerceIsoDateTimeForDisplay_(defect.RectificationStartDate) : '';
+  display.developerClaimedCompletedDate = defect.DeveloperClaimedCompletedDate ? coerceIsoDateTimeForDisplay_(defect.DeveloperClaimedCompletedDate) : '';
+  display.ownerVerifiedDate = defect.OwnerVerifiedDate ? coerceIsoDateTimeForDisplay_(defect.OwnerVerifiedDate) : '';
+  display.createdAt = defect.CreatedAt ? coerceIsoDateTimeForDisplay_(defect.CreatedAt) : '';
+  display.updatedAt = defect.UpdatedAt ? coerceIsoDateTimeForDisplay_(defect.UpdatedAt) : '';
+
+  return {
+    defect: display,
+    rectificationEvents: listRectificationEventsForDefect(defectId).map(enrichRectificationEventForDisplay_),
+    evidence: listEvidenceForDefect(defectId).map(enrichEvidenceForDisplay_),
+    secondaryDamage: listSecondaryDamageForDefect(defectId).map(enrichSecondaryDamageForDisplay_)
+  };
+}
+
+function enrichRectificationEventForDisplay_(event) {
+  return {
+    rectificationEventId: event.RectificationEventID,
+    eventType: event.EventType,
+    eventDate: coerceIsoDateTimeForDisplay_(event.EventDate),
+    entryTime: event.EntryTime || '',
+    exitTime: event.ExitTime || '',
+    contractorCompany: event.ContractorCompany || '',
+    contractorPersonnel: event.ContractorPersonnel || '',
+    notes: event.Notes || '',
+    source: event.Source,
+    createdAt: coerceIsoDateTimeForDisplay_(event.CreatedAt)
+  };
+}
+
+function enrichEvidenceForDisplay_(evidence) {
+  return {
+    evidenceId: evidence.EvidenceID,
+    evidenceType: evidence.EvidenceType,
+    driveFileId: evidence.DriveFileID,
+    capturedAt: evidence.CapturedAt ? coerceIsoDateTimeForDisplay_(evidence.CapturedAt) : '',
+    uploadedAt: coerceIsoDateTimeForDisplay_(evidence.UploadedAt),
+    source: evidence.Source || '',
+    description: evidence.Description || '',
+    phase: evidence.Phase,
+    createdAt: coerceIsoDateTimeForDisplay_(evidence.CreatedAt)
+  };
+}
+
+function enrichSecondaryDamageForDisplay_(damage) {
+  return {
+    damageId: damage.DamageID,
+    damageType: damage.DamageType,
+    description: damage.Description,
+    observedDate: coerceIsoDateTimeForDisplay_(damage.ObservedDate),
+    observedBy: damage.ObservedBy || '',
+    responsibleParty: damage.ResponsibleParty || '',
+    status: damage.Status,
+    resolution: damage.Resolution || '',
+    administrativeSubmissionRequired: !!damage.AdministrativeSubmissionRequired,
+    separateSubmissionId: damage.SeparateSubmissionID || '',
+    dlpPrejudiceStatus: damage.DlpPrejudiceStatus || '',
+    contractualBasis: damage.ContractualBasis || '',
+    createdAt: coerceIsoDateTimeForDisplay_(damage.CreatedAt)
+  };
+}
+
+// View-only (Contract §1/§10 — Correspondence has no defectId on the
+// Domain Model at all, and Phase 1 only lists "View", never "Add", for
+// this one — no logCorrespondence wrapper exists in 947 for this
+// reason, not an oversight).
+function enrichCorrespondenceForDisplay_(correspondence) {
+  return {
+    correspondenceId: correspondence.CorrespondenceID,
+    date: coerceIsoDateTimeForDisplay_(correspondence.Date),
+    direction: correspondence.Direction,
+    sender: correspondence.Sender,
+    recipient: correspondence.Recipient,
+    subject: correspondence.Subject,
+    responseStatus: correspondence.ResponseStatus,
+    responseRequestedDate: correspondence.ResponseRequestedDate ? coerceIsoDateTimeForDisplay_(correspondence.ResponseRequestedDate) : '',
+    responseDueDate: correspondence.ResponseDueDate ? coerceIsoDateTimeForDisplay_(correspondence.ResponseDueDate) : '',
+    responseReceivedDate: correspondence.ResponseReceivedDate ? coerceIsoDateTimeForDisplay_(correspondence.ResponseReceivedDate) : ''
   };
 }
