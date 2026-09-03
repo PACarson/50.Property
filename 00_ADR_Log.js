@@ -1104,3 +1104,190 @@
 //   decisions in this ADR's sense, so they're recorded there, not
 //   here).
 
+
+// ═══════════════════════════════════════════════════════════════════════
+// ADR-P21 — Sidebar DLP Write Actions Don't Adopt clientRequestId, Even
+// Where the Underlying Command Already Supports It
+// ═══════════════════════════════════════════════════════════════════════
+//
+// STATUS: APPROVED (2026-09-01)
+//
+// CONTEXT:
+//   Mobile Console's DLP write commands (logDailyProgressCheck,
+//   attachEvidence) use clientRequestId-based idempotency because
+//   google.script.run round trips from a phone browser on a job site
+//   carry real network-retry risk — 948's own client code comment cites
+//   a real 2026-08-21 case of a request completing server-side with the
+//   client never finding out. Sidebar's underlying Commands for
+//   Rectification Event (logRectificationEvent), Evidence (attachEvidence
+//   — the same Command Mobile uses), and Secondary Damage
+//   (logSecondaryDamage) all already carry clientRequestId support in
+//   918/911 (independently verified against source, not assumed — see
+//   Contract §13's original audit and REVIEW-008's Pre-Coding Audit).
+//   Update Developer Status / Record Owner Verification's Commands don't
+//   have the mechanism at all. This raised a live question specifically
+//   for the three Commands that DO already have it: should Sidebar's
+//   wrapper generate and pass a clientRequestId anyway, since the
+//   underlying support is already there at effectively no cost?
+//
+// DECISION:
+//   No. None of Sidebar's dlp_* write wrappers, across both vertical
+//   slices (dlp_recordDeveloperStatus/dlp_recordOwnerVerification/
+//   dlp_addRectificationEvent/dlp_attachDefectEvidence/
+//   dlp_addSecondaryDamage), generate or forward a clientRequestId,
+//   regardless of whether the underlying 918/911 Command supports one.
+//   Double-submit protection (e.g. an accidental double-click) is
+//   handled separately and uniformly: each action's submit button
+//   disables for the duration of its google.script.run round trip.
+//
+// CONSEQUENCES:
+//   Any future Sidebar-only DLP write action defaults to the same
+//   choice — no clientRequestId — without re-litigating it per action.
+//   If Sidebar's connection profile is ever found less reliable than
+//   assumed on some real deployment, this decision should be revisited
+//   explicitly (a new ADR superseding this one), not silently overridden
+//   action-by-action.
+//
+// ALTERNATIVES CONSIDERED:
+//   Generate a clientRequestId from Sidebar anyway, since the underlying
+//   Command already supports it "for free." Rejected — Sidebar's actual
+//   risk profile (desktop, inside an authenticated Google Sheets
+//   session, not a phone browser on a job site) doesn't match the
+//   failure mode this mechanism protects against; adding it without a
+//   real failure to justify it is speculative complexity. The
+//   disable-on-click pattern already covers the one risk (double-submit)
+//   that applies regardless of connection quality.
+//
+// Related ADRs: none directly predates this — first time this specific
+//   question (adopt an available-but-unneeded mechanism) came up for
+//   Sidebar. See DlpSidebarTab_UIContract.md §13 for the original
+//   per-Command audit this reasoning extends, and 00_Review_History.js
+//   REVIEW-008/REVIEW-009 for where it was applied.
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// ADR-P22 — google.script.run Responses Must Be Explicitly JSON-Stringified
+// Once an Aggregation Object Passes a Certain Richness/Depth
+// ═══════════════════════════════════════════════════════════════════════
+//
+// STATUS: APPROVED (2026-09-01)
+//
+// CONTEXT:
+//   Twice now in this project, a google.script.run RPC returning a rich,
+//   multi-sheet aggregation object has silently failed to reach the
+//   client — server-side Executions log "Completed" with no error, the
+//   client's success handler receives nothing usable. First: 948 Mobile
+//   Console's dlp_getCaseOverview (root-caused 2026-08-21, fixed with
+//   explicit JSON.stringify server-side / JSON.parse client-side).
+//   Second: 945 Sidebar's dlp_getSidebarCaseDashboard (root-caused
+//   2026-09-01 via CC's real-device test of Case Overview loading blank
+//   — see 00_Review_History.js REVIEW-009 — fixed the same way). Both
+//   objects span several sheets and several levels of nesting (case
+//   info + multi-dimension counts + a sorted timeline, or equivalent).
+//   Flatter objects/arrays (Defect List, Defect Detail, Correspondence
+//   list, on both UI surfaces) have not shown this failure on any real
+//   device tested so far.
+//
+// DECISION:
+//   Any dlp_*/console_* RPC whose return value aggregates data across
+//   multiple sheets/tables into one nested object — the same shape class
+//   as getDlpCaseDashboard or buildCaseOverviewForMobile_ — serializes
+//   its result with JSON.stringify server-side before returning; the
+//   corresponding client load function JSON.parses it (945's
+//   dlpParseResponse_ helper already does this generically for every DLP
+//   panel — new panels route through it rather than reimplementing
+//   parsing inline). Flat objects/arrays don't need this by default;
+//   apply it reactively if a specific one is ever found to share the
+//   failure, not preemptively to every RPC.
+//
+// CONSEQUENCES:
+//   Every new "dashboard-shaped" aggregation RPC carries a small,
+//   consistent stringify/parse cost, in exchange for not repeating this
+//   same silent-failure investigation a third time. The dividing line
+//   ("rich aggregation" vs "flat") is judgment, not a hard rule — when
+//   unsure for a new RPC, lean toward applying it; the cost of an
+//   unneeded JSON round trip is far smaller than another real-device
+//   debugging cycle for the same failure class.
+//
+// ALTERNATIVES CONSIDERED:
+//   Fold JSON.stringify into dlp_wrap_ itself, applied to every dlp_*
+//   RPC automatically. Rejected, both in the original 2026-08-21 fix and
+//   again this session — dlp_wrap_ is shared by RPCs already confirmed
+//   working without it (List/Detail, and every 946 console_wrap_-based
+//   tab), so a blanket change would be unproven and unnecessary for code
+//   with no evidence of the problem, not a targeted fix.
+//
+// Related ADRs: none directly — this generalizes a fix pattern applied
+//   twice (948's dlp_getCaseOverview, 945's dlp_getSidebarCaseDashboard)
+//   without previously being written down as a standing principle.
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// ADR-P23 — Defensive Datetime Coercion for Sheet-Read Values Belongs in
+// the Layer That Needs the Precision, Not Only in 901's
+// coerceToIsoDateString_
+// ═══════════════════════════════════════════════════════════════════════
+//
+// STATUS: APPROVED (2026-09-01)
+//
+// CONTEXT:
+//   901_PropertySchema.js's existing coerceToIsoDateString_ (predates
+//   this session) defensively handles a known Sheets behavior: a cell
+//   can come back from getValues() as a native Date object instead of
+//   the string actually written, if the cell isn't explicitly
+//   text-formatted (dateColumns protection in ensureSheetSchema_ only
+//   applies to brand-new sheets — an already-existing sheet never gets
+//   it retroactively). That utility normalizes to a DATE-ONLY
+//   'yyyy-MM-dd' string (via toIsoDate_) — correct for the calendar-date
+//   fields it was built for, but would silently truncate time-of-day
+//   precision if applied to a true datetime field.
+//   922_DashboardAdapter.js's getCaseTimeline sorts
+//   PropertyCaseTimeline's OccurredAt (a full ISO instant, written via
+//   `new Date().toISOString()` directly, never through
+//   coerceToIsoDateString_) with .localeCompare() and no type guard —
+//   confirmed, via a real-device crash (00_Review_History.js
+//   REVIEW-009), to carry exactly this risk, manifesting as Case
+//   Overview loading blank.
+//
+// DECISION:
+//   A new sibling helper, coerceIsoDateTimeForDisplay_, was added
+//   directly in 922_DashboardAdapter.js — not in 901 — to defensively
+//   coerce datetime-precision fields (OccurredAt, CreatedAt, and the new
+//   Rectification Event/Evidence/Secondary Damage/Correspondence date
+//   fields from vertical slice 2) to a full ISO string before they're
+//   sorted, compared, or sent across a google.script.run boundary. This
+//   keeps 901_PropertySchema.js itself untouched — preserving this
+//   effort's explicit "Domain/Schema frozen during Sidebar DLP Tab work"
+//   discipline (DlpSidebarTab_UIContract.md's own stated rule; every
+//   Review/Backlog entry from this effort) — while still fixing the real
+//   defect. 918/900/901 remain at zero changes across this entire
+//   effort (both vertical slices plus this fix), reconfirmed by
+//   repo-wide diff at every checkpoint.
+//
+// CONSEQUENCES:
+//   Going forward: a date-precision (day-only) field uses 901's
+//   coerceToIsoDateString_; a datetime-precision (instant) field uses
+//   922's coerceIsoDateTimeForDisplay_ (or an equivalent sibling in
+//   whichever Projection-layer file needs it) — not the date-only one,
+//   and not a fresh copy of the same logic pasted into 901. If a third
+//   field type or a third file needing this pattern emerges, consider
+//   consolidating into one shared, precision-parameterized utility — not
+//   yet needed with just these two.
+//
+// ALTERNATIVES CONSIDERED:
+//   Add a second, datetime-precision utility to 901 alongside the
+//   existing one (e.g. coerceToIsoDateTimeString_), keeping all
+//   date-coercion logic centralized in the Schema/foundation file.
+//   Considered seriously — arguably the more conventional home for a
+//   shared utility — but rejected for this session specifically, to
+//   preserve the clean, easily-audited "zero changes to 900/901/918"
+//   line this whole effort has maintained and repeatedly verified via
+//   diff. Revisit if a third call site outside 922 ever needs the same
+//   datetime coercion — at that point centralizing stops being purely
+//   precautionary.
+//
+// Related ADRs: none directly — first time a defensive-coercion
+//   utility's home file has been a live design question in this
+//   project; 901's original coerceToIsoDateString_ predates this session
+//   and this ADR.
+

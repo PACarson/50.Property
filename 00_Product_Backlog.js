@@ -259,21 +259,28 @@
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// BL-7 — Sidebar DLP Tab Phase 1（提出于 2026-08-31，设计已 CC 批准，
-// 两个 vertical slice 均已实作，待真机验证）
+// BL-7 — Sidebar DLP Tab Phase 1（提出于 2026-08-31，两个 vertical
+// slice 均已实作，CC 真机验证通过）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-// 状态：★ 2026-09-01 更新——IMPLEMENTATION PARTIAL → IMPLEMENTATION
-// COMPLETE（本地层面）。vertical slice 1（Case Overview / Defect List /
-// Defect Detail / Update Developer Status / Record Owner Verification）
-// 与 vertical slice 2（Rectification Event / Evidence / Secondary
-// Damage / Correspondence）均已实作完成、本地验证通过。CC 已对 slice 1
-// 做过一轮真机测试：Defect List/Detail/两个写入动作全部正常，Case
-// Overview 空白——已定位根因（getCaseTimeline 排序对非字符串 OccurredAt
-// 直接 throw）并修复，同时对 dlp_getSidebarCaseDashboard 加了跟
-// dlp_getCaseOverview 同款的 JSON.stringify 防御。这个修复本身也还没
-// 真机验证。完整记录见 00_Review_History.js REVIEW-008（slice 1）+
-// REVIEW-009（slice 2 + Overview 修复）。
+// 状态：★ 2026-09-01（同日稍晚）更新——IMPLEMENTATION COMPLETE
+// （本地层面）→ CC 真机验证通过（"真机验证了，已经没问题了"，CC 原话，
+// 一般性确认，非逐项 checklist）。vertical slice 1（Case Overview /
+// Defect List / Defect Detail / Update Developer Status / Record Owner
+// Verification）与 vertical slice 2（Rectification Event / Evidence /
+// Secondary Damage / Correspondence）均已实作、本地验证通过、且现在
+// 已有 CC 的真机确认。注意：这不等同于本项目 REVIEW-002 那种正式、
+// 逐项的 PRODUCTION-READY Gate（Contract §11 的 11 步验证）——那个
+// Gate 没有跑过，这里记录的是 CC 的一般性确认，不是正式认证，两者
+// 层级不同，见 00_Review_History.js REVIEW-009 Addendum。
+//
+// 之前的真机测试细节（slice 1 单独测过一轮，Overview 当时空白）：
+// Defect List/Detail/两个写入动作全部正常，Case Overview 空白——已定位
+// 根因（getCaseTimeline 排序对非字符串 OccurredAt 直接 throw）并修复，
+// 同时对 dlp_getSidebarCaseDashboard 加了跟 dlp_getCaseOverview 同款的
+// JSON.stringify 防御。这个修复连同 slice 2 全体，后续这轮真机测试已
+// 一并确认无误。完整记录见 00_Review_History.js REVIEW-008（slice 1）+
+// REVIEW-009（slice 2 + Overview 修复 + 真机确认 Addendum）。
 //
 // ★ 流程备注：CC 授权继续 slice 2 时，slice 1 其实还没试——这跟"先吸收
 // slice 1 真实回馈再做 slice 2"这个当初讲好的节奏正好相反。Claude 当场
@@ -384,3 +391,37 @@
 //
 // 依赖：无——纯粹记录一个跟本次 Sidebar 工作无关、但顺带核实过的既有
 // 缺口，避免之后有人重新发现同一件事却以为是新问题。
+
+// BL-10 — local_precheck_test_911.js 整个测试文件跑不起来（发现于
+// 2026-09-01，CC 要求的全窗口重新核对过程中顺带跑全套 local_precheck_
+// test_*.js 才发现，此前整个会话都没跑过这个文件，与 Sidebar DLP
+// 工作本身无关，记录不处理，但跟新增的 Evidence 上传功能直接相关）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 现象：这个测试文件测的是 911_DocumentEngine.js 的 attachEvidence 真实
+// 上传路径（base64Data → saveEvidenceFile_ → 真实 DriveApp/
+// PropertiesService 呼叫）。跑起来直接整个 crash：
+// ReferenceError: PropertiesService is not defined，出在
+// getEvidenceRootFolder_ 里第一行呼叫 PropertiesService.
+// getScriptProperties() 的地方——不是断言失败，是整个测试进程连跑都跑
+// 不完，卡在 attachEvidence 真实上传这一条路径上。
+//
+// 已核实非本次改动造成：用一份干净的、未经任何本次改动的原始上传单独
+// 解压跑同一个测试文件，产生完全相同的 crash（同一行、同一段错误堆疊）
+// ——本次 Sidebar DLP Tab 两个 vertical slice 的改动完全没有碰过 911_
+// DocumentEngine.js 或这个测试文件本身。
+//
+// 影响：GasShim 本地测试环境本来就没有 mock PropertiesService/DriveApp
+// 这类原生 GAS 服务，这条既有的本地测试落差本来就存在——不是这次才
+// 出现。但这次新增的 dlp_attachDefectEvidence（vertical slice 2）
+// 依赖的正是这同一条 attachEvidence 真实上传路径，意味着这个新功能的
+// 真实 Drive 写入这一段，在本地完全没有、也没办法有自动化测试覆盖——
+// Claude 自己对 dlp_attachDefectEvidence 的验证走的是 driveFileId 已
+// 存在这条捷径（证明 wrapper 逻辑本身没问题），并不等于验证过真实
+// base64 上传这条路径。CC"真机验证了，已经没问题了"是否具体包含实际
+// 上传过一个真实档案，本身也没有单独确认——见本次 checkpoint 文件
+// 第 3 节。
+//
+// 依赖：无——纯粹记录一个跟本次 Sidebar 工作无关、但顺带核实过的既有
+// 测试环境缺口，避免之后有人重新发现同一件事却以为是新问题，同时提醒
+// Evidence 上传这一段的真实验证覆盖率比表面上看起来的低。

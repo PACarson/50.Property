@@ -723,6 +723,11 @@
 //   dlp_attachDefectEvidence/dlp_addSecondaryDamage/
 //   dlp_listSidebarCorrespondence，vertical slice 2）同样不在
 //   PRODUCTION-READY 范围内，零真机验证。
+//   ★ 2026-09-01（同日稍晚）：CC 对以上全部 10 个 Sidebar dlp_*
+//   wrapper（6 个 slice 1 + 4 个 slice 2，含 Overview crash 修复后的
+//   dlp_getSidebarCaseDashboard）做了真机验证，回报无问题（一般性
+//   确认，非 REVIEW-002 那种正式逐项 Gate）。见
+//   00_Review_History.js REVIEW-009 Addendum。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

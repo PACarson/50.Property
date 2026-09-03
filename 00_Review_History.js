@@ -1095,6 +1095,24 @@
 //   slices) pending that real-device confirmation.
 //   4. Phase 2 (Close Defect/Reopen Defect/Close Case) remains
 //   unauthorized and undesigned, same as every prior entry has noted.
+//
+// ─── ADDENDUM (2026-09-01, later same day) ─────────────────────────────
+//   CC performed real-device verification and reported no problems
+//   ("真机验证了，已经没问题了") — CC's own words, a general confirmation,
+//   not an itemized per-feature checklist, so recorded at that level of
+//   specificity rather than assumed to mean every individual action
+//   (Add Rectification Event, Evidence upload, Add Secondary Damage,
+//   View Correspondence, the Overview fix specifically) was
+//   independently exercised. This is the first real-device confirmation
+//   for: the Overview fix itself, and all of vertical slice 2. Combined
+//   with the earlier-in-this-session real-device confirmation of slice
+//   1's List/Detail/both write actions, Sidebar DLP Tab Phase 1 (both
+//   vertical slices) is now real-device confirmed as a whole, per CC.
+//   "PRODUCTION-READY" in this project's specific sense (Contract §11's
+//   kind of formal, itemized Gate — see REVIEW-002) has not been run for
+//   this feature and is not being claimed here; this addendum records
+//   CC's general confirmation only, not a formal certification.
+//   00_Product_Backlog.js BL-7 and 00_File_Map.js updated accordingly.
 
 
 // ═══════════════════════════════════════════════════════════════════════

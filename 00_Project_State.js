@@ -381,6 +381,33 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-01 (b)  Sidebar DLP Tab Phase 1 — CC 真机验证通过（"真机
+//                   验证了，已经没问题了"，CC 原话，一般性确认非逐项
+//                   checklist）。两个 vertical slice（Case Overview /
+//                   Defect List / Defect Detail / Update Developer
+//                   Status / Record Owner Verification / Rectification
+//                   Event / Evidence / Secondary Damage /
+//                   Correspondence）加上先前的 Overview crash 修复，
+//                   现在都有 CC 的真机确认——注意这不等同 REVIEW-002
+//                   那种正式逐项 PRODUCTION-READY Gate，是一般性确认。
+//                   CC 同时要求：暂停 coding，把本窗口全部讨论/决定/
+//                   代码改动/测试/发现的问题/未完成事项对照实际
+//                   repository state 做一次完整重新核对，任何已形成的
+//                   治理/架构决定要写进 Governance/ADR，不能只留在
+//                   checkpoint 里，产出一份完整 checkpoint/handoff 文件
+//                   供下一个窗口使用。新增 ADR-P21（Sidebar 写入动作
+//                   不用 clientRequestId，即使底层 Command 已支援）、
+//                   ADR-P22（google.script.run 对"深层聚合物件"要
+//                   显式 JSON.stringify——这个模式目前已经用了两次，
+//                   写成正式原则避免第三次才发现）、ADR-P23（datetime
+//                   精度的防御性 coercion 放在需要它的那一层，不是
+//                   一律塞进 901——901/900/918 整个 DLP Tab 期间保持
+//                   零改动）。完整核对结果与 checkpoint 见交付的
+//                   handoff 文件本身；治理侧记录见
+//                   00_Review_History.js REVIEW-009 Addendum、
+//                   00_Product_Backlog.js BL-7、00_ADR_Log.js
+//                   ADR-P21~23。
+//
 //   2026-09-01      Sidebar DLP Tab Phase 1 — vertical slice 2
 //                   implemented（Rectification Event / Evidence /
 //                   Secondary Damage / Correspondence），加上 slice 1
