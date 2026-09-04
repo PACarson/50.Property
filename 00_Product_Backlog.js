@@ -425,3 +425,58 @@
 // 依赖：无——纯粹记录一个跟本次 Sidebar 工作无关、但顺带核实过的既有
 // 测试环境缺口，避免之后有人重新发现同一件事却以为是新问题，同时提醒
 // Evidence 上传这一段的真实验证覆盖率比表面上看起来的低。
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-11 — attachEvidence() 里 Drive 写入与 Sheet 写入之间没有
+// failure window 保护（发现于 2026-09-04，CC 要求为 BL-10 真机验证
+// 先做 code-level readiness check、逐行核对 911_DocumentEngine.js
+// 才发现，与本次 Sidebar DLP 工作或 Slice 1/2 改动本身无关，但直接
+// 影响 BL-10 要验证的这条 Evidence 真实上传路径）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 现象：attachEvidence(input) 在没有现成 driveFileId 时会先呼叫
+// saveEvidenceFile_(...) 把档案真的写进 Drive、拿到新的 driveFileId，
+// 紧接着呼叫 generateEvidenceId_() 产生 evidenceId、组出 evidence
+// 物件，再呼叫 evidenceSheet_().appendRow(objectToRowArray_(evidence,
+// ...)) 写进 Evidence 表——saveEvidenceFile_ 成功之后、appendRow 之前
+// 这一段完全没有 try/catch。往下一段，Timeline entry 与 Event
+// publish 失败时是有 try/catch 包住，而且明确呼叫
+// logDocumentEnginePartialFailure_('attachEvidence', 'Evidence ' +
+// evidenceId + ' row was written (and a new Drive file saved, if one
+// was uploaded); Timeline/Event publish failed.', e)——代表写这段
+// 代码的人已经想过、也处理了"sheet 行已经写、后续步骤失败"这个情境，
+// 但没有对称地处理更早、"Drive 档案已经写、sheet 行还没写"这个情境。
+// 如果 generateEvidenceId_()、objectToRowArray_() 或 appendRow()
+// 本身在这段抛出例外，呼叫方会拿到一个例外，但 Drive 里已经真实
+// 存在一个档案，Evidence 表完全没有对应行、连 EvidenceID 都不存在
+// ——错误讯息完全不会提示"其实档案已经建了"这件事。
+//
+// 关联既有记录：911_DocumentEngine.js 整个 Sidebar DLP Tab 工作期间
+// （Slice 1 + Slice 2）零改动，本次 checkpoint 的 Repository diff
+// 已确认——不是本次改动引入的问题，是 attachEvidence() 一直以来的
+// 既有行为。Mobile Console 既有的 dlp_attachEvidence（早于本次
+// Sidebar DLP 工作、独立于 Slice 1/2）呼叫的正是同一个
+// attachEvidence()，这个 gap 不是 Sidebar 独有。（跟 BL-9/BL-10
+// 用干净原始上传另外跑测试比对的方法不同——这次是直接读本次上传
+// zip 里的 911 原始码、对照 checkpoint 既有的 diff 结论得出，方法
+// 不同，结论方向一致，如实记录方法差异。）
+//
+// 影响：机率低——appendRow() 本身很少失败，generateEvidenceId_()、
+// objectToRowArray_() 都是纯函式，正常情况下不会抛例外，目前没有
+// 任何已知案例真的撞上这个窗口。真撞上的后果：Drive 里留下一个
+// 孤儿档案，不会自动清除，也没有任何 Evidence/Case/Defect 记录
+// 指向它；使用者如果照错误讯息重试，可能造成同一份档案被传两次
+// （一次孤儿+一次成功记录），需要人工去 Drive 核对才会发现。不
+// 影响 Case/Defect 主数据完整性——只影响 Evidence 附件这一层，
+// 而且只在 appendRow 这一步真的失败时才会触发。
+//
+// 设计草图（如果之后决定要修）：把 generateEvidenceId_() 到
+// appendRow() 这段包进 try/catch，失败时比照下面 Timeline/Event
+// 那段的写法呼叫 logDocumentEnginePartialFailure_，讯息里明确带出
+// 已经写入 Drive 的 driveFileId，方便之后人工核对、清理孤儿档案，
+// 而不是让呼叫方从错误讯息里完全看不出"其实档案已经建了"。这是
+// 911_DocumentEngine.js 单一函式内部的改动，不涉及 Schema/Domain 层。
+//
+// 依赖：无——纯粹记录一个真实存在、目前从未被撞过的既有缺口，等
+// CC 决定要不要修、什么时候修。
