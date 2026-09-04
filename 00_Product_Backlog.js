@@ -398,6 +398,31 @@
 // 工作本身无关，记录不处理，但跟新增的 Evidence 上传功能直接相关）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+// 状态：★ 2026-09-04 更新——VERIFIED（真机手动验证，非本地自动化
+// 测试）。CC 逐项跑过自订 checklist（A-I）：Sidebar 挑一个真实
+// defect，刻意选用非预设的 EvidenceType/Phase（不是只测 default
+// 值），上传一张真实照片，收到"Evidence uploaded"、Evidence 列表
+// 立即刷出新纪录；到真实 Google Drive 的 Property OS Evidence /
+// CASE-msxyfkpi-zu4j 资料夹核实档案确实存在、内容对得上；到
+// Evidence sheet 核对新增那一行，DriveFileID 与 Drive 里的档案 ID
+// 一致，其余栏位（CaseID/DefectID/EvidenceType/Phase 等）皆正确。
+//
+// 这条验证是逐项、非"CC 一般性确认"——跟 BL-7 状态更新里特别标注
+// 的"一般性确认，非逐项 checklist"不是同一个层级，这次明确逐项
+// 过了 checklist，包含刻意测非预设值这个原本担心会被漏测的边界
+// 情况。
+//
+// 没有改变、仍然成立的部分：local_precheck_test_911.js 仍然无法
+// 在本地跑（GasShim 依旧没有 mock PropertiesService/DriveApp），
+// 这次验证走的是真机手动测试，不是补上自动化本地覆盖率——往后这
+// 条路径如果被改动，仍然没有本地测试能抓回归，只能靠再一次真机
+// 手动测试。
+//
+// 与 BL-11 的关系：BL-11（attachEvidence 里 Drive 写入成功、Sheet
+// 写入失败这段没有 try/catch 保护）记的是失败路径，这次是成功
+// 案例，两者互不影响——BL-11 原样维持 deferred，不因为这次验证
+// 成功而关闭或改变判断。
+//
 // 现象：这个测试文件测的是 911_DocumentEngine.js 的 attachEvidence 真实
 // 上传路径（base64Data → saveEvidenceFile_ → 真实 DriveApp/
 // PropertiesService 呼叫）。跑起来直接整个 crash：
