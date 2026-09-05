@@ -409,6 +409,25 @@ console.log("\n=== Phase 7: logSecondaryDamage + updateSecondaryDamageStatus ===
   check('AdministrativeSubmissionRequired defaults false', dmg.damage.AdministrativeSubmissionRequired === false);
   check('ResponsibleParty stored as plain text, no legal judgment made by the system', dmg.damage.ResponsibleParty === 'Contractor (as reported)');
 
+  // ── BL-12 (2026-09-04): explicit non-default values for the three
+  // fields the Console Page previously didn't expose — the check above
+  // only proved the FALSE/empty defaults; this proves logSecondaryDamage
+  // itself already accepted and stored real values for all three, which
+  // is the Domain-side half of BL-12's "no Schema/Domain change needed"
+  // claim. The 947/945 forwarding itself isn't exercised by this file
+  // (947 has no local_precheck_test_947.js — consistent with every other
+  // dlp_* wrapper in this project having none), see the BL-12 report for
+  // what that leaves unverified locally.
+  const dmgAligned = run(ctx, `logSecondaryDamage({
+    caseId: '${otherCase}', description: 'Water ingress into unit below',
+    administrativeSubmissionRequired: true,
+    dlpPrejudiceStatus: 'Noted for JMB submission',
+    contractualBasis: 'SPA Schedule H clause 27'
+  });`);
+  check('AdministrativeSubmissionRequired=true is stored, not coerced away', dmgAligned.damage.AdministrativeSubmissionRequired === true);
+  check('DlpPrejudiceStatus stored verbatim as free text', dmgAligned.damage.DlpPrejudiceStatus === 'Noted for JMB submission');
+  check('ContractualBasis stored verbatim as free text', dmgAligned.damage.ContractualBasis === 'SPA Schedule H clause 27');
+
   const minimalDmg = run(ctx, `logSecondaryDamage({ caseId: '${caseId}', description: 'Scratched flooring' });`);
   check('minimal input succeeds (caseId + description only)', minimalDmg.success === true);
   check('DamageType defaults to Other', minimalDmg.damage.DamageType === 'Other');

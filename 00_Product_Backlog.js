@@ -505,3 +505,52 @@
 //
 // 依赖：无——纯粹记录一个真实存在、目前从未被撞过的既有缺口，等
 // CC 决定要不要修、什么时候修。
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-12 — Secondary Damage Contract Alignment（发现于 2026-09-04 的
+// DLP Phase 1 Remaining Slice readiness检查，实作于同日）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 现象：logSecondaryDamage（918）接受 8 个栏位，945 的 Add 表单只
+// 收集其中 5 个——administrativeSubmissionRequired/dlpPrejudiceStatus/
+// contractualBasis 这三个栏位既有的 Contract §9 把它们列为正常输入
+// 的一部分，但 grep 过 Contract 全文跟 00_Review_History.js，都没有
+// 找到"故意不做"的记录，不像 rectificationEventId 挑选器（Contract
+// §9 明文说不需要）或 status 更新（Contract §9 明文说 not requested）
+// 那样有明确交代。
+//
+// ⚠ 一个更正：上一轮 readiness report 曾经说 947_DlpConsoleServer.js
+// 的 dlp_addSecondaryDamage 也没有转发这三个栏位——这是 Claude 那一
+// 轮的读取/转写错误，不是 repository 真的这样。实作这轮重新对照原始
+// zip 逐字核对过：947 其实一直都有转发全部四个栏位（含
+// separateSubmissionId），只是 945 的表单从来没有收集、也没有送出
+// 这些栏位，所以 947 收到的永远是 undefined，最后存成 false/空字串
+// ——问题从头到尾只在 945 这一层，947 完全不用改。已经把这个更正
+// 交代清楚给 CC，这里如实记录，不掩盖。
+//
+// 已实作：945_OperatorConsole.html 的 Add Secondary Damage 表单新增
+// 三个栏位（checkbox + 两个 text input，沿用既有 ob_autoGenerate
+// 的 checkbox 样式），submitDlpAddSecondaryDamage 的 input 物件加上
+// 对应三行；读取视图补上 Contractual Basis 这一栏（
+// administrativeSubmissionRequired/dlpPrejudiceStatus 原本就有显示）。
+// 947/918/922/901 全部未改动——四层都已经支援这三个栏位，只差 945
+// 这一层没接上。
+//
+// 本地验证：抽出 945 的 <script> 区块跑 node --check，语法通过；
+// diff 对照 Phase A 版本确认改动范围精确落在 SecondaryDamage 这一段；
+// local_precheck_test_918.js 的 Phase 7 区块新增三个断言，直接呼叫
+// logSecondaryDamage 传入这三个栏位的非默认值，跑过——147 项全部
+// 通过（原本 144 项 + 新增 3 项），过程中新增的测试一度让既有的
+// "listSecondaryDamageForCase returns both"断言失败（因为新记录用了
+// 共用的 caseId，把该 Case 底下的笔数从 2 笔变 3 笔）——改成用同一
+// 测试区块里既有的 otherCase 变量后修好，147 项全部通过，如实记录
+// 这个过程，不是一次就对。947 层本身没有本地测试可跑（跟其他所有
+// dlp_* wrapper一样，没有 local_precheck_test_947.js），这轮也没
+// 新增——947 完全没改动，没有新代码需要测。
+//
+// 真机验证：还没做，没有 CC 真实专案的写入权限。需要 CC 确认：新增
+// 一笔 Secondary Damage，三个新栏位都填，确认存进 Sheet 的值正确、
+// 读取视图正确显示三者（含新加的 Contractual Basis 栏位）。
+//
+// 依赖：无——947/918/922/901 全部不用改，纯粹是 945 这一层补齐。
