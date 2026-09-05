@@ -28,10 +28,18 @@ function onOpen() {
 }
 
 function showOperatorConsole() {
+  // ★ 2026-09-04 — Decision Lock §1 (UI Architecture Migration Phase A):
+  // retired showSidebar() (380px, HtmlOutput.setTitle() honored) in favor
+  // of showModalDialog() (title is NOT read from HtmlOutput.setTitle() for
+  // modal dialogs — it must be passed as showModalDialog()'s own 2nd
+  // argument, confirmed against Google's own HTML Service documentation
+  // examples before making this change). Width/height are a starting
+  // point, not a verified-correct value — adjust freely, no other code
+  // depends on these two numbers.
   var html = HtmlService.createHtmlOutputFromFile('945_OperatorConsole')
-    .setTitle('Property OS')
-    .setWidth(380);
-  SpreadsheetApp.getUi().showSidebar(html);
+    .setWidth(700)
+    .setHeight(600);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Property OS — Operator Console');
 }
 
 function console_wrap_(fn) {

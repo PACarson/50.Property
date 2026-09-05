@@ -425,17 +425,66 @@ function init() {
   loadDashboard();
 }
 
+// ─── Console Page shell (UI Architecture Migration, Phase A) ──────
+// ★ 2026-09-04 — Decision Lock §5 B/C/D/G. Generalizes the old
+// per-tab if/else below into a declared page registry: each migrated
+// page states its own onActivate + whether it reloads every time it's
+// shown, instead of a hard-coded line in the click handler. This does
+// NOT touch any existing render/data function — loadDlpTab, showDlpSub,
+// renderDlp* etc. are called exactly as before, just from a registry
+// entry instead of an inline `if`. Pages not yet registered here keep
+// running through the untouched fallback path inside setupTabs() —
+// see Decision Lock §6 (Sidebar Retirement Safety): Dashboard/Add
+// Bill/Properties/History are deliberately left on that fallback path
+// in this Phase A slice and are migration-deprecated, not migrated,
+// pending a later, non-blocking step (Decision Lock §3 step 4).
+
+var ConsolePages = {};
+
+function registerConsolePage(id, config) {
+  ConsolePages[id] = {
+    onActivate: (config && config.onActivate) || function () {},
+    reloadOnEveryActivation: !!(config && config.reloadOnEveryActivation),
+    _loadedOnce: false
+  };
+}
+
+function activateConsolePage(id) {
+  document.querySelectorAll('#tabs button').forEach(function (b) { b.classList.remove('active'); });
+  document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
+  var btn = document.querySelector('#tabs button[data-view="' + id + '"]');
+  if (btn) btn.classList.add('active');
+  var viewEl = document.getElementById('view-' + id);
+  if (viewEl) viewEl.classList.add('active');
+
+  var page = ConsolePages[id];
+  if (page.reloadOnEveryActivation || !page._loadedOnce) {
+    page.onActivate();
+    page._loadedOnce = true;
+  }
+}
+
+registerConsolePage('dlp', {
+  onActivate: loadDlpTab,
+  reloadOnEveryActivation: true   // matches the tab's pre-migration behaviour exactly: it re-fetched on every click, never cached
+});
+
 // ─── Tabs ────────────────────────────────────────────────────────
 
 function setupTabs() {
   document.querySelectorAll('#tabs button').forEach(function (btn) {
     btn.addEventListener('click', function () {
+      var view = btn.dataset.view;
+      if (ConsolePages[view]) {
+        activateConsolePage(view);
+        return;
+      }
+      // ── migration-deprecated path — unchanged from before Phase A ──
       document.querySelectorAll('#tabs button').forEach(function (b) { b.classList.remove('active'); });
       document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
       btn.classList.add('active');
-      document.getElementById('view-' + btn.dataset.view).classList.add('active');
-      if (btn.dataset.view === 'history') loadHistory();
-      if (btn.dataset.view === 'dlp') loadDlpTab();
+      document.getElementById('view-' + view).classList.add('active');
+      if (view === 'history') loadHistory();
     });
   });
 }
@@ -1249,6 +1298,7 @@ function renderDlpSecondaryDamageSection_(damages) {
         dlpField('Responsible Party', d.responsibleParty) +
         dlpField('Admin. Submission Required', d.administrativeSubmissionRequired ? 'Yes' : 'No') +
         dlpField('DLP Prejudice Status', d.dlpPrejudiceStatus) +
+        dlpField('Contractual Basis', d.contractualBasis) +
         '</div>';
     });
   }
@@ -1259,6 +1309,10 @@ function renderDlpSecondaryDamageSection_(damages) {
     '<div class="field"><label>Observed By (optional)</label><input id="dlp_damageObservedBy" type="text"></div>' +
     '<div class="field"><label>Responsible Party (optional)</label><input id="dlp_damageResponsibleParty" type="text">' +
     '<small style="color:#9aa0a6;">Free text — not a legal determination (901 schema\'s own framing).</small></div>' +
+    '<div class="field"><label><input id="dlp_damageAdminSubmission" type="checkbox" style="width:auto;display:inline-block;vertical-align:middle"> Administrative Submission Required</label></div>' +
+    '<div class="field"><label>DLP Prejudice Status (optional)</label><input id="dlp_damagePrejudiceStatus" type="text">' +
+    '<small style="color:#9aa0a6;">Free text — neutral tag only, same framing as Responsible Party.</small></div>' +
+    '<div class="field"><label>Contractual Basis (optional)</label><input id="dlp_damageContractualBasis" type="text"></div>' +
     '<button class="btn" id="dlp_damageSubmit" style="width:100%">Add Secondary Damage</button>' +
     '</div></details>';
   return html;
@@ -1271,7 +1325,10 @@ function submitDlpAddSecondaryDamage(defectId) {
     damageType: document.getElementById('dlp_damageType').value,
     description: document.getElementById('dlp_damageDescription').value,
     observedBy: document.getElementById('dlp_damageObservedBy').value || '',
-    responsibleParty: document.getElementById('dlp_damageResponsibleParty').value || ''
+    responsibleParty: document.getElementById('dlp_damageResponsibleParty').value || '',
+    administrativeSubmissionRequired: document.getElementById('dlp_damageAdminSubmission').checked,
+    dlpPrejudiceStatus: document.getElementById('dlp_damagePrejudiceStatus').value || '',
+    contractualBasis: document.getElementById('dlp_damageContractualBasis').value || ''
   };
   var dateVal = document.getElementById('dlp_damageObservedDate').value;
   if (dateVal) input.observedDate = dateVal;
