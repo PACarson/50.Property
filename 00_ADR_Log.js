@@ -1291,3 +1291,98 @@
 //   project; 901's original coerceToIsoDateString_ predates this session
 //   and this ADR.
 
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// ADR-P24 — Operator Console Retires showSidebar() for showModalDialog();
+// Console Page Registry Generalizes Tab Activation, DLP Migrates First
+// ═══════════════════════════════════════════════════════════════════════
+//
+// STATUS: APPROVED (2026-09-04)
+//
+// CONTEXT:
+//   ADR-P14 (2026-07-29) deliberately named this surface "Operator
+//   Console," not "Sidebar" or "MVP UI" — CC's own stated reasoning at
+//   the time was that every future Domain OS would eventually have one
+//   of these, so the product name should outlive whatever GAS UI API
+//   happened to implement it first. The implementation chosen then was
+//   still SpreadsheetApp.getUi().showSidebar() (380px, no new framework)
+//   as a deliberate MVP-speed tradeoff, not a permanent commitment. This
+//   window, CC decided to follow through on that original separation: a
+//   readiness report (this window) found that "Operator Console" and
+//   "Sidebar" are, as of today, still the same artifact in code
+//   (showOperatorConsole() literally calls showSidebar()) and surfaced
+//   three open questions blocking any concrete migration plan (hosting
+//   mechanism, Obligations/Bills Page scope, DLP migration priority).
+//   CC's own follow-up "Decision Lock" document resolved all three.
+//
+// DECISION:
+//   1. Hosting: showModalDialog(html, title) replaces showSidebar(html).
+//      Width/height move from a fixed 380px sidebar to an adjustable
+//      modal (700×600 as shipped this window — not load-bearing, easy
+//      to change). Explicitly NOT a standalone doGet() Web App — stays
+//      inside the Spreadsheet-embedded model, avoiding a second
+//      deployment/runtime surface and its auth/publish overhead.
+//   2. 945_OperatorConsole.html gains a small ConsolePages registry
+//      (registerConsolePage(id, {onActivate, reloadOnEveryActivation}),
+//      activateConsolePage(id)) that generalizes the ad-hoc if/else
+//      previously hard-coded into the #tabs click handler. A page not
+//      yet registered keeps running through the original inline
+//      fallback, unchanged — both mechanisms are meant to coexist during
+//      the migration, not a sign of incomplete work.
+//   3. Migration order: DLP migrates onto the new registry FIRST, ahead
+//      of Dashboard/Properties/Add Bill/History — CC's explicit call,
+//      reversing this window's own readiness report recommendation
+//      (which favored the four simpler, lower-risk pages first). DLP is
+//      the only page under real EST8 use, which CC weighted higher than
+//      the technical-risk argument for sequencing pattern validation on
+//      lower-stakes pages first.
+//   4. Obligations/Bills Page: migrates the existing Add Bill form as-is
+//      (create-only, no listing/browsing). No scope expansion — no
+//      obligation listing, filtering, payment-status management, or new
+//      Domain/Schema concepts — unless real use later demonstrates the
+//      need. The broader name is intentional (future-proofing), not
+//      authorization to build the broader feature now.
+//   5. RPC/Domain/Schema boundaries are explicitly unchanged by this
+//      decision — Console Page is a client shell + entry-point change
+//      only. 947/918/911/922/900/901 are not touched by this ADR.
+//
+// CONSEQUENCES:
+//   Dashboard/Properties/Add Bill/History remain Sidebar-shaped
+//   (unmigrated, running through the pre-existing inline handler) inside
+//   the SAME 945.html that now also hosts a Modal-migrated DLP page —
+//   a deliberate, temporary mixed state per CC's decision, not an
+//   oversight a future window should "clean up" without CC's say-so.
+//   The Defect List table's horizontal-scroll/truncated-cell rendering
+//   (00_Review_History.js) was built specifically to fit 10 columns
+//   into the retired 380px width; that constraint is gone, making the
+//   workaround a candidate for revisit — recorded, not acted on. Once
+//   all five pages eventually migrate, 945.html's fallback branch and
+//   this ADR's "mixed state" framing both become obsolete and should be
+//   noted as superseded at that point, not silently deleted.
+//
+// ALTERNATIVES CONSIDERED:
+//   Standalone doGet() Web App hosting — rejected (Decision Lock §1):
+//   a second deployment/runtime surface and its auth/publish complexity
+//   bought no benefit over showModalDialog() for what CC actually
+//   wanted (more room than 380px, still Spreadsheet-embedded).
+//   Migrating all five pages in one pass — rejected (Decision Lock §3):
+//   CC judged DLP's real-use priority higher than the technical-risk
+//   case for proving the pattern on simpler pages first.
+//
+// Related ADRs: ADR-P14 (this ADR is the follow-through on the
+//   name/implementation separation ADR-P14 established from day one).
+//   ADR-P20 (947/946 server-file split — explicitly untouched by this
+//   ADR; Console Page is a client/entry-point change only).
+//
+// IMPLEMENTATION STATUS NOTE (as of 2026-09-04, this window's end):
+//   The code implementing this decision (946_OperatorConsoleServer.js's
+//   showModalDialog() call; 945_OperatorConsole.html's ConsolePages
+//   registry and DLP's migration onto it) has been delivered as
+//   downloadable files only. CC has not confirmed applying either file
+//   to the live GAS project, and no real-device verification has
+//   occurred for this decision's implementation. Do not read this ADR's
+//   STATUS: APPROVED as evidence the code is deployed — APPROVED
+//   describes the decision, not its deployment state. See this window's
+//   delivered checkpoint/handoff file for the precise implementation
+//   and verification boundary.

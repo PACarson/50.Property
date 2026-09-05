@@ -381,6 +381,48 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-04      UI Architecture Migration 决定 + Phase A 实作、BL-12
+//                   Secondary Damage Contract Alignment、CC 要求本窗口
+//                   结束前完整核对+治理持久化+checkpoint（跟
+//                   2026-09-01 (b) 那次是同一种流程，CC 重复使用的
+//                   既定做法）。BL-10：CC 这次是逐项 checklist 真机
+//                   验证（真实 defect、刻意非预设 EvidenceType/Phase、
+//                   Drive 档案+Sheet 行+DriveFileID 核对），比 09-01
+//                   (b) 那次"一般性确认"更严格，已在 00_Product_
+//                   Backlog.js BL-10 状态更新区块记录清楚两者层级
+//                   不同。BL-11（新增）：attachEvidence() 的 Drive
+//                   写入与 Sheet 写入之间没有 try/catch 保护，pre-
+//                   existing、非本次改动引入，deferred，CC 指示只记录
+//                   不修。UI Architecture Migration：retire 380px
+//                   showSidebar()，改用 showModalDialog()（700×600）+
+//                   新增 ConsolePages registry 广义化既有 tab 切换
+//                   逻辑；DLP 优先迁移（CC 明确否决 Claude 原本"简单
+//                   page 先做"的建议，理由是 DLP 是唯一有真实 EST8
+//                   使用价值的 page）；Dashboard/Properties/Add Bill/
+//                   History 四个 tab 刻意留在原本 fallback 路径，
+//                   非遗漏。新增 ADR-P24 记录这个决定。BL-12：DLP
+//                   Phase 1 Remaining Slice 复查发现 Correspondence/
+//                   Rectification Event/Evidence 三项完全符合既有
+//                   Contract，Secondary Damage 有 3 个 Contract 已定义
+//                   但 Console Page 路径没收集的栏位
+//                   （administrativeSubmissionRequired/
+//                   dlpPrejudiceStatus/contractualBasis）——过程中
+//                   Claude 自己先前的 readiness report 曾经错误地说
+//                   947 也需要改，这轮实作前重新核对源码才发现 947
+//                   一直都是对的，问题始终只在 945 没收集这三个栏位，
+//                   如实记录这个更正，已同步修正在 BL-12 条目里。
+//                   ★★★ 本条目涉及的所有代码改动
+//                   （945_OperatorConsole.html 的 Modal 化+
+//                   ConsolePages+DLP 迁移+Secondary Damage 三栏位，
+//                   946_OperatorConsoleServer.js 的 showModalDialog）
+//                   目前只交付为本窗口的下载档案，CC 尚未确认已经
+//                   套用到真实 GAS 专案——不要把"本窗口讨论/实作过"
+//                   跟"已经部署在真实专案里"混为一谈，这正是 CC 这次
+//                   要求核对的重点。完整核对结果、逐项完成度分类、
+//                   下一步操作见交付的 handoff/checkpoint 文件本身；
+//                   治理侧记录见 00_Product_Backlog.js BL-11/BL-12、
+//                   00_ADR_Log.js ADR-P24。
+//
 //   2026-09-01 (b)  Sidebar DLP Tab Phase 1 — CC 真机验证通过（"真机
 //                   验证了，已经没问题了"，CC 原话，一般性确认非逐项
 //                   checklist）。两个 vertical slice（Case Overview /
