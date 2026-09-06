@@ -812,11 +812,18 @@ function updateDefectItem(input) {
  * DeveloperStatus / DeveloperClaimedCompletedDate / Status(derived) /
  * UpdatedAt — NEVER OwnerVerificationStatus or OwnerVerifiedDate.
  *
- * @param {Object} input {defectId, developerStatus, claimedCompletedDate, note}
+ * @param {Object} input {defectId, developerStatus, claimedCompletedDate, note,
+ *   clientRequestId}
  */
 function recordDeveloperStatus(input) {
   return withDefectEngineLock_(function () {
     input = input || {};
+
+    if (input.clientRequestId) {
+      var cached = getCachedDefectEngineCommandResult_(input.clientRequestId);
+      if (cached) return cached;
+    }
+
     if (!input.defectId) {
       throw propertyError_('DEFECT_ITEM_INVALID_INPUT', 'defectId is required.');
     }
@@ -864,7 +871,9 @@ function recordDeveloperStatus(input) {
       throw e;
     }
 
-    return { success: true, defectId: input.defectId, developerStatus: input.developerStatus };
+    var result = { success: true, defectId: input.defectId, developerStatus: input.developerStatus };
+    if (input.clientRequestId) cacheDefectEngineCommandResult_(input.clientRequestId, result);
+    return result;
   });
 }
 
@@ -876,11 +885,18 @@ function recordDeveloperStatus(input) {
  * FailedVerification" true at the same time, however many times
  * verification is re-recorded (see 997_Tests_DefectEngine.js scenario 9).
  *
- * @param {Object} input {defectId, ownerVerificationStatus, verifiedDate, reason}
+ * @param {Object} input {defectId, ownerVerificationStatus, verifiedDate, reason,
+ *   clientRequestId}
  */
 function recordOwnerVerification(input) {
   return withDefectEngineLock_(function () {
     input = input || {};
+
+    if (input.clientRequestId) {
+      var cached = getCachedDefectEngineCommandResult_(input.clientRequestId);
+      if (cached) return cached;
+    }
+
     if (!input.defectId) {
       throw propertyError_('DEFECT_ITEM_INVALID_INPUT', 'defectId is required.');
     }
@@ -926,7 +942,9 @@ function recordOwnerVerification(input) {
       throw e;
     }
 
-    return { success: true, defectId: input.defectId, ownerVerificationStatus: input.ownerVerificationStatus };
+    var result = { success: true, defectId: input.defectId, ownerVerificationStatus: input.ownerVerificationStatus };
+    if (input.clientRequestId) cacheDefectEngineCommandResult_(input.clientRequestId, result);
+    return result;
   });
 }
 

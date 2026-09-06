@@ -381,6 +381,52 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-06      DLP Mobile Field Console — 三阶段推进：(1) Upgrade
+//                   Proposal / Architecture Review（发现 948/947 早就是
+//                   已 Production-Ready 的 doGet() Web App，跟 ADR-P24
+//                   无关，Close/Reopen/CloseCase 的 918 Domain 层其实
+//                   已存在只是 Console 层故意没曝光），(2) Decision &
+//                   Idempotency Gate（Owner 核准 Option C 原地扩充
+//                   948，逐行核对 recordDeveloperStatus/
+//                   recordOwnerVerification 现况，发现两者缺
+//                   clientRequestId、Timeline 无天然去重，
+//                   publishPropertyEvent_ 目前仅 ADR-P07 placeholder），
+//                   (3) 本次 Retry-Safety Foundation 实作——只做这一个
+//                   受控 safety slice，不碰 Mobile UI。BL-13（新增）
+//                   记录完整细节。918：recordDeveloperStatus/
+//                   recordOwnerVerification 两者加上 clientRequestId
+//                   支援，比照 logDailyProgressCheck 既有 pattern 一字
+//                   不改地复用（getCachedDefectEngineCommandResult_/
+//                   cacheDefectEngineCommandResult_），对 Desktop 零
+//                   影响（947 既有 Sidebar wrapper 本来就没传这个欄
+//                   位）。947：dlp_recordDeveloperStatus/
+//                   dlp_recordOwnerVerification 补上转传；另外发现
+//                   dlp_addRectificationEvent/dlp_attachDefectEvidence
+//                   虽然对应的 918/911 Domain Command 早就支援
+//                   clientRequestId，但 wrapper 这层一直没转传——本次
+//                   一并补上（Secondary Damage 依 Owner 指示不动，
+//                   经检查其既有行为无恙）。新增
+//                   local_precheck_test_947.js——947 有史以来第一个
+//                   本地测试档案（纠正 BL-12 结尾原本"947 没有本地
+//                   测试可跑"的说法，现在有了，13 项全过）。
+//                   local_precheck_test_918.js 新增 16 项 idempotency
+//                   断言（含一个刻意的跨 Command cache-key 碰撞测试，
+//                   证实 clientRequestId 的快取命名空间是全部 Defect
+//                   Engine Command 共用、不分 Command 各自独立——这是
+//                   既有设计特性，非本次引入，也非本次要解决的问题），
+//                   147→163 项全过，922 67 项不受影响，911 维持跟修改
+//                   前一样的既有 PropertiesService gap（不相关、非本次
+//                   造成）。★★★ 918/947 的全部代码改动、
+//                   local_precheck_test_918.js 的新增断言、全新的
+//                   local_precheck_test_947.js，目前只交付为本窗口的
+//                   下载档案，CC 尚未确认已经套用到真实 GAS 专案。真机 /
+//                   真实 GAS 验证：BLOCKED——此 Claude 沙箱没有网路/
+//                   部署权限，只能做到 Node 本地测试这一层。不需要新
+//                   ADR（延伸既有 pattern 到另外两个函数，没有引入新
+//                   架构）；DlpMobileConsole_UIContract.md 的修订留到
+//                   真正曝光给 Mobile UI 那一轮再做，这次 918/947 的
+//                   改动还没有任何 Mobile 使用者看得到。
+//
 //   2026-09-04      UI Architecture Migration 决定 + Phase A 实作、BL-12
 //                   Secondary Damage Contract Alignment、CC 要求本窗口
 //                   结束前完整核对+治理持久化+checkpoint（跟

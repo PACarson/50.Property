@@ -554,3 +554,74 @@
 // 读取视图正确显示三者（含新加的 Contractual Basis 栏位）。
 //
 // 依赖：无——947/918/922/901 全部不用改，纯粹是 945 这一层补齐。
+
+// BL-13 — DLP Mobile Field Console Retry-Safety Foundation（提出于
+// 2026-09-06 的 Decision & Idempotency Gate 分析，本次实作）
+//
+// 背景：Owner 核准 DLP Mobile Field Console Option C（原地扩充 948），
+// 在真正曝光 Mobile UI 之前，先要求针对 recordDeveloperStatus/
+// recordOwnerVerification 做完整 idempotency 分析（因为 Mobile 讯号不
+// 稳，重复点击/网路 timeout 后重试是真实场景）。
+//
+// 分析发现（逐行核对 918/947/911/903 源码，非推测）：
+// - recordDeveloperStatus/recordOwnerVerification 都是 Set 语意（覆写
+//   DefectItem 同一行），重复调用不会让权威 Status 值本身出错，但
+//   appendCaseTimelineEntry_ 完全没有天然去重，重复调用会真的多写一笔
+//   一样的 Timeline 记录。
+// - publishPropertyEvent_ 目前只是 ADR-P07 讲好的 placeholder（只做
+//   Logger.log，没接真实 EventBus），重复触发目前零实际后果——但这是
+//   "还没接线"，不是"设计上保证安全"，EventBus 真的接上后会变成真的
+//   风险。
+// - logRectificationEvent/attachEvidence/logSecondaryDamage（还有
+//   addDefectItem/logDailyProgressCheck）这几个 918/911 Domain Command
+//   本来就支援 clientRequestId，但 947 的 dlp_addRectificationEvent/
+//   dlp_attachDefectEvidence 这两个 wrapper 一直没有把这个欄位转传
+//   进去——Domain 层有支援，Bridge 层没接上，是两回事。
+//
+// 决定（Recommended Option B，Owner 核准）：两个函数都加
+// clientRequestId，不是只加一个——两者风险形状完全对称，没有理由只保护
+// 一个。判断这是 Domain-level integrity capability，不是 Mobile 专属
+// workaround，所以放在 918，不是在 947/948 做局部修补（Sidebar 虽然
+// 连线比较稳定，但同样的保护逻辑上也适用，没道理只让 Mobile 受益）。
+//
+// 实作（本次范围，只做这一个受控 safety slice，不碰 Mobile UI）：
+// - 918_DefectEngine.js：recordDeveloperStatus/recordOwnerVerification
+//   两者最前面加 clientRequestId cache-check、成功后加 cache-write，
+//   一字不改地比照 logDailyProgressCheck 既有写法，复用同一套
+//   getCachedDefectEngineCommandResult_/cacheDefectEngineCommandResult_
+//   （CacheService，3600 秒 TTL，propertyos_idem_defect_ 共用命名空间）。
+//   两份 docstring 同步补上 clientRequestId 参数说明。
+// - 947_DlpConsoleServer.js：dlp_recordDeveloperStatus/
+//   dlp_recordOwnerVerification 补上转传 clientRequestId；
+//   dlp_addRectificationEvent/dlp_attachDefectEvidence 也补上（原本
+//   注解写"刻意不传"，本次连同注解一并更新为如实反映现况）。
+//   dlp_addSecondaryDamage 依 Owner 指示不动，检查过既有行为无恙。
+// - 新增 local_precheck_test_947.js——947 从建立以来第一个本地测试档案，
+//   专测 Bridge 层转传行为本身（不是重测 918 已经测过的 idempotency
+//   机制），Owner Verification/Developer Status/Rectification Event 三者
+//   走真实呼叫（都不碰 Drive），Evidence 用既有 driveFileId 捷径避开
+//   local_precheck_test_911.js 那个已知、不相关的 PropertiesService gap。
+// - local_precheck_test_918.js 新增 16 项断言（含一个刻意的跨 Command
+//   cache-key 碰撞测试——证实这个快取命名空间本来就是全部 Defect Engine
+//   Command 共用、不分 Command 各自独立，这是既有设计特性，addDefectItem
+//   也是这样，非本次引入，也不是本次要解决的问题，如实记录）。
+//
+// 验证：本地测试全部真的跑过，不是只读代码——918 从 147 项增加到 163 项
+// 全过，新增的 947 测试档案 13 项全过，922 既有 67 项不受影响，911 维持
+// 跟修改前一模一样的既有 PropertiesService 崩溃（不相关、非本次造成）。
+// 真机 / 真实 GAS 验证：BLOCKED，这个 Claude 沙箱没有网路/部署权限，
+// 只能做到 Node 本地测试这一层，需要 CC 在真实专案里验证。
+//
+// 明确没做的（Owner 划定的范围之外）：Mobile Defect Detail UI、Owner
+// Verification/Developer Status/Rectification Event/Evidence 的任何 UI、
+// Secondary Damage、Correspondence、Close/Reopen/Close Case、EventBus
+// 真正实作、BL-11 孤儿档案回收、Schema 改动。
+//
+// 治理：不需要新 ADR（延伸既有 pattern 到另外两个函数，没有引入新架构，
+// 这个判断本身也是这次分析的一部分，不是事后才想到）。
+// DlpMobileConsole_UIContract.md 的修订留到真正曝光给 Mobile UI 那一轮，
+// 这次改动还没有任何 Mobile 使用者看得到。
+//
+// 依赖：无新增——完全建立在既有 918/911 的 CacheService 快取机制上，
+// 901 schema 不用改（clientRequestId 是暂存 1 小时的 cache key，不是
+// persisted 栏位）。

@@ -456,6 +456,77 @@ console.log("\n=== Phase 7: logSecondaryDamage + updateSecondaryDamageStatus ===
   check('listSecondaryDamageForDefect returns only the one scoped to that defect', run(ctx, `listSecondaryDamageForDefect('${d.defectId}').length`) === 1);
 }
 
+console.log('═══ recordDeveloperStatus / recordOwnerVerification — clientRequestId idempotency (Mobile Field Console retry-safety slice, 2026-09-06) ═══');
+{
+  const ctx = fresh(); const propertyId = seedProperty(ctx);
+  const caseId = run(ctx, `createPropertyCase({
+    propertyId: '${propertyId}', caseType: 'DLP',
+    originalSubmissionDate: '2026-08-13', originalSubmissionSource: 'Official mobile defect-reporting system',
+    originalDefectCount: 140, managementOffice: 'Est8 JMC'
+  });`).caseId;
+  const d = run(ctx, `addDefectItem({ caseId: '${caseId}', description: 'AC not cooling adequately', category: 'Sanitary Fitting', location: 'Living Room', priority: 'High' });`);
+
+  run(ctx, `getRawTimelineByType_ = function(caseId, entryType) {
+    var sheet = propertyCaseTimelineSheet_();
+    var last = sheet.getLastRow();
+    if (last < 2) return [];
+    var cols = PROPERTY_SCHEMA.PropertyCaseTimeline.columns;
+    return sheet.getRange(2,1,last-1,cols.length).getValues()
+      .map(function(row){ var o={}; cols.forEach(function(c,i){o[c]=row[i];}); return o; })
+      .filter(function(e){ return e.CaseID === caseId && e.EntryType === entryType; });
+  };`);
+
+  // --- recordDeveloperStatus ---
+  const ds1 = run(ctx, `recordDeveloperStatus({ defectId: '${d.defectId}', developerStatus: 'ClaimedCompleted', note: 'AC fixed', clientRequestId: 'test-dev-status-001' });`);
+  check('[DeveloperStatus] first call with clientRequestId succeeds', ds1.success === true && ds1.developerStatus === 'ClaimedCompleted');
+
+  const ds2 = run(ctx, `recordDeveloperStatus({ defectId: '${d.defectId}', developerStatus: 'ClaimedCompleted', note: 'AC fixed', clientRequestId: 'test-dev-status-001' });`);
+  check('[DeveloperStatus] retry with same clientRequestId returns an equivalent result', ds2.success === true && ds2.defectId === ds1.defectId && ds2.developerStatus === ds1.developerStatus);
+  check('[DeveloperStatus] retry with same clientRequestId does NOT create a duplicate Timeline entry',
+    run(ctx, `getRawTimelineByType_('${caseId}', 'DEVELOPER_STATUS_UPDATED')`).length === 1);
+
+  const ds3 = run(ctx, `recordDeveloperStatus({ defectId: '${d.defectId}', developerStatus: 'InProgress', note: 'reopened, more work needed', clientRequestId: 'test-dev-status-002' });`);
+  check('[DeveloperStatus] a different clientRequestId performs its own legitimate mutation', ds3.success === true && ds3.developerStatus === 'InProgress');
+  check('[DeveloperStatus] a different clientRequestId DOES create a second Timeline entry',
+    run(ctx, `getRawTimelineByType_('${caseId}', 'DEVELOPER_STATUS_UPDATED')`).length === 2);
+
+  const ds4 = run(ctx, `recordDeveloperStatus({ defectId: '${d.defectId}', developerStatus: 'Pending' });`);
+  check('[DeveloperStatus] a call with no clientRequestId at all remains backward compatible', ds4.success === true);
+  check('[DeveloperStatus] a call with no clientRequestId still writes its own Timeline entry (no caching applied)',
+    run(ctx, `getRawTimelineByType_('${caseId}', 'DEVELOPER_STATUS_UPDATED')`).length === 3);
+
+  // --- recordOwnerVerification (same 4 checks, symmetric) ---
+  const ov1 = run(ctx, `recordOwnerVerification({ defectId: '${d.defectId}', ownerVerificationStatus: 'FailedVerification', reason: 'still not cooling', clientRequestId: 'test-owner-verif-001' });`);
+  check('[OwnerVerification] first call with clientRequestId succeeds', ov1.success === true && ov1.ownerVerificationStatus === 'FailedVerification');
+
+  const ov2 = run(ctx, `recordOwnerVerification({ defectId: '${d.defectId}', ownerVerificationStatus: 'FailedVerification', reason: 'still not cooling', clientRequestId: 'test-owner-verif-001' });`);
+  check('[OwnerVerification] retry with same clientRequestId returns an equivalent result', ov2.success === true && ov2.ownerVerificationStatus === ov1.ownerVerificationStatus);
+  check('[OwnerVerification] retry with same clientRequestId does NOT create a duplicate Timeline entry',
+    run(ctx, `getRawTimelineByType_('${caseId}', 'OWNER_VERIFICATION_RECORDED')`).length === 1);
+
+  const ov3 = run(ctx, `recordOwnerVerification({ defectId: '${d.defectId}', ownerVerificationStatus: 'Verified', clientRequestId: 'test-owner-verif-002' });`);
+  check('[OwnerVerification] a different clientRequestId performs its own legitimate mutation', ov3.success === true && ov3.ownerVerificationStatus === 'Verified');
+  check('[OwnerVerification] a different clientRequestId DOES create a second Timeline entry',
+    run(ctx, `getRawTimelineByType_('${caseId}', 'OWNER_VERIFICATION_RECORDED')`).length === 2);
+
+  const ov4 = run(ctx, `recordOwnerVerification({ defectId: '${d.defectId}', ownerVerificationStatus: 'PartiallyVerified' });`);
+  check('[OwnerVerification] a call with no clientRequestId at all remains backward compatible', ov4.success === true);
+  check('[OwnerVerification] a call with no clientRequestId still writes its own Timeline entry (no caching applied)',
+    run(ctx, `getRawTimelineByType_('${caseId}', 'OWNER_VERIFICATION_RECORDED')`).length === 3);
+
+  // Pre-existing characteristic, not introduced by this slice: the cache key
+  // (propertyos_idem_defect_<clientRequestId>) is shared across every Defect
+  // Engine command, not namespaced per command — it already worked this way
+  // for addDefectItem/logDailyProgressCheck/logRectificationEvent/logSecondaryDamage.
+  // Reusing an ID from a different command returns THAT command's cached
+  // result instead of running. Documented here, not changed here.
+  const cross = run(ctx, `recordOwnerVerification({ defectId: '${d.defectId}', ownerVerificationStatus: 'Verified', clientRequestId: 'test-dev-status-001' });`);
+  check('pre-existing: clientRequestId cache is shared across ALL commands, not per-command namespaced (reusing an ID from a different command returns that command cached result)',
+    ('developerStatus' in cross) && !('ownerVerificationStatus' in cross));
+  check('pre-existing: therefore also writes no new Timeline entry in this cross-command-collision case',
+    run(ctx, `getRawTimelineByType_('${caseId}', 'OWNER_VERIFICATION_RECORDED')`).length === 3);
+}
+
 console.log('\\n' + '═'.repeat(60));
 console.log(fail === 0 ? `ALL ${pass} CHECKS PASSED (0 failures)` : `${pass} passed, ${fail} FAILED`);
 process.exit(fail === 0 ? 0 : 1);

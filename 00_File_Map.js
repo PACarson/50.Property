@@ -857,6 +857,24 @@
 //     phase11_schema_consolidation_migration 38/38 全通过；
 //     phase11_defectitem_reorder_migration 见上方说明。
 //
+//   local_precheck_test_947.js（新增，2026-09-06）—— 947_DlpConsoleServer.js
+//     从建立以来第一个本地测试档案。只测 Mobile Field Console
+//     Retry-Safety Foundation slice新增的 Bridge 层 clientRequestId
+//     转传行为本身（Developer Status/Owner Verification/Rectification
+//     Event 三者走真实呼叫；Evidence 用既有 driveFileId 捷径避开 911
+//     那个已知 PropertiesService gap），不重测 918 已经测过的
+//     idempotency 机制本体。跑法：node local_precheck_test_947.js。
+//   2026-09-06 重新执行全部现役 local_precheck_test_*.js 确认目前实际
+//     数字（上面 2026-08-26 那行数字已经过时，不重写历史记录，只在此
+//     新增一行如实反映现况）：918 163/163（含本次新增 16 项
+//     idempotency 断言）、947 13/13（新档案）、922 67/67、911 维持跟
+//     2026-08-26 时一样的既有 PropertiesService gap、
+//     phase11_schema_migration 71/71、
+//     phase11_schema_consolidation_migration 38/38 不变、
+//     phase11_defectitem_reorder_migration 维持既有失败状态（★
+//     该档案本来就因 901 schema 演进而无法完整重跑，跟本次改动无关，
+//     未去动它）。
+//
 //   ★ §5b 已删除——旧 Node 沙箱残留（2026-08-26 首次发现记录，
 //   2026-08-26 CC 确认后完成删除；本段落记录最后一次完整引用检查
 //   与删除结果）：

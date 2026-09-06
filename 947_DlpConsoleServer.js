@@ -229,7 +229,8 @@ function dlp_recordDeveloperStatus(input) {
       defectId: input.defectId,
       developerStatus: input.developerStatus,
       claimedCompletedDate: input.claimedCompletedDate || undefined,
-      note: input.note || ''
+      note: input.note || '',
+      clientRequestId: input.clientRequestId || undefined
     });
   });
 }
@@ -241,20 +242,21 @@ function dlp_recordOwnerVerification(input) {
       defectId: input.defectId,
       ownerVerificationStatus: input.ownerVerificationStatus,
       verifiedDate: input.verifiedDate || undefined,
-      reason: input.reason || ''
+      reason: input.reason || '',
+      clientRequestId: input.clientRequestId || undefined
     });
   });
 }
 
 // ─── Vertical slice 2 (2026-08-31, continued): Rectification Event /
 // Evidence / Secondary Damage / Correspondence ─────────────────────────
-// Same dlp_wrap_ discipline, same "no clientRequestId from this surface"
-// reasoning as vertical slice 1 (Contract §13 — Sidebar's stable-
-// connection profile doesn't carry Mobile's flaky-connection motivation
-// for the pattern, even though these 3 Commands already support it,
-// unlike Update Developer Status/Record Owner Verification's Commands).
-// Double-submit is handled the same way slice 1's two actions already
-// handle it: 945 disables the submit button on click, same as before.
+// Same dlp_wrap_ discipline as vertical slice 1. clientRequestId IS now
+// forwarded here (Mobile Field Console retry-safety slice, 2026-09-06) —
+// these 3 Commands already supported it at the Domain layer since
+// 2026-08-31, this wrapper just wasn't passing it through yet. 945's own
+// UI still disables the submit button on click as a first line of
+// defense; this is the server-side backstop for when that isn't enough
+// (e.g. Mobile's flakier connections, per the Idempotency Decision Gate).
 
 function dlp_addRectificationEvent(input) {
   return dlp_wrap_(function () {
@@ -269,7 +271,8 @@ function dlp_addRectificationEvent(input) {
       contractorCompany: input.contractorCompany || '',
       contractorPersonnel: input.contractorPersonnel || '',
       notes: input.notes || '',
-      source: input.source || undefined
+      source: input.source || undefined,
+      clientRequestId: input.clientRequestId || undefined
     });
   });
 }
@@ -299,7 +302,8 @@ function dlp_attachDefectEvidence(input) {
       driveFileId: input.driveFileId || undefined,
       base64Data: input.base64Data,
       fileName: input.fileName,
-      mimeType: input.mimeType
+      mimeType: input.mimeType,
+      clientRequestId: input.clientRequestId || undefined
     });
   });
 }
