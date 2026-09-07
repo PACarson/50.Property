@@ -381,6 +381,19 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-06      CC 确认两项真实专案部署验证结果：桌面端 Modal
+//                   Dialog 架构迁移（ADR-P24，2026-09-04 交付）运行
+//                   完好；BL-12 Secondary Damage 三个缺失栏位对齐
+//                   （涉及 945）运行正确。两者从"交付为下载档案、CC
+//                   未确认套用"正式转为已部署、已验证。ADR-P24 的
+//                   IMPLEMENTATION STATUS NOTE 保留原文当历史记录，
+//                   加了一段 2026-09-06 更新反映现况；BL-12 真机验证
+//                   栏位同步比照 BL-10 的既有格式标记 VERIFIED。
+//                   本次确认范围不含 BL-13（918/947 的 clientRequestId
+//                   idempotency 改动）——那部分状态维持 READY FOR REAL
+//                   PROJECT APPLICATION — REAL GAS VERIFICATION
+//                   PENDING，不受这次确认影响。
+//
 //   2026-09-06      DLP Mobile Field Console — 三阶段推进：(1) Upgrade
 //                   Proposal / Architecture Review（发现 948/947 早就是
 //                   已 Production-Ready 的 doGet() Web App，跟 ADR-P24

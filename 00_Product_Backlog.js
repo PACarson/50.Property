@@ -549,9 +549,8 @@
 // dlp_* wrapper一样，没有 local_precheck_test_947.js），这轮也没
 // 新增——947 完全没改动，没有新代码需要测。
 //
-// 真机验证：还没做，没有 CC 真实专案的写入权限。需要 CC 确认：新增
-// 一笔 Secondary Damage，三个新栏位都填，确认存进 Sheet 的值正确、
-// 读取视图正确显示三者（含新加的 Contractual Basis 栏位）。
+// 真机验证：★ 2026-09-06 更新——VERIFIED。CC 确认 Secondary Damage
+// 三个缺失栏位对齐（涉及 945）在真实专案里运行正确。
 //
 // 依赖：无——947/918/922/901 全部不用改，纯粹是 945 这一层补齐。
 
@@ -625,3 +624,25 @@
 // 依赖：无新增——完全建立在既有 918/911 的 CacheService 快取机制上，
 // 901 schema 不用改（clientRequestId 是暂存 1 小时的 cache key，不是
 // persisted 栏位）。
+//
+// Addendum（2026-09-06，套用真实专案前的部署安全清理，同一个 BL-13，
+// 不另开新条目）：真实专案套用前的readiness稽核发现两个跟本项目本身
+// 正确性无关、但会影响能否安全部署的问题，本次一并处理——
+// (1) .claspignore 原本没有排除现役世代的 local_precheck_test_*.js
+// （911/918/922/947/三个 phase11 migration 档案），这几个档案顶层有
+// require('./GasShim.js')，是 Node 专属语法，如果整批 clasp push 会让
+// 真实专案所有函式都跑不动；现在加了一行 wildcard
+// （local_precheck_test_*.js）涵盖现役与未来的同名档案，用一个独立
+// 撰写、跑完即删除的静态验证脚本确认过这个 pattern 精确涵盖全部 7 个
+// 现役档案、完全不影响任何 runtime 档案或既有治理排除规则。
+// (2) local_precheck_test_947.js 里两处比较 r1.defectId/r2.defectId
+// 的断言本身没有鉴别力（947 的 dlp_wrap_ 把真正结果包在 .data 底下，
+// 两边其实都是 undefined）——修正为 retry 故意送一个不同的
+// developerStatus/ownerVerificationStatus，断言拿回来的必须是第一次
+// 呼叫的值，这样真的能证明是命中快取而不是巧合算出相同结果。修正后
+// 947 测试仍是 13/13 全过，但现在这两处断言有真正的鉴别力。
+// 顺带一提（不属于本次范围，如实记录）：922 regression 跑的时候遇到
+// 一次间歇性失败，之后连续跑 20 次都过，判断是既有、跟本次改动无关的
+// test flakiness，未去调查根因或修复。另外核对 .claspignore 时也注意
+// 到 990-996 那批档案不在排除清单里，但它们不用 require()，不属于
+// 这次要处理的同一种风险，未进一步调查。

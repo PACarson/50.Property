@@ -1386,3 +1386,9 @@
 //   describes the decision, not its deployment state. See this window's
 //   delivered checkpoint/handoff file for the precise implementation
 //   and verification boundary.
+//
+// ★ 2026-09-06 UPDATE — DEPLOYED, VERIFIED: CC confirmed the Desktop
+//   Modal Dialog architecture migration runs correctly in the real
+//   project. The IMPLEMENTATION STATUS NOTE above is preserved as the
+//   historical record of what was true at 2026-09-04; it no longer
+//   describes the current state as of this update.
