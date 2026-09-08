@@ -381,6 +381,18 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-08      BL-15 Mobile Defect Detail MVP — M2 Owner
+//                   Verification 写入。947/918 逐字未动（BL-13 起就已
+//                   支援 clientRequestId）；948 新增 chip-then-submit
+//                   控件，成功后重抓整份 Detail。过程中发现并修正一个
+//                   自己造成的 class-name 碰撞 bug——Daily Check 既有
+//                   unscoped `.chip` selector 会误抓新控件，新增独立
+//                   `.ovchip` class 解决，没有去动 Daily Check 本身。
+//                   947/918/922 测试数字不受影响（22/163/67）。M1、M2
+//                   都维持 REAL-GAS VERIFICATION PENDING——Owner 明确
+//                   指示先往前开发、不等真机验证，status 没有跟着
+//                   拉高。详见 BL-15。
+//
 //   2026-09-08      BL-14 Mobile Defect Detail MVP — M1 只读展开实作。
 //                   947 新增 dlp_getMobileDefectDetail（重用既有
 //                   buildDefectDetailForSidebar_，零新 Domain/Adapter

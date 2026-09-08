@@ -73,6 +73,15 @@
     background: #fff; font-size: 12px; color: #5f6368; cursor: pointer;
   }
   .chip.selected { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; }
+  /* Same look as .chip, deliberately a different class name — Daily
+     Check's setupDailyCheckForm() attaches its chip handler via an
+     unscoped document.querySelectorAll('.chip'), which would otherwise
+     also catch Owner Verification's chips and corrupt dc_generalStatus. */
+  .ovchip {
+    padding: 6px 12px; border-radius: 14px; border: 1px solid #dadce0;
+    background: #fff; font-size: 12px; color: #5f6368; cursor: pointer;
+  }
+  .ovchip.selected { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; }
   .datetime-display { font-size: 13px; color: #5f6368; margin-bottom: 18px; cursor: pointer; }
   .datetime-display .edit-hint { color: #1a73e8; text-decoration: underline; }
   .btn-primary {
@@ -240,6 +249,15 @@
     <h3>Priority / State</h3>
     <div class="badges" id="dd_badges"></div>
 
+    <h3>Owner Verification</h3>
+    <div class="chips" id="ov_chips">
+      <div class="ovchip" data-status="Verified">Verified</div>
+      <div class="ovchip" data-status="FailedVerification">Failed</div>
+      <div class="ovchip" data-status="PartiallyVerified">Partial</div>
+    </div>
+    <button class="btn-secondary" id="ov_submitBtn" disabled>Submit Owner Verification</button>
+    <div id="ov_status" style="font-size:13px;color:#5f6368;margin-top:8px"></div>
+
     <h3>Dates</h3>
     <div class="summary-box">
       <div class="summary-line"><span>Submitted</span><span id="dd_submittedAt">—</span></div>
@@ -267,7 +285,10 @@ var state = {
   caseId: null,
   lastCheckId: null,
   saveClientRequestId: null,
-  bootstrapped: false
+  bootstrapped: false,
+  currentDefectId: null,
+  ownerVerificationSelectedStatus: null,
+  ownerVerificationClientRequestId: null
 };
 
 document.addEventListener('DOMContentLoaded', init);
@@ -276,6 +297,7 @@ function init() {
   setupDailyCheckForm();
   setupEvidenceFlow();
   setupNav();
+  setupOwnerVerification_();
   loadBootstrap();
 }
 
@@ -641,6 +663,16 @@ function openDefectDetail_(defectId) {
   document.getElementById('view-overview').classList.remove('active');
   document.getElementById('view-defectDetail').classList.add('active');
 
+  // Fresh boundary per Detail-view-open — a stale selection/clientRequestId
+  // from a previous defect (or a previous successful submission on this
+  // same defect) must never leak into the next intentional action.
+  state.currentDefectId = defectId;
+  state.ownerVerificationSelectedStatus = null;
+  state.ownerVerificationClientRequestId = null;
+  document.querySelectorAll('#ov_chips .ovchip').forEach(function (c) { c.classList.remove('selected'); });
+  document.getElementById('ov_submitBtn').disabled = true;
+  document.getElementById('ov_status').textContent = '';
+
   var loadingEl = document.getElementById('detailLoading');
   var contentEl = document.getElementById('detailContent');
 
@@ -770,6 +802,86 @@ function renderDefectDetail_(data) {
       evEl.appendChild(item);
     });
   }
+}
+
+// ─── Owner Verification (M2, 2026-09-08) ────────────────────────────
+//
+// Chip-then-Submit, same shape as Daily Check's General Status chips +
+// separate Save button — tapping a chip only selects it (state.
+// ownerVerificationSelectedStatus), the mutation only fires on the
+// separate Submit tap. Reuses the existing, already real-GAS-verified
+// 947 dlp_recordOwnerVerification/918 recordOwnerVerification path
+// as-is — no changes to either this slice. dlp_recordOwnerVerification
+// returns a plain object (dlp_wrap_ only, no JSON.stringify layer, same
+// as 945/Desktop's existing consumer), unlike dlp_getMobileDefectDetail
+// above — no JSON.parse needed here.
+
+function setupOwnerVerification_() {
+  document.querySelectorAll('#ov_chips .ovchip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      document.querySelectorAll('#ov_chips .ovchip').forEach(function (c) { c.classList.remove('selected'); });
+      chip.classList.add('selected');
+      state.ownerVerificationSelectedStatus = chip.getAttribute('data-status');
+      document.getElementById('ov_submitBtn').disabled = false;
+    });
+  });
+  document.getElementById('ov_submitBtn').addEventListener('click', submitOwnerVerification_);
+}
+
+function submitOwnerVerification_() {
+  if (!state.ownerVerificationSelectedStatus || !state.currentDefectId) return;
+
+  var btn = document.getElementById('ov_submitBtn');
+  var statusEl = document.getElementById('ov_status');
+  var chips = document.querySelectorAll('#ov_chips .ovchip');
+
+  // Same clientRequestId across retries of THIS attempt; a fresh one is
+  // only minted once (state.ownerVerificationClientRequestId already reset
+  // to null by openDefectDetail_ for the current defect/attempt boundary).
+  if (!state.ownerVerificationClientRequestId) {
+    state.ownerVerificationClientRequestId = generateClientRequestId_();
+  }
+
+  // Disable both the Submit button and the chips themselves while in
+  // flight, so a second tap during the round-trip cannot start a second,
+  // independent submission with a different clientRequestId.
+  btn.disabled = true;
+  chips.forEach(function (c) { c.style.pointerEvents = 'none'; });
+  statusEl.style.color = '#5f6368';
+  statusEl.textContent = 'Submitting…';
+
+  var defectIdAtSubmitTime = state.currentDefectId;
+
+  google.script.run
+    .withSuccessHandler(function (res) {
+      chips.forEach(function (c) { c.style.pointerEvents = ''; });
+      if (!res || !res.success) {
+        btn.disabled = false;
+        statusEl.style.color = '#d93025';
+        statusEl.textContent = (res && res.error) ? res.error : 'Submission failed.';
+        showToast(statusEl.textContent, true);
+        return;
+      }
+      // Success: this attempt is over, next intentional tap gets a fresh
+      // clientRequestId. Re-fetch the authoritative Detail rather than
+      // patching the DOM from this mutation's own (partial) response —
+      // reuses openDefectDetail_ entirely, including its own state reset.
+      state.ownerVerificationClientRequestId = null;
+      showToast('Owner verification recorded.');
+      openDefectDetail_(defectIdAtSubmitTime);
+    })
+    .withFailureHandler(function (err) {
+      chips.forEach(function (c) { c.style.pointerEvents = ''; });
+      btn.disabled = false;
+      statusEl.style.color = '#d93025';
+      statusEl.textContent = err && err.message ? err.message : '网络/RPC 失败';
+      showToast(statusEl.textContent, true);
+    })
+    .dlp_recordOwnerVerification({
+      defectId: defectIdAtSubmitTime,
+      ownerVerificationStatus: state.ownerVerificationSelectedStatus,
+      clientRequestId: state.ownerVerificationClientRequestId
+    });
 }
 
 // ─── Utilities ─────────────────────────────────────────────────────

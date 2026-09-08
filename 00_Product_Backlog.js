@@ -699,3 +699,47 @@
 //
 // 依赖：无新增 Domain 行为——完全建立在既有 buildDefectDetailForSidebar_
 // 上，901 schema 不用改。
+
+// BL-15 — Mobile Defect Detail MVP，M2 Owner Verification 写入（提出并
+// 实作于 2026-09-08，M1-M5 第二个）
+//
+// 背景：Owner 明确指示"code可以往前走，status不行"——M1 还没真机验证，
+// 但 Owner 人不在电脑前，先允许 M2 开发+本地验证，不等 M1 真机结果。
+// Owner Verification 的 918/947 两层在 BL-13 已经真机验证过，这次只是
+// 把既有能力接上 UI。
+//
+// 实作：947/918 逐字未动——dlp_recordOwnerVerification/
+// recordOwnerVerification 从 BL-13 起就已经支援 clientRequestId，这次
+// 直接原样重用。全部改动在 948：Defect Detail 新增"Owner Verification"
+// 区块，三个选项（Verified/Failed/Partial）+ 一个 Submit 按钮，沿用
+// Daily Check 既有的"点 chip 选、按按钮才真的送出"两段式模式，而不是
+// 点了就送。Submit 时才生成 clientRequestId（重试同一次尝试才重用，
+// 新的一次有意义的操作会拿到新 ID），成功后重新呼叫 openDefectDetail_
+// 整个重抓一次权威资料，而不是自己在 DOM 上局部拼贴。
+//
+// 过程中发现并修正一个真实、自己造成的 bug（不是既有缺陷）：Daily
+// Check 既有的 chip 点击绑定用的是 unscoped
+// document.querySelectorAll('.chip')，如果 Owner Verification 的选项也
+// 用 .chip 这个 class，会被这段既有代码一併抓到，点 Owner Verification
+// 的选项会连带把 Daily Check 的 dc_generalStatus 欄位写成字串
+// "undefined"、还会清掉 Daily Check 原本选取的 chip。发现后新增一个
+// 独立的 .ovchip class（视觉上跟 .chip 一模一样，只是 class 名称不同，
+// 不会被那段既有的 unscoped selector 选到），而不是去改 Daily Check
+// 那段已经真机验证过的既有代码。
+//
+// 测试：947（22/22）、918（163/163）、922（67/67）全部不受影响——
+// Owner Verification 的 server 端逻辑本来就没有新代码，这次单纯是接
+// 既有能力到新 UI，没有新的 server 端断言好加。948 的 client-side 行为
+// （chip 点选、Submit 按钮 disable/enable、成功后重抓）跟 M1 一样没有
+// 本地自动化测试基础设施，改用同一套静态核对：抽出 <script> 单独
+// node -c 语法检查、grep 确认零直接 Sheet mutation、grep 确认没有
+// 意外混入 M3/M4/M5 的任何 mutation 呼叫（dlp_recordDeveloperStatus/
+// dlp_addRectificationEvent/dlp_attachDefectEvidence/
+// dlp_addSecondaryDamage 一个都没有）、grep 确认
+// dlp_recordOwnerVerification 确实只在这次新增的一个地方被呼叫。
+//
+// 真机 / Real-GAS 验证：PENDING（跟 M1 一样）。★ 明确记录：M1 本身也
+// 还没真机验证，这次是 Owner 主动决定先往前开发，不是评估后认为可以
+// 不验证。
+//
+// 依赖：无新增 Domain/Bridge 行为。
