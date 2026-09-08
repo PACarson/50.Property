@@ -381,6 +381,29 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-08      BL-14 Mobile Defect Detail MVP — M1 只读展开实作。
+//                   947 新增 dlp_getMobileDefectDetail（重用既有
+//                   buildDefectDetailForSidebar_，零新 Domain/Adapter
+//                   代码）；948 新增 view-defectDetail，Defect 卡片可
+//                   点击进入，只读展示 Identity/Description/
+//                   Priority-State/Dates/Rectification Events/Evidence，
+//                   刻意不显示 Secondary Damage（Contract §1/§9）。零
+//                   mutation 控件。local_precheck_test_947.js 新增 9 项
+//                   全过（13→22），918/922 不受影响。Real-GAS 验证
+//                   PENDING。详见 BL-14。
+//
+//   2026-09-08      BL-13 真实 GAS 验证：CC 在真实专案对一个真实 defect
+//                   （DefectID 5124）实际跑了 Developer Status/Owner
+//                   Verification/Rectification Event 三项，Execution
+//                   Log 显示三者都"命中快取，Timeline 严格增加 1 笔"，
+//                   另外独立手动核对 PropertyCaseTimeline 分页最后写入
+//                   的时间戳，确认没有双胞胎记录——不是只信脚本自己回报
+//                   的成功讯息。三项从 READY FOR REAL PROJECT
+//                   APPLICATION 正式转为 VERIFIED。Evidence
+//                   （dlp_attachDefectEvidence）这次没在贴出来的 log
+//                   里出现，维持 IMPLEMENTED — UNVERIFIED，待 CC 确认
+//                   是否已测。
+//
 //   2026-09-06      CC 确认两项真实专案部署验证结果：桌面端 Modal
 //                   Dialog 架构迁移（ADR-P24，2026-09-04 交付）运行
 //                   完好；BL-12 Secondary Damage 三个缺失栏位对齐

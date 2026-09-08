@@ -206,6 +206,60 @@
   </div>
 </div>
 
+<div id="view-defectDetail" class="view">
+  <div class="back-row">
+    <button class="back-btn" id="detailBackBtn" aria-label="Back">←</button>
+    <h2 style="margin:0">Defect Detail</h2>
+  </div>
+  <div id="detailLoading" class="loading">Loading…</div>
+  <div id="detailContent" style="display:none">
+
+    <h3>Identity</h3>
+    <div class="summary-box">
+      <div class="summary-line"><span>Defect ID</span><span id="dd_defectId">—</span></div>
+      <div class="summary-line"><span>Case ID</span><span id="dd_caseId">—</span></div>
+      <div class="summary-line"><span>Item ID</span><span id="dd_itemId">—</span></div>
+      <div class="summary-line"><span>Category</span><span id="dd_category">—</span></div>
+      <div class="summary-line"><span>Sub-Category</span><span id="dd_subCategory">—</span></div>
+    </div>
+
+    <h3>Description</h3>
+    <div class="field">
+      <label>Location</label>
+      <div id="dd_location">—</div>
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <div id="dd_description">—</div>
+    </div>
+    <div class="field">
+      <label>Remark</label>
+      <div id="dd_remark">—</div>
+    </div>
+
+    <h3>Priority / State</h3>
+    <div class="badges" id="dd_badges"></div>
+
+    <h3>Dates</h3>
+    <div class="summary-box">
+      <div class="summary-line"><span>Submitted</span><span id="dd_submittedAt">—</span></div>
+      <div class="summary-line"><span>Rectification Started</span><span id="dd_rectificationStartDate">—</span></div>
+      <div class="summary-line"><span>Developer Claimed Completed</span><span id="dd_developerClaimedCompletedDate">—</span></div>
+      <div class="summary-line"><span>Owner Verified</span><span id="dd_ownerVerifiedDate">—</span></div>
+      <div class="summary-line"><span>Closed</span><span id="dd_closedDate">—</span></div>
+      <div class="summary-line"><span>Created</span><span id="dd_createdAt">—</span></div>
+      <div class="summary-line"><span>Updated</span><span id="dd_updatedAt">—</span></div>
+    </div>
+
+    <h3>Rectification Events</h3>
+    <div id="dd_rectEvents"></div>
+
+    <h3>Evidence</h3>
+    <div id="dd_evidence"></div>
+
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -419,6 +473,10 @@ function setupNav() {
     document.getElementById('view-overview').classList.remove('active');
     document.getElementById('view-dailyCheck').classList.add('active');
   });
+  document.getElementById('detailBackBtn').addEventListener('click', function () {
+    document.getElementById('view-defectDetail').classList.remove('active');
+    document.getElementById('view-overview').classList.add('active');
+  });
 }
 
 // ─── Case Overview (含屏幕直显诊断) ──────────────────────────────────
@@ -522,6 +580,8 @@ function renderOverview_(data) {
     defects.forEach(function (d) {
       var card = document.createElement('div');
       card.className = 'card';
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', function () { openDefectDetail_(d.defectId); });
       // SubCategory is optional (901_PropertySchema.js) — folded into the
       // title next to Category only when present, so an empty SubCategory
       // never shows as a stray separator or "undefined".
@@ -560,6 +620,154 @@ function renderOverview_(data) {
         '<div>' + escapeHtml(t.Summary || t.EntryType || 'Timeline Entry') + '</div>' +
         '<div class="t-sub">' + formatRelativeDate_(t.OccurredAt || t.CreatedAt) + '</div>';
       tlEl.appendChild(item);
+    });
+  }
+}
+
+// ─── Defect Detail (read-only, M1, 2026-09-08) ──────────────────────
+//
+// Same shape as openOverview()/renderOverview_ above: 947's
+// dlp_getMobileDefectDetail returns a JSON.stringify()'d {success,data}
+// envelope for the same reason dlp_getCaseOverview does, so this parses it
+// the same way before touching anything. Read-only — no mutation RPC is
+// wired here (Owner Verification/Developer Status/Rectification
+// Event/Evidence actions are later M2-M5 slices, not this one). Secondary
+// Damage is deliberately not rendered even though the 947 payload includes
+// it — Contract §1/§9 keeps Secondary Damage off Mobile entirely, same as
+// Case Overview already does.
+
+function openDefectDetail_(defectId) {
+  if (!defectId) return;
+  document.getElementById('view-overview').classList.remove('active');
+  document.getElementById('view-defectDetail').classList.add('active');
+
+  var loadingEl = document.getElementById('detailLoading');
+  var contentEl = document.getElementById('detailContent');
+
+  loadingEl.style.display = 'block';
+  loadingEl.style.color = '#5f6368';
+  loadingEl.textContent = '正在从服务器获取数据…';
+  contentEl.style.display = 'none';
+
+  var settled = false;
+  var timeoutId = setTimeout(function () {
+    if (settled) return;
+    settled = true;
+    loadingEl.style.display = 'block';
+    loadingEl.innerHTML = '<div style="color:#d93025;background:#fce8e6;padding:12px;border-radius:8px;text-align:left;">' +
+      '<b>请求超时（20秒）：</b><br>未收到服务器响应。可能原因：网络中断、Web App 部署版本未更新到最新代码（Deploy → Manage deployments 确认版本），或服务器执行时间过长。' +
+      '<br><br>可到 Apps Script 编辑器的 Executions 查看这次调用的真实状态。</div>';
+  }, 20000);
+
+  google.script.run
+    .withSuccessHandler(function (raw) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
+      var res;
+      try {
+        res = JSON.parse(raw);
+      } catch (parseErr) {
+        loadingEl.style.display = 'block';
+        loadingEl.innerHTML = '<div style="color:#d93025;background:#fce8e6;padding:12px;border-radius:8px;text-align:left;">' +
+          '<b>JSON 解析失败 (Parse Error)：</b><br>' + escapeHtml(parseErr.message) +
+          '<br><br><pre style="font-size:11px;white-space:pre-wrap;">收到的原始内容：' + escapeHtml(String(raw).slice(0, 500)) + '</pre></div>';
+        return;
+      }
+      if (!res || !res.success) {
+        loadingEl.style.display = 'block';
+        loadingEl.innerHTML = '<div style="color:#d93025;background:#fce8e6;padding:12px;border-radius:8px;text-align:left;">' +
+          '<b>后端返回错误：</b><br>' + escapeHtml(res ? res.error : '未收到数据') + '</div>';
+        return;
+      }
+      try {
+        renderDefectDetail_(res.data);
+        loadingEl.style.display = 'none';
+        contentEl.style.display = 'block';
+      } catch (renderErr) {
+        loadingEl.style.display = 'block';
+        loadingEl.innerHTML = '<div style="color:#d93025;background:#fce8e6;padding:12px;border-radius:8px;text-align:left;">' +
+          '<b>前端渲染崩溃 (Render Crash)：</b><br>' + escapeHtml(renderErr.message) +
+          '<br><br><pre style="font-size:11px;white-space:pre-wrap;">' + escapeHtml(renderErr.stack) + '</pre></div>';
+      }
+    })
+    .withFailureHandler(function (err) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
+      loadingEl.style.display = 'block';
+      loadingEl.innerHTML = '<div style="color:#d93025;background:#fce8e6;padding:12px;border-radius:8px;text-align:left;">' +
+        '<b>网络/RPC 失败：</b><br>' + escapeHtml(err ? err.message : '未知通信异常') + '</div>';
+    })
+    .dlp_getMobileDefectDetail({ defectId: defectId });
+}
+
+function renderDefectDetail_(data) {
+  if (!data || !data.defect) {
+    throw new Error('服务器返回的 data.defect 为空');
+  }
+  var d = data.defect;
+
+  document.getElementById('dd_defectId').textContent = d.defectId || '—';
+  document.getElementById('dd_caseId').textContent = d.caseId || '—';
+  document.getElementById('dd_itemId').textContent = d.itemId || '—';
+  document.getElementById('dd_category').textContent = d.category || '—';
+  document.getElementById('dd_subCategory').textContent = d.subCategory || '—';
+
+  document.getElementById('dd_location').textContent = d.location || '—';
+  document.getElementById('dd_description').textContent = d.description || '—';
+  document.getElementById('dd_remark').textContent = d.remark || '—';
+
+  document.getElementById('dd_badges').innerHTML =
+    '<span class="badge">Priority: ' + escapeHtml(d.priority || '—') + '</span>' +
+    '<span class="badge">' + escapeHtml(d.status || '—') + '</span>' +
+    '<span class="badge">Dev: ' + escapeHtml(d.developerStatus || '—') + '</span>' +
+    '<span class="badge">Owner: ' + escapeHtml(d.ownerVerificationStatus || '—') + '</span>';
+
+  // Same relative-date convention already used for Timeline items above —
+  // no new date-formatting pattern introduced for this slice.
+  [
+    ['dd_submittedAt', d.submittedAt],
+    ['dd_rectificationStartDate', d.rectificationStartDate],
+    ['dd_developerClaimedCompletedDate', d.developerClaimedCompletedDate],
+    ['dd_ownerVerifiedDate', d.ownerVerifiedDate],
+    ['dd_closedDate', d.closedDate],
+    ['dd_createdAt', d.createdAt],
+    ['dd_updatedAt', d.updatedAt]
+  ].forEach(function (pair) {
+    document.getElementById(pair[0]).textContent = formatRelativeDate_(pair[1]) || '—';
+  });
+
+  var rectEl = document.getElementById('dd_rectEvents');
+  rectEl.innerHTML = '';
+  var rectEvents = data.rectificationEvents || [];
+  if (rectEvents.length === 0) {
+    rectEl.innerHTML = '<div class="empty">No rectification events on record.</div>';
+  } else {
+    rectEvents.forEach(function (ev) {
+      var item = document.createElement('div');
+      item.className = 'timeline-item';
+      item.innerHTML =
+        '<div>' + escapeHtml(ev.eventType || 'Event') + '</div>' +
+        '<div class="t-sub">' + formatRelativeDate_(ev.eventDate) +
+        (ev.contractorCompany ? ' · ' + escapeHtml(ev.contractorCompany) : '') + '</div>';
+      rectEl.appendChild(item);
+    });
+  }
+
+  var evEl = document.getElementById('dd_evidence');
+  evEl.innerHTML = '';
+  var evidence = data.evidence || [];
+  if (evidence.length === 0) {
+    evEl.innerHTML = '<div class="empty">No evidence on record.</div>';
+  } else {
+    evidence.forEach(function (e) {
+      var item = document.createElement('div');
+      item.className = 'timeline-item';
+      item.innerHTML =
+        '<div>' + escapeHtml(e.evidenceType || 'Evidence') + (e.phase ? ' · ' + escapeHtml(e.phase) : '') + '</div>' +
+        '<div class="t-sub">' + formatRelativeDate_(e.capturedAt) + '</div>';
+      evEl.appendChild(item);
     });
   }
 }

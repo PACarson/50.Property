@@ -608,8 +608,15 @@
 // 验证：本地测试全部真的跑过，不是只读代码——918 从 147 项增加到 163 项
 // 全过，新增的 947 测试档案 13 项全过，922 既有 67 项不受影响，911 维持
 // 跟修改前一模一样的既有 PropertiesService 崩溃（不相关、非本次造成）。
-// 真机 / 真实 GAS 验证：BLOCKED，这个 Claude 沙箱没有网路/部署权限，
-// 只能做到 Node 本地测试这一层，需要 CC 在真实专案里验证。
+// 真机 / 真实 GAS 验证：★ 2026-09-08 更新——Developer Status/Owner
+// Verification/Rectification Event 三项 VERIFIED。CC 在真实专案的 Apps
+// Script Execution Log 里对一个真实 defect（DefectID 5124）实际跑过，
+// 三项都拿到"命中快取，Timeline 严格增加 1 笔"的结果，另外独立到
+// PropertyCaseTimeline 分页手动核对最后写入的时间戳，确认没有因为重试
+// 产生双胞胎记录（不是只信脚本自己回报的成功讯息）。Evidence
+// （dlp_attachDefectEvidence）这次的 log 里没看到——不确定是没测还是
+// 只是没贴出来，待 CC 确认；在那之前 Evidence 这条路径维持
+// IMPLEMENTED — UNVERIFIED，不要假设它也一并过了。
 //
 // 明确没做的（Owner 划定的范围之外）：Mobile Defect Detail UI、Owner
 // Verification/Developer Status/Rectification Event/Evidence 的任何 UI、
@@ -646,3 +653,49 @@
 // test flakiness，未去调查根因或修复。另外核对 .claspignore 时也注意
 // 到 990-996 那批档案不在排除清单里，但它们不用 require()，不属于
 // 这次要处理的同一种风险，未进一步调查。
+
+// BL-14 — Mobile Defect Detail MVP，M1 只读展开（提出并实作于 2026-09-08，
+// Idempotency Gate 报告规划的 Slice M1-M5 第一个）
+//
+// 背景：BL-13 的 Developer Status/Owner Verification/Rectification Event
+// 三项已在真实 GAS 环境验证（Evidence 待确认，维持 IMPLEMENTED —
+// UNVERIFIED），Owner 核准从 M1 开始实作 Mobile Defect Detail——只读展开，
+// 不含任何 mutation 控件（Owner Verification/Developer Status/
+// Rectification Event/Evidence 的写入动作留给之后 M2-M5）。
+//
+// 实作：
+// - 947_DlpConsoleServer.js：新增 dlp_getMobileDefectDetail(input)——薄
+//   wrapper，直接重用既有 buildDefectDetailForSidebar_（922，零改动），
+//   比照 dlp_getCaseOverview 的 JSON.stringify 防御模式。刻意不重用
+//   dlp_getSidebarDefectDetail 本体、另开一个新函式，避免这次改动碰到
+//   Desktop 已经在用、已经验证过的既有 wrapper。
+// - 948_MobileConsole.html：新增第三个 view（view-defectDetail），沿用
+//   既有 .view/.view.active 切换模式，不加路由库。Case Overview 的
+//   Defect 卡片变成可点击，导向这个新 view；新增返回键回到 Overview（不
+//   是回到 Daily Check）。Identity/Description/Priority-State/Dates 四组
+//   栏位、加 Rectification Events/Evidence 两份只读列表——全部沿用既有
+//   CSS class（summary-box/summary-line/field/badges/card/timeline-item/
+//   empty/loading/back-row/back-btn），没有新增任何样式。Secondary
+//   Damage 刻意不显示，即使 947 回传的 bundle 里就有——Contract §1/§9
+//   本来就规定 Mobile 连只读都不给看 Secondary Damage，这次维持同一
+//   限制，没有因为资料"反正都拿到了"就顺便显示出来。
+// - local_precheck_test_947.js：新增 9 项断言测这个新函式（含刻意测试
+//   不存在的 defectId、完全没给 defectId 两种情境，确认都是
+//   {success:false} 而不是丢例外），13→22 全过。918（163/163）、922
+//   （67/67）不受影响，911 维持既有 PropertiesService 崩溃不变。
+//
+// 已知边界（如实记录，不是缺陷）：M1 这类跑在浏览器里的 client-side
+// 行为（卡片点击、view 切换、栏位实际渲染、返回导览）没有对应的本地
+// 自动化测试可跑——948 从建立以来就没有 local_precheck_test_948.js，这
+// 次也没有新建一个，因为要真的模拟浏览器 DOM 环境是比这次范围大很多的
+// 基础设施投入。这些行为改用静态代码核对（确认新代码完全没有意外混入
+// 任何 mutation RPC 呼叫、确认 948 全档案没有任何直接 Sheet 存取、确认
+// 新 view 沿用的是 openOverview() 已经真机验证过的同一套 timeout/
+// JSON.parse/错误处理模式）取代真机验证，不是真机验证的替代品，只是
+// 在没有真机测试之前能做到的最高确定性。
+//
+// 真机 / Real-GAS 验证：PENDING，需要 CC 在真实专案打开 Mobile Console
+// 实际点一个 Defect 卡片确认。
+//
+// 依赖：无新增 Domain 行为——完全建立在既有 buildDefectDetailForSidebar_
+// 上，901 schema 不用改。

@@ -23,7 +23,8 @@ const vm = require('vm');
 const FILES = [
   '900_PropertyConfig.js', '901_PropertySchema.js', '902_PropertyIdentity.js',
   '903_PropertyEventDefinitions.js', '910_PropertyAssetEngine.js',
-  '918_DefectEngine.js', '911_DocumentEngine.js', '947_DlpConsoleServer.js'
+  '918_DefectEngine.js', '911_DocumentEngine.js', '922_DashboardAdapter.js',
+  '947_DlpConsoleServer.js'
 ];
 
 var pass = 0, fail = 0;
@@ -62,10 +63,20 @@ console.log('═══ dlp_recordDeveloperStatus — clientRequestId forwarding 
 {
   const ctx = fresh(); const s = seedCaseAndDefect(ctx);
   const r1 = run(ctx, `dlp_recordDeveloperStatus({ defectId: '${s.defectId}', developerStatus: 'ClaimedCompleted', note: 'AC fixed', clientRequestId: 'bridge-dev-001' });`);
-  check('first call via 947 wrapper succeeds', r1.success === true);
-  const r2 = run(ctx, `dlp_recordDeveloperStatus({ defectId: '${s.defectId}', developerStatus: 'ClaimedCompleted', note: 'AC fixed', clientRequestId: 'bridge-dev-001' });`);
-  check('retry via 947 wrapper with same clientRequestId returns the cached 918 result (proves the ID actually reached 918, not dropped at the Bridge)',
-    r2.success === true && r2.defectId === r1.defectId);
+  check('first call via 947 wrapper succeeds', r1.success === true && r1.data.developerStatus === 'ClaimedCompleted');
+  // Retry deliberately sends a DIFFERENT developerStatus ('InProgress') under
+  // the SAME clientRequestId. If the Bridge genuinely forwards the ID and 918
+  // short-circuits on cache, the returned value must still be the FIRST
+  // call's 'ClaimedCompleted' — not this retry's 'InProgress'. Getting
+  // 'InProgress' back would prove the ID was silently dropped somewhere and a
+  // second, fresh mutation ran instead of a cache hit. (r1.defectId/r2.defectId
+  // alone can't prove this — dlp_wrap_ nests the real result under .data, and
+  // even correctly read, two fresh calls with the same defectId would report
+  // the same defectId regardless of caching; the differing input value is
+  // what actually makes this discriminating.)
+  const r2 = run(ctx, `dlp_recordDeveloperStatus({ defectId: '${s.defectId}', developerStatus: 'InProgress', note: 'should be ignored if cached', clientRequestId: 'bridge-dev-001' });`);
+  check('retry via 947 wrapper with same clientRequestId returns the FIRST call\'s cached 918 result, not a fresh mutation using this retry\'s different developerStatus',
+    r2.success === true && r2.data.developerStatus === 'ClaimedCompleted' && JSON.stringify(r2.data) === JSON.stringify(r1.data));
   const timeline = run(ctx, `(function(){
     var sheet = propertyCaseTimelineSheet_(); var last = sheet.getLastRow();
     var cols = PROPERTY_SCHEMA.PropertyCaseTimeline.columns;
@@ -80,9 +91,14 @@ console.log('═══ dlp_recordOwnerVerification — clientRequestId forwardin
 {
   const ctx = fresh(); const s = seedCaseAndDefect(ctx);
   const r1 = run(ctx, `dlp_recordOwnerVerification({ defectId: '${s.defectId}', ownerVerificationStatus: 'FailedVerification', reason: 'still not cooling', clientRequestId: 'bridge-owner-001' });`);
-  check('first call via 947 wrapper succeeds', r1.success === true);
-  const r2 = run(ctx, `dlp_recordOwnerVerification({ defectId: '${s.defectId}', ownerVerificationStatus: 'FailedVerification', reason: 'still not cooling', clientRequestId: 'bridge-owner-001' });`);
-  check('retry via 947 wrapper with same clientRequestId returns the cached 918 result', r2.success === true && r2.defectId === r1.defectId);
+  check('first call via 947 wrapper succeeds', r1.success === true && r1.data.ownerVerificationStatus === 'FailedVerification');
+  // Same discriminating-retry technique as the DeveloperStatus block above:
+  // retry sends 'Verified' under the SAME clientRequestId, so getting
+  // 'FailedVerification' back (the FIRST call's value) is what actually
+  // proves a cache hit, not a coincidence of identical inputs.
+  const r2 = run(ctx, `dlp_recordOwnerVerification({ defectId: '${s.defectId}', ownerVerificationStatus: 'Verified', reason: 'should be ignored if cached', clientRequestId: 'bridge-owner-001' });`);
+  check('retry via 947 wrapper with same clientRequestId returns the FIRST call\'s cached 918 result, not a fresh mutation using this retry\'s different ownerVerificationStatus',
+    r2.success === true && r2.data.ownerVerificationStatus === 'FailedVerification' && JSON.stringify(r2.data) === JSON.stringify(r1.data));
   const timeline = run(ctx, `(function(){
     var sheet = propertyCaseTimelineSheet_(); var last = sheet.getLastRow();
     var cols = PROPERTY_SCHEMA.PropertyCaseTimeline.columns;
@@ -126,6 +142,38 @@ console.log('═══ dlp_addSecondaryDamage — unchanged in this slice (B3: n
   const ctx = fresh(); const s = seedCaseAndDefect(ctx);
   const r1 = run(ctx, `dlp_addSecondaryDamage({ defectId: '${s.defectId}', damageType: 'Flooring', description: 'water staining' });`);
   check('dlp_addSecondaryDamage still works exactly as before (not touched by this slice)', r1.success === true);
+}
+
+console.log('═══ dlp_getMobileDefectDetail — new in M1 (2026-09-08), thin wrapper around the existing buildDefectDetailForSidebar_ (922) ═══');
+{
+  const ctx = fresh(); const s = seedCaseAndDefect(ctx);
+  // Give this defect one of each related record so the bundle actually
+  // exercises all three arrays, not just an empty-list happy path.
+  run(ctx, `logRectificationEvent({ caseId: '${s.caseId}', defectId: '${s.defectId}', eventType: 'RectificationStarted', notes: 'contractor on site' });`);
+  run(ctx, `attachEvidence({ relatedCaseId: '${s.caseId}', relatedDefectId: '${s.defectId}', evidenceType: 'Photo', phase: 'Before', driveFileId: 'fake-drive-id-for-m1-test' });`);
+  run(ctx, `logSecondaryDamage({ caseId: '${s.caseId}', parentDefectId: '${s.defectId}', damageType: 'Flooring', description: 'water staining' });`);
+
+  const raw = run(ctx, `dlp_getMobileDefectDetail({ defectId: '${s.defectId}' });`);
+  check('returns a JSON string, not a raw object (same google.script.run boundary convention as dlp_getCaseOverview)', typeof raw === 'string');
+  const res = JSON.parse(raw);
+  check('parses back into {success:true, data:{...}}', res.success === true && !!res.data);
+  check('data.defect has the identity/description/priority-state fields M1 needs', res.data.defect.defectId === s.defectId
+    && res.data.defect.category === 'Sanitary Fitting' && res.data.defect.location === 'Living Room'
+    && res.data.defect.priority === 'High' && res.data.defect.status !== undefined
+    && res.data.defect.developerStatus !== undefined && res.data.defect.ownerVerificationStatus !== undefined);
+  check('data.defect has date fields present as keys (not silently dropped), even where empty', 'submittedAt' in res.data.defect && 'closedDate' in res.data.defect
+    && 'rectificationStartDate' in res.data.defect && 'createdAt' in res.data.defect && 'updatedAt' in res.data.defect);
+  check('data.rectificationEvents reflects the one event just logged', res.data.rectificationEvents.length === 1 && res.data.rectificationEvents[0].eventType === 'RectificationStarted');
+  check('data.evidence reflects the one evidence record just attached', res.data.evidence.length === 1 && res.data.evidence[0].evidenceType === 'Photo');
+  check('data.secondaryDamage is present in the payload (922 always includes it) even though 948 deliberately never renders it (Contract §1/§9)', res.data.secondaryDamage.length === 1);
+
+  const rawMissing = run(ctx, `dlp_getMobileDefectDetail({ defectId: 'DEFECT-does-not-exist' });`);
+  const resMissing = JSON.parse(rawMissing);
+  check('a non-existent defectId fails gracefully as {success:false, error}, not a thrown/uncaught exception', resMissing.success === false && typeof resMissing.error === 'string');
+
+  const rawNoInput = run(ctx, `dlp_getMobileDefectDetail({});`);
+  const resNoInput = JSON.parse(rawNoInput);
+  check('a call with no defectId at all also fails gracefully, not a crash', resNoInput.success === false);
 }
 
 console.log('\n' + '═'.repeat(60));

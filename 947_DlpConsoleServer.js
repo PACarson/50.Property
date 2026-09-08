@@ -145,6 +145,26 @@ function dlp_getCaseOverview() {
   return JSON.stringify(result);
 }
 
+// Mobile Defect Detail (M1, 2026-09-08) — thin wrapper around the same
+// buildDefectDetailForSidebar_ (922) the Sidebar's dlp_getSidebarDefectDetail
+// already uses below; zero new Domain/Adapter behavior. Kept as its own
+// function rather than reusing dlp_getSidebarDefectDetail directly so this
+// slice never touches that existing, Desktop-proven wrapper — same reasoning
+// dlp_getCaseOverview already established for Mobile's own version of the
+// Sidebar's dashboard read. Same defensive JSON.stringify as
+// dlp_getCaseOverview: this bundle (defect + rectificationEvents + evidence
+// + secondaryDamage arrays) is a comparably complex nested payload crossing
+// the same Mobile google.script.run boundary that needed the fix before —
+// untested here whether it would actually recur, applied proactively rather
+// than found out the hard way a second time.
+function dlp_getMobileDefectDetail(input) {
+  var result = dlp_wrap_(function () {
+    input = input || {};
+    return buildDefectDetailForSidebar_(input.defectId);
+  });
+  return JSON.stringify(result);
+}
+
 // ─── Sidebar DLP Tab (Phase 1, 2026-08-31) ─────────────────────────────
 // New dlp_* wrappers for 945_OperatorConsole.html's DLP tab, per
 // DlpSidebarTab_UIContract.md §12/§18/§1 (Case Overview, Defect List,
