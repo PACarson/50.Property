@@ -694,8 +694,14 @@
 // JSON.parse/错误处理模式）取代真机验证，不是真机验证的替代品，只是
 // 在没有真机测试之前能做到的最高确定性。
 //
-// 真机 / Real-GAS 验证：PENDING，需要 CC 在真实专案打开 Mobile Console
-// 实际点一个 Defect 卡片确认。
+// 真机 / Real-GAS 验证：★ 2026-09-08 更新——VERIFIED。CC 在真实专案对
+// DefectID 5124 做了编辑器 Smoke Test（Execution log 确认回传类型是
+// string、成功解析、Category/Events/Evidence 笔数正确、
+// SecondaryDamage 确实存在于 payload 里）+ 真机点击：手机点卡片秒级
+// 展开详情，无白屏或序列化问题，字段渲染完整无错位，Secondary Damage
+// 未泄漏、没有多余可写控件，返回导航正常。之前 M1 报告里"担心
+// Rectification Events/Evidence 巢状 payload 重演 dlp_getCaseOverview
+// 序列化问题"的疑虑，这次真机确认没有发生。
 //
 // 依赖：无新增 Domain 行为——完全建立在既有 buildDefectDetailForSidebar_
 // 上，901 schema 不用改。
@@ -738,8 +744,22 @@
 // dlp_addSecondaryDamage 一个都没有）、grep 确认
 // dlp_recordOwnerVerification 确实只在这次新增的一个地方被呼叫。
 //
-// 真机 / Real-GAS 验证：PENDING（跟 M1 一样）。★ 明确记录：M1 本身也
-// 还没真机验证，这次是 Owner 主动决定先往前开发，不是评估后认为可以
-// 不验证。
+// 真机 / Real-GAS 验证：★ 2026-09-08 更新——mutation 路径本身
+// VERIFIED，同时发现并当场修正一个 UI bug（细节见下）。CC 真机测试
+// Owner Verification，回报"功能和记录一切正常"——提交后 Timeline/
+// OwnerVerificationStatus 确实按预期更新，clientRequestId 路径在真实
+// 环境下也确认工作正常。
+//
+// 发现的 bug（真机测试才暴露，本地静态核对无法测到）：Submit Owner
+// Verification 按钮在未选取任何选项时应该是 disabled，但 .btn-secondary
+// 这个 class 从来没有对应的 :disabled 样式规则（.btn-primary 有，
+// .btn-secondary 没有）——导致停用状态跟可点击状态视觉上一模一样，CC
+// 一开始的描述是"看似可用，但是按钮按不到"，也就是先点了 Submit（那
+// 时候还没选 chip，浏览器原生行为正确地挡下了点击，但完全没有视觉提示
+// 告诉使用者为什么点不动）。修法：新增 .btn-secondary:disabled
+// { opacity:.5 }，比照 .btn-primary 既有写法。检查过
+// addEvidenceBtn/doneBtn 这两个也用 .btn-secondary 的既有按钮从来没有
+// 被设成 disabled 过，这次新增的样式规则不会影响它们已经真机验证过的
+// 外观。这次修正后还没有再让 CC 重新真机确认这个视觉修正本身。
 //
 // 依赖：无新增 Domain/Bridge 行为。

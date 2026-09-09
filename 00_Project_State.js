@@ -381,6 +381,20 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-08      M1+M2 真机/云端冒烟验证。M1（BL-14）VERIFIED——
+//                   Execution log 确认 DefectID 5124 详情正确回传，真机
+//                   点击卡片秒级展开、无白屏或序列化问题、字段渲染完整、
+//                   Secondary Damage 未泄漏、返回导航正常。M2（BL-15）
+//                   mutation 路径 VERIFIED（Owner Verification 提交+
+//                   记录确认正常），同时发现并当场修正一个 UI bug：
+//                   .btn-secondary 缺少 :disabled 样式，导致 Submit
+//                   按钮停用时视觉上跟可点击时相同（CC 一开始点了还没
+//                   选 chip 时的 Submit，原生行为正确挡下但没有视觉
+//                   提示）。新增 .btn-secondary:disabled{opacity:.5}，
+//                   确认过既有的 addEvidenceBtn/doneBtn 从未被设成
+//                   disabled，这个修正不影响它们已验证过的外观。这个
+//                   视觉修正本身还没有请 CC 重新确认。
+//
 //   2026-09-08      BL-15 Mobile Defect Detail MVP — M2 Owner
 //                   Verification 写入。947/918 逐字未动（BL-13 起就已
 //                   支援 clientRequestId）；948 新增 chip-then-submit

@@ -95,6 +95,16 @@
     background: #fff; color: #1a73e8; font-size: 15px; font-weight: 600;
     cursor: pointer; margin-top: 10px;
   }
+  /* Bug found in M2 real-device testing (2026-09-08): .btn-primary had a
+     :disabled rule but .btn-secondary never did, so ov_submitBtn's
+     disabled state (before a chip is picked, and again while a
+     submission is in flight) looked visually identical to its enabled
+     state — same color, same cursor — even though the native <button
+     disabled> attribute genuinely blocked the tap. Mirrors
+     .btn-primary:disabled exactly. addEvidenceBtn/doneBtn also use
+     .btn-secondary but are never toggled disabled, so this only ever
+     visually affects ov_submitBtn. */
+  .btn-secondary:disabled { opacity: .5; cursor: default; }
   .saved-state { text-align: center; padding: 34px 10px 10px; }
   .saved-check { font-size: 42px; color: #188038; line-height: 1; }
   .saved-title { font-size: 18px; font-weight: 600; margin: 12px 0 4px; }
