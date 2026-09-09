@@ -268,6 +268,16 @@
     <button class="btn-secondary" id="ov_submitBtn" disabled>Submit Owner Verification</button>
     <div id="ov_status" style="font-size:13px;color:#5f6368;margin-top:8px"></div>
 
+    <h3>Developer Status</h3>
+    <div class="chips" id="ds_chips">
+      <div class="ovchip" data-status="Pending">Pending</div>
+      <div class="ovchip" data-status="Scheduled">Scheduled</div>
+      <div class="ovchip" data-status="InProgress">In Progress</div>
+      <div class="ovchip" data-status="ClaimedCompleted">Claimed Completed</div>
+    </div>
+    <button class="btn-secondary" id="ds_submitBtn" disabled>Submit Developer Status</button>
+    <div id="ds_status" style="font-size:13px;color:#5f6368;margin-top:8px"></div>
+
     <h3>Dates</h3>
     <div class="summary-box">
       <div class="summary-line"><span>Submitted</span><span id="dd_submittedAt">—</span></div>
@@ -298,7 +308,9 @@ var state = {
   bootstrapped: false,
   currentDefectId: null,
   ownerVerificationSelectedStatus: null,
-  ownerVerificationClientRequestId: null
+  ownerVerificationClientRequestId: null,
+  developerStatusSelected: null,
+  developerStatusClientRequestId: null
 };
 
 document.addEventListener('DOMContentLoaded', init);
@@ -308,6 +320,7 @@ function init() {
   setupEvidenceFlow();
   setupNav();
   setupOwnerVerification_();
+  setupDeveloperStatus_();
   loadBootstrap();
 }
 
@@ -682,6 +695,11 @@ function openDefectDetail_(defectId) {
   document.querySelectorAll('#ov_chips .ovchip').forEach(function (c) { c.classList.remove('selected'); });
   document.getElementById('ov_submitBtn').disabled = true;
   document.getElementById('ov_status').textContent = '';
+  state.developerStatusSelected = null;
+  state.developerStatusClientRequestId = null;
+  document.querySelectorAll('#ds_chips .ovchip').forEach(function (c) { c.classList.remove('selected'); });
+  document.getElementById('ds_submitBtn').disabled = true;
+  document.getElementById('ds_status').textContent = '';
 
   var loadingEl = document.getElementById('detailLoading');
   var contentEl = document.getElementById('detailContent');
@@ -891,6 +909,78 @@ function submitOwnerVerification_() {
       defectId: defectIdAtSubmitTime,
       ownerVerificationStatus: state.ownerVerificationSelectedStatus,
       clientRequestId: state.ownerVerificationClientRequestId
+    });
+}
+
+// ─── Developer Status (M3, 2026-09-08) ──────────────────────────────
+//
+// Exact same chip-then-submit shape as Owner Verification above — same
+// .ovchip/.btn-secondary reuse (including the :disabled fix from the M2
+// real-device recheck, applied here from the start rather than found the
+// same way twice), same clientRequestId lifecycle, same "re-fetch the
+// whole Detail on success" refresh. dlp_recordDeveloperStatus (947,
+// unchanged) / recordDeveloperStatus (918, unchanged) both real-GAS
+// verified already under BL-13. Canonical values come straight from
+// PROPERTY_CONFIG.DEVELOPER_STATUSES (900) — Pending/Scheduled/
+// InProgress/ClaimedCompleted — nothing invented or translated here; the
+// chip labels are just friendlier display text ("In Progress" /
+// "Claimed Completed") but data-status carries the exact Domain string.
+
+function setupDeveloperStatus_() {
+  document.querySelectorAll('#ds_chips .ovchip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      document.querySelectorAll('#ds_chips .ovchip').forEach(function (c) { c.classList.remove('selected'); });
+      chip.classList.add('selected');
+      state.developerStatusSelected = chip.getAttribute('data-status');
+      document.getElementById('ds_submitBtn').disabled = false;
+    });
+  });
+  document.getElementById('ds_submitBtn').addEventListener('click', submitDeveloperStatus_);
+}
+
+function submitDeveloperStatus_() {
+  if (!state.developerStatusSelected || !state.currentDefectId) return;
+
+  var btn = document.getElementById('ds_submitBtn');
+  var statusEl = document.getElementById('ds_status');
+  var chips = document.querySelectorAll('#ds_chips .ovchip');
+
+  if (!state.developerStatusClientRequestId) {
+    state.developerStatusClientRequestId = generateClientRequestId_();
+  }
+
+  btn.disabled = true;
+  chips.forEach(function (c) { c.style.pointerEvents = 'none'; });
+  statusEl.style.color = '#5f6368';
+  statusEl.textContent = 'Submitting…';
+
+  var defectIdAtSubmitTime = state.currentDefectId;
+
+  google.script.run
+    .withSuccessHandler(function (res) {
+      chips.forEach(function (c) { c.style.pointerEvents = ''; });
+      if (!res || !res.success) {
+        btn.disabled = false;
+        statusEl.style.color = '#d93025';
+        statusEl.textContent = (res && res.error) ? res.error : 'Submission failed.';
+        showToast(statusEl.textContent, true);
+        return;
+      }
+      state.developerStatusClientRequestId = null;
+      showToast('Developer status recorded.');
+      openDefectDetail_(defectIdAtSubmitTime);
+    })
+    .withFailureHandler(function (err) {
+      chips.forEach(function (c) { c.style.pointerEvents = ''; });
+      btn.disabled = false;
+      statusEl.style.color = '#d93025';
+      statusEl.textContent = err && err.message ? err.message : '网络/RPC 失败';
+      showToast(statusEl.textContent, true);
+    })
+    .dlp_recordDeveloperStatus({
+      defectId: defectIdAtSubmitTime,
+      developerStatus: state.developerStatusSelected,
+      clientRequestId: state.developerStatusClientRequestId
     });
 }
 

@@ -381,6 +381,17 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-09      BL-16 Mobile Defect Detail MVP — M3 Developer
+//                   Status 写入。947/918 逐字未动（BL-13 起就已支援
+//                   clientRequestId）；948 新增第二组 chip-then-submit
+//                   控件，四个选项对应 DEVELOPER_STATUSES 权威枚举。
+//                   100% 重用 M2 建立的 .ovchip 与已修正的
+//                   .btn-secondary:disabled，零新增 CSS，从设计阶段就
+//                   避开 M2 那次"disabled 但看起来能点"的问题，不是
+//                   事后修正。947/918/922 测试数字不受影响
+//                   （22/163/67）。M1/M2 既有 VERIFIED 状态维持不变，
+//                   M3 = REAL-GAS VERIFICATION PENDING。详见 BL-16。
+//
 //   2026-09-08      M1+M2 真机/云端冒烟验证。M1（BL-14）VERIFIED——
 //                   Execution log 确认 DefectID 5124 详情正确回传，真机
 //                   点击卡片秒级展开、无白屏或序列化问题、字段渲染完整、

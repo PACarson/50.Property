@@ -763,3 +763,34 @@
 // 外观。这次修正后还没有再让 CC 重新真机确认这个视觉修正本身。
 //
 // 依赖：无新增 Domain/Bridge 行为。
+
+// BL-16 — Mobile Defect Detail MVP，M3 Developer Status 写入（提出并
+// 实作于 2026-09-09，M1-M5 第三个）
+//
+// 背景：M1（VERIFIED）、M2（mutation 路径 VERIFIED，视觉修正待重新
+// 确认）之后，Owner 继续推进 M3。947/918 的 Developer Status 路径
+// BL-13 起就已经支援 clientRequestId、真机验证过，这次逐字未动。
+//
+// 实作：完全比照 M2 Owner Verification 的既有交互模式——chip 选、
+// 按钮才送，不是点了就送。四个选项对应
+// PROPERTY_CONFIG.DEVELOPER_STATUSES 权威枚举（Pending/Scheduled/
+// InProgress/ClaimedCompleted）本身，UI 上显示的"In Progress"/
+// "Claimed Completed"只是给使用者看的友善文字，实际送进 947/918 的
+// data-status 值是精确的 Domain 字串，没有另外发明或翻译。样式 100%
+// 重用既有的 .ovchip（M2 建立）跟 .btn-secondary（含上一轮真机测试
+// 后修好的 :disabled 规则）——这次从一开始就用对，没有重蹈 M2 那个
+// "disabled 但看起来能点"的覆辙，零新增 CSS。
+//
+// 测试：947（22/22）、918（163/163）、922（67/67）逐字不受影响——
+// Developer Status 的 server 端逻辑本来就没有新代码。948 的 client
+// 端行为一样用静态核对：grep 确认零直接 Sheet 存取、零意外混入
+// M4/M5（dlp_addRectificationEvent/dlp_attachDefectEvidence/
+// dlp_addSecondaryDamage）、确认 dlp_recordDeveloperStatus 只在这次
+// 新增的一处被呼叫、确认新的 #ds_chips 用的是已经验证过不会跟 Daily
+// Check 既有 unscoped `.chip` selector 碰撞的 `.ovchip` class，这次
+// 从设计阶段就避开了 M2 走过的弯路，不是事后才发现修正。
+//
+// 真机 / Real-GAS 验证：PENDING。M1/M2 现有的 VERIFIED 状态维持不变，
+// 没有因为 M3 的进展而被推论式地一併升级。
+//
+// 依赖：无新增 Domain/Bridge 行为，无新增 CSS。
