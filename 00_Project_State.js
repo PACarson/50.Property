@@ -381,6 +381,28 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-09      M1/M2/M3 真机测试全数通过，无异常。M2 的
+//                   .btn-secondary:disabled 视觉修正这次一併确认——
+//                   BL-15 至此整体 VERIFIED，没有遗留待确认项目。M3
+//                   （BL-16）第一次真的被真机验证，不再只是"代码跟
+//                   M2 已验证过的东西长得一样"的推论式确定性。BL-17
+//                   （Defect Search/Sort）不在这次测试范围内，维持
+//                   PENDING，未被推论式地一併升级。
+//
+//   2026-09-09      BL-17 Mobile DLP Console：Defect Search +
+//                   A-Z/Z-A Sort。纯 read-side、纯 client-side——
+//                   buildCaseOverviewForMobile_（922，未改动）本来就
+//                   回传全部欲搜寻栏位，零新增 backend API。多关键字
+//                   AND、跨栏位 OR、大小写不敏感；排序键选 ItemID
+//                   （ADR-P19 稳定 identity，非卡片标题用的 Location），
+//                   localeCompare({numeric:true}) 正确处理数字/英数
+//                   混合排序。新建 local_precheck_test_948_search.js——
+//                   948 第一次有真的可执行本地测试（不是纯静态核对），
+//                   三个刻意写成纯函式的搜寻/排序逻辑单元测试
+//                   29 项全过。947/918/922（22/163/67）不受影响，
+//                   M1/M2/M3 现有状态维持不变。Mobile UI Contract
+//                   判断不需要修订。详见 BL-17。
+//
 //   2026-09-09      BL-16 Mobile Defect Detail MVP — M3 Developer
 //                   Status 写入。947/918 逐字未动（BL-13 起就已支援
 //                   clientRequestId）；948 新增第二组 chip-then-submit

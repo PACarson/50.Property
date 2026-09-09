@@ -122,6 +122,32 @@
   .card-sub { color: #5f6368; font-size: 12px; margin-top: 6px; }
   .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
   .badge { font-size: 10px; padding: 3px 8px; border-radius: 10px; background: #f1f3f4; color: #5f6368; }
+  /* Defect Search / Sort (2026-09-09) */
+  .search-box {
+    display: flex; align-items: center; gap: 8px; background: #fff;
+    border: 1px solid #dadce0; border-radius: 10px; padding: 0 12px;
+    margin-bottom: 8px;
+  }
+  .search-box .search-icon { color: #9aa0a6; font-size: 14px; }
+  .search-box input {
+    flex: 1; border: none; outline: none; font-size: 14px;
+    min-height: 44px; background: transparent;
+  }
+  .search-clear {
+    border: none; background: none; color: #9aa0a6; font-size: 18px;
+    line-height: 1; cursor: pointer; padding: 4px 2px;
+  }
+  .sort-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .result-count { font-size: 12px; color: #5f6368; }
+  .sort-toggle { display: flex; gap: 6px; }
+  .sort-btn {
+    border: 1px solid #dadce0; background: #fff; color: #5f6368;
+    font-size: 11px; padding: 5px 10px; border-radius: 12px; cursor: pointer;
+  }
+  .sort-btn.selected { background: #e8f0fe; border-color: #1a73e8; color: #1a73e8; }
   .summary-box { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 4px 14px; }
   .summary-line {
     display: flex; justify-content: space-between; padding: 9px 0;
@@ -219,6 +245,18 @@
       <div class="summary-line"><span>Closed</span><span id="ov_closed">—</span></div>
     </div>
     <h3>Defect List</h3>
+    <div class="search-box">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="ov_searchInput" placeholder="Search Item ID, category, location, description…" autocomplete="off" />
+      <button class="search-clear" id="ov_searchClearBtn" aria-label="Clear search" style="display:none">×</button>
+    </div>
+    <div class="sort-row">
+      <span class="result-count" id="ov_resultCount"></span>
+      <div class="sort-toggle">
+        <button class="sort-btn" id="ov_sortAZ" data-sort="asc">A–Z</button>
+        <button class="sort-btn" id="ov_sortZA" data-sort="desc">Z–A</button>
+      </div>
+    </div>
     <div id="ov_defectList"></div>
     <h3>Recent Timeline</h3>
     <div id="ov_timeline"></div>
@@ -310,7 +348,9 @@ var state = {
   ownerVerificationSelectedStatus: null,
   ownerVerificationClientRequestId: null,
   developerStatusSelected: null,
-  developerStatusClientRequestId: null
+  developerStatusClientRequestId: null,
+  allDefects: [],
+  defectSortMode: null
 };
 
 document.addEventListener('DOMContentLoaded', init);
@@ -321,6 +361,7 @@ function init() {
   setupNav();
   setupOwnerVerification_();
   setupDeveloperStatus_();
+  setupDefectSearch_();
   loadBootstrap();
 }
 
@@ -615,41 +656,18 @@ function renderOverview_(data) {
   document.getElementById('ov_verified').textContent = counts.Verified != null ? counts.Verified : 0;
   document.getElementById('ov_closed').textContent = counts.Closed != null ? counts.Closed : 0;
 
-  // 2. 缺陷列表
-  var listEl = document.getElementById('ov_defectList');
-  listEl.innerHTML = '';
-  var defects = data.defects || [];
-  if (defects.length === 0) {
-    listEl.innerHTML = '<div class="empty">No defects on record.</div>';
-  } else {
-    defects.forEach(function (d) {
-      var card = document.createElement('div');
-      card.className = 'card';
-      card.style.cursor = 'pointer';
-      card.addEventListener('click', function () { openDefectDetail_(d.defectId); });
-      // SubCategory is optional (901_PropertySchema.js) — folded into the
-      // title next to Category only when present, so an empty SubCategory
-      // never shows as a stray separator or "undefined".
-      var categoryText = d.category || '';
-      if (d.subCategory) { categoryText += ' / ' + d.subCategory; }
-      card.innerHTML =
-        '<div class="card-title">' + escapeHtml((d.location || 'Defect') + ' — ' + categoryText) + '</div>' +
-        // ItemID: real import/dedup identity — shown right under the title
-        // so it's the field-worker's cross-reference to the physical item.
-        // Optional; omitted entirely (not "ID: ") when unset.
-        (d.itemId ? '<div class="card-sub">ID: ' + escapeHtml(d.itemId) + '</div>' : '') +
-        '<div class="badges">' +
-          '<span class="badge">' + escapeHtml(d.status || '') + '</span>' +
-          '<span class="badge">Dev: ' + escapeHtml(d.developerStatus || '') + '</span>' +
-          '<span class="badge">Owner: ' + escapeHtml(d.ownerVerificationStatus || '') + '</span>' +
-        '</div>' +
-        // Remark: optional free-text note on the defect itself, distinct
-        // from latestEvent (most recent Timeline activity) below it.
-        (d.remark ? '<div class="card-sub">Remark: ' + escapeHtml(d.remark) + '</div>' : '') +
-        (d.latestEvent ? '<div class="card-sub">' + escapeHtml(d.latestEvent) + '</div>' : '');
-      listEl.appendChild(card);
-    });
-  }
+  // 2. 缺陷列表 — 完整清单存进 state.allDefects，交给
+  // applyDefectSearchAndSort_ 依目前的搜寻字串/排序模式渲染。每次
+  // Overview 重新抓取（含各 M2/M3 mutation 成功后的 openDefectDetail_ →
+  // 返回 Overview 路径）都是全新一份权威资料，所以搜寻框跟排序状态
+  // 也一併重置，不沿用上一次的筛选结果。
+  state.allDefects = data.defects || [];
+  document.getElementById('ov_searchInput').value = '';
+  document.getElementById('ov_searchClearBtn').style.display = 'none';
+  state.defectSortMode = null;
+  document.getElementById('ov_sortAZ').classList.remove('selected');
+  document.getElementById('ov_sortZA').classList.remove('selected');
+  applyDefectSearchAndSort_();
 
   // 3. 时间轴
   var tlEl = document.getElementById('ov_timeline');
@@ -669,7 +687,126 @@ function renderOverview_(data) {
   }
 }
 
-// ─── Defect Detail (read-only, M1, 2026-09-08) ──────────────────────
+// ─── Defect Search / Sort (2026-09-09) ──────────────────────────────
+//
+// Read-only, client-side only. Operates entirely on state.allDefects,
+// the exact array buildCaseOverviewForMobile_ (922) already returns and
+// renderOverview_ already receives — no new RPC, no change to
+// 947/918/922, no per-keystroke server call. The three "pure" functions
+// below (defectMatchesQuery_/compareDefectsByItemId_/
+// filterAndSortDefects_) touch no DOM and take/return plain data, so
+// they're the one piece of 948 logic this slice can actually unit-test
+// directly in Node — everything else in 948 still can't be, for the
+// same DOM-dependency reason M1/M2/M3 already documented.
+
+// AND across keywords, OR across fields: every keyword must appear
+// somewhere in the joined searchable text; a single keyword is just the
+// n=1 case of the same rule. Case-insensitive via toLowerCase() on both
+// sides. CaseID/clientRequestId/internal timestamps are deliberately
+// excluded — matches only the fields a user would recognize as
+// information about the defect itself.
+function defectMatchesQuery_(defect, query) {
+  var q = (query || '').trim().toLowerCase();
+  if (!q) return true;
+  var keywords = q.split(/\s+/);
+  var haystack = [
+    defect.itemId, defect.category, defect.subCategory,
+    defect.location, defect.description, defect.remark
+  ].filter(Boolean).join(' ').toLowerCase();
+  return keywords.every(function (kw) { return haystack.indexOf(kw) !== -1; });
+}
+
+// ItemID default sort key: it's the stable import/dedup identity (ADR-P19)
+// tying back to the original Defect Report, not just this UI's visual
+// heading (Location is the card title, but multiple defects legitimately
+// share the same Location — it isn't an identity). localeCompare with
+// {numeric:true} gives correct ordering whether ItemID is purely numeric
+// ("2" < "10"), alphanumeric ("DEF-2" < "DEF-10"), or empty (sorts first),
+// without needing to know in advance which format the real data uses.
+function compareDefectsByItemId_(a, b) {
+  var av = (a && a.itemId != null) ? String(a.itemId) : '';
+  var bv = (b && b.itemId != null) ? String(b.itemId) : '';
+  return av.localeCompare(bv, undefined, { numeric: true, sensitivity: 'base' });
+}
+
+// sortMode: null = original/natural order (as returned by
+// listDefectItemsForCase, i.e. no explicit sort applied yet — matches the
+// task's own "All defects" starting state before A-Z/Z-A is tapped),
+// 'asc' = A-Z, 'desc' = Z-A. Filtering never mutates allDefects — always
+// returns a new array — so "clear search" can restore the full list
+// without another fetch.
+function filterAndSortDefects_(allDefects, query, sortMode) {
+  var result = (allDefects || []).filter(function (d) { return defectMatchesQuery_(d, query); });
+  if (sortMode === 'asc') {
+    result = result.slice().sort(compareDefectsByItemId_);
+  } else if (sortMode === 'desc') {
+    result = result.slice().sort(function (a, b) { return compareDefectsByItemId_(b, a); });
+  }
+  return result;
+}
+
+function renderDefectListCards_(defects) {
+  var listEl = document.getElementById('ov_defectList');
+  listEl.innerHTML = '';
+  if (defects.length === 0) {
+    listEl.innerHTML = '<div class="empty">No matching defects.</div>';
+    return;
+  }
+  defects.forEach(function (d) {
+    var card = document.createElement('div');
+    card.className = 'card';
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', function () { openDefectDetail_(d.defectId); });
+    var categoryText = d.category || '';
+    if (d.subCategory) { categoryText += ' / ' + d.subCategory; }
+    card.innerHTML =
+      '<div class="card-title">' + escapeHtml((d.location || 'Defect') + ' — ' + categoryText) + '</div>' +
+      (d.itemId ? '<div class="card-sub">ID: ' + escapeHtml(d.itemId) + '</div>' : '') +
+      '<div class="badges">' +
+        '<span class="badge">' + escapeHtml(d.status || '') + '</span>' +
+        '<span class="badge">Dev: ' + escapeHtml(d.developerStatus || '') + '</span>' +
+        '<span class="badge">Owner: ' + escapeHtml(d.ownerVerificationStatus || '') + '</span>' +
+      '</div>' +
+      (d.remark ? '<div class="card-sub">Remark: ' + escapeHtml(d.remark) + '</div>' : '') +
+      (d.latestEvent ? '<div class="card-sub">' + escapeHtml(d.latestEvent) + '</div>' : '');
+    listEl.appendChild(card);
+  });
+}
+
+function applyDefectSearchAndSort_() {
+  var query = document.getElementById('ov_searchInput').value;
+  var result = filterAndSortDefects_(state.allDefects, query, state.defectSortMode);
+
+  var countEl = document.getElementById('ov_resultCount');
+  var total = state.allDefects.length;
+  countEl.textContent = query.trim()
+    ? 'Showing ' + result.length + ' of ' + total + ' defects'
+    : total + ' defect' + (total === 1 ? '' : 's');
+
+  document.getElementById('ov_searchClearBtn').style.display = query ? 'block' : 'none';
+
+  renderDefectListCards_(result);
+}
+
+function setupDefectSearch_() {
+  document.getElementById('ov_searchInput').addEventListener('input', applyDefectSearchAndSort_);
+  document.getElementById('ov_searchClearBtn').addEventListener('click', function () {
+    document.getElementById('ov_searchInput').value = '';
+    applyDefectSearchAndSort_();
+  });
+  document.getElementById('ov_sortAZ').addEventListener('click', function () {
+    state.defectSortMode = state.defectSortMode === 'asc' ? null : 'asc';
+    document.getElementById('ov_sortAZ').classList.toggle('selected', state.defectSortMode === 'asc');
+    document.getElementById('ov_sortZA').classList.remove('selected');
+    applyDefectSearchAndSort_();
+  });
+  document.getElementById('ov_sortZA').addEventListener('click', function () {
+    state.defectSortMode = state.defectSortMode === 'desc' ? null : 'desc';
+    document.getElementById('ov_sortZA').classList.toggle('selected', state.defectSortMode === 'desc');
+    document.getElementById('ov_sortAZ').classList.remove('selected');
+    applyDefectSearchAndSort_();
+  });
+}
 //
 // Same shape as openOverview()/renderOverview_ above: 947's
 // dlp_getMobileDefectDetail returns a JSON.stringify()'d {success,data}

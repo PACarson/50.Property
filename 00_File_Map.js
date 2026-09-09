@@ -864,6 +864,15 @@
 //     Event 三者走真实呼叫；Evidence 用既有 driveFileId 捷径避开 911
 //     那个已知 PropertiesService gap），不重测 918 已经测过的
 //     idempotency 机制本体。跑法：node local_precheck_test_947.js。
+//   local_precheck_test_948_search.js（新增，2026-09-09）——
+//     948_MobileConsole.html 第一个本地测试档案（也是第一个真的可执行、
+//     不是纯静态核对的 948 测试）。只测 Defect Search/Sort（BL-17）
+//     的三个纯函式（defectMatchesQuery_/compareDefectsByItemId_/
+//     filterAndSortDefects_，刻意不碰 DOM）——把 948 的 <script> 内容
+//     读进一个只 stub 了 document.addEventListener 的最小 VM context
+//     直接呼叫。948 其余 DOM 相关行为（M1-M3 的 render/setup 函式
+//     本体）不在这个档案的测试范围内，沿用既有的静态 grep 核对方式。
+//     跑法：node local_precheck_test_948_search.js。
 //   2026-09-06 重新执行全部现役 local_precheck_test_*.js 确认目前实际
 //     数字（上面 2026-08-26 那行数字已经过时，不重写历史记录，只在此
 //     新增一行如实反映现况）：918 163/163（含本次新增 16 项

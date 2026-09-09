@@ -760,7 +760,10 @@
 // { opacity:.5 }，比照 .btn-primary 既有写法。检查过
 // addEvidenceBtn/doneBtn 这两个也用 .btn-secondary 的既有按钮从来没有
 // 被设成 disabled 过，这次新增的样式规则不会影响它们已经真机验证过的
-// 外观。这次修正后还没有再让 CC 重新真机确认这个视觉修正本身。
+// 外观。★ 2026-09-09 更新——这个视觉修正本身也已经真机确认：CC 测试
+// 报告"M2（含按钮停用视觉）真机测试全数通过，无异常"，disabled 状态
+// 现在视觉上真的看得出来，不再是"看似可用但按不到"。至此 BL-15
+// 整体（mutation 路径 + 视觉修正）全部 VERIFIED，没有遗留待确认项目。
 //
 // 依赖：无新增 Domain/Bridge 行为。
 
@@ -790,7 +793,52 @@
 // Check 既有 unscoped `.chip` selector 碰撞的 `.ovchip` class，这次
 // 从设计阶段就避开了 M2 走过的弯路，不是事后才发现修正。
 //
-// 真机 / Real-GAS 验证：PENDING。M1/M2 现有的 VERIFIED 状态维持不变，
-// 没有因为 M3 的进展而被推论式地一併升级。
+// 真机 / Real-GAS 验证：★ 2026-09-09 更新——VERIFIED。CC 测试报告
+// "M3 真机测试全数通过，无异常"——这是 M3 第一次真的被真机验证，
+// 不再只是"代码跟 M2 已验证过的东西长得一样"这种推论式的确定性
+// （M3 报告 G 节当时特别诚实标注过这个差异，现在这个差异已经补上）。
 //
 // 依赖：无新增 Domain/Bridge 行为，无新增 CSS。
+
+// BL-17 — Mobile DLP Console：Defect Search + A-Z/Z-A Sort（提出并
+// 实作于 2026-09-09）
+//
+// 背景：Case 底下的 Defect 数量会累积，需要能快速用 Item ID/Category/
+// Location/Description 等关键字定位特定 defect，加上按 Item ID 排序。
+// 纯 read-side 强化，不属于 M1-M5 mutation 序列。
+//
+// 实作：完全 client-side、完全在既有的 state.allDefects 上操作——
+// buildCaseOverviewForMobile_（922）本来就已经回传 itemId/category/
+// subCategory/location/description/remark 全部欲搜寻栏位，零新增
+// backend API、零改动 918/922/901。搜寻语意：多关键字之间 AND、单一
+// 关键字内跨栏位 OR（关键字只要出现在任一可搜寻栏位就算命中），大小写
+// 不敏感，不搜 CaseID/内部时间戳/clientRequestId 这类非使用者导向欄位。
+// 排序预设键选 ItemID 而非卡片标题用的 Location——ItemID 是
+// ADR-P19 定义的稳定 import/dedup identity，Location 只是显示用的
+// 标题文字，多个 defect 完全可能共用同一个 Location，不构成 identity。
+// 用 localeCompare({numeric:true}) 处理排序，不管 ItemID 实际是纯数字
+// （"2"排在"10"前面）还是英数混合（"DEF-2"排在"DEF-10"前面）都正确，
+// 不用事先假设真实资料格式。A-Z/Z-A 按钮设计成可以再按一次取消排序、
+// 回到原始（未排序）顺序，不是只能三选一互斥。
+//
+// 测试：**这次是真的有可执行、非纯静态的本地测试**——
+// defectMatchesQuery_/compareDefectsByItemId_/filterAndSortDefects_
+// 三个函式刻意写成不碰 DOM 的纯函式，新建
+// local_precheck_test_948_search.js，把 948 的 <script> 内容读进一个
+// 最小 VM context（只 stub 了 document.addEventListener 让顶层那行
+// 不报错，没有 stub google.script.run，因为这三个函式本来就不会碰到
+// 它）直接呼叫这三个函式，29 项全过，包含真的执行验证"2"排在"10"前面
+// （证明数字感知排序真的生效，不是只有设计意图）。DOM 相关的部分
+// （render/setup 函式本体、无 per-keystroke RPC、M1/M2/M3 完整保留）
+// 沿用 M1-M3 建立的静态 grep 核对方式。947/918/922 三个既有测试档案
+// （22/163/67）逐字不受影响。
+//
+// Mobile UI Contract：判断不需要修订——Defect List 本来就是 Contract
+// §1 已核准的只读范围，这次只是同一份已核准资料的新浏览/筛选方式，
+// 没有新增任何写入能力、没有曝光 Secondary Damage/Correspondence，
+// 没有变动已核准的 scope 边界本身。
+//
+// 真机验证：PENDING。M1/M2（mutation 路径）既有 VERIFIED 状态、M2
+// 视觉修正的 RECHECK PENDING 状态都维持不变，未受这次改动影响。
+//
+// 依赖：无新增 Domain/Bridge/Schema 行为。
