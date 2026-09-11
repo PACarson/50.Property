@@ -1163,6 +1163,11 @@
 //   Sidebar. See DlpSidebarTab_UIContract.md §13 for the original
 //   per-Command audit this reasoning extends, and 00_Review_History.js
 //   REVIEW-008/REVIEW-009 for where it was applied.
+//   ★ 2026-09-09 forward-reference: ADR-P25 is this decision's Mobile-side
+//   counterpart — the same two Commands (Developer Status/Owner
+//   Verification) that Sidebar deliberately leaves without
+//   clientRequestId gained it specifically for Mobile's different risk
+//   profile. This ADR's decision for Sidebar is unaffected and unchanged.
 
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1392,3 +1397,143 @@
 //   project. The IMPLEMENTATION STATUS NOTE above is preserved as the
 //   historical record of what was true at 2026-09-04; it no longer
 //   describes the current state as of this update.
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// ADR-P25 — recordDeveloperStatus/recordOwnerVerification Gain
+// clientRequestId at the Domain Layer, Motivated by Mobile
+// ═══════════════════════════════════════════════════════════════════════
+//
+// STATUS: APPROVED (2026-09-06), DEPLOYED — REAL-GAS VERIFIED (2026-09-08)
+//
+// CONTEXT:
+//   BL-13's Idempotency Decision Gate analysis found recordDeveloperStatus
+//   /recordOwnerVerification (918) were the only two DLP mutation Commands
+//   without clientRequestId support (logDailyProgressCheck/
+//   logRectificationEvent/logSecondaryDamage/attachEvidence all already
+//   had it). Their Set-semantics mean a retry can't corrupt the
+//   authoritative Status value itself, but appendCaseTimelineEntry_ has
+//   no natural dedup — a retry produces a genuine duplicate Timeline row.
+//   This became decision-relevant specifically because Mobile Field
+//   Console (BL-14 onward) was about to expose these two Commands to a
+//   phone-browser/flaky-connection surface for the first time — ADR-P21
+//   had already established that Sidebar's stable-connection profile
+//   didn't justify the mechanism for the three Commands that already had
+//   it; Mobile's profile is exactly the opposite case ADR-P21 explicitly
+//   reasoned about.
+//
+// DECISION:
+//   Add clientRequestId support to both recordDeveloperStatus and
+//   recordOwnerVerification at the 918 Domain layer, reusing the existing
+//   getCachedDefectEngineCommandResult_/cacheDefectEngineCommandResult_
+//   helpers verbatim (same CacheService mechanism, same 3600s TTL, same
+//   shared propertyos_idem_defect_ cache-key namespace already used by
+//   the other four Commands). 947's dlp_recordDeveloperStatus/
+//   dlp_recordOwnerVerification wrappers forward it; while implementing
+//   this, also fixed dlp_addRectificationEvent/dlp_attachDefectEvidence,
+//   whose wrappers were silently dropping clientRequestId even though
+//   logRectificationEvent/attachEvidence already supported it at the
+//   Domain layer (a pre-existing Bridge-layer gap, not something this
+//   ADR's Domain-layer change introduced).
+//
+// CONSEQUENCES:
+//   Every DLP mutation Command in 918/911 now supports clientRequestId
+//   uniformly. Desktop/Sidebar behavior is unchanged — confirmed by
+//   reading 945/947's actual wrapper code: none of Sidebar's dlp_* write
+//   wrappers pass clientRequestId (ADR-P21's decision stands, untouched),
+//   and the parameter is optional, so this Domain-layer addition is a
+//   no-op for any caller that doesn't supply one. Any future DLP mutation
+//   Command should default to including clientRequestId support from the
+//   start, matching this now-uniform pattern, rather than treating it as
+//   an opt-in add-on decided per Command.
+//
+// ALTERNATIVES CONSIDERED:
+//   (A) Do nothing, open Mobile without the protection — rejected, the
+//   fix is small/mechanical/fully precedented and the risk (Timeline
+//   audit-trail pollution, worse once ADR-P07's real EventBus eventually
+//   lands) is cheap to close now versus explain away indefinitely.
+//   (C) Add it to only one of the two Commands — rejected, no principled
+//   basis: both share an identical risk shape, protecting one and not
+//   the other would just create a new, harder-to-explain asymmetry.
+//   Implementing the fix only at the 947 Bridge or 948 UI layer (instead
+//   of 918 Domain) was also considered and rejected: that would only
+//   protect the Mobile call path, leaving the same latent gap open for
+//   Sidebar if its connection profile assumption (ADR-P21) is ever wrong
+//   — the Domain layer is the one place a fix protects every current and
+//   future caller uniformly.
+//
+// Related ADRs: ADR-P21 (Sidebar's symmetric, opposite decision for the
+//   same category of question — this ADR is its Mobile-side counterpart,
+//   not a reversal of it); ADR-P07 (EventBus placeholder — this ADR's
+//   CONTEXT notes duplicate-Event risk is currently inert only because
+//   ADR-P07's real EventBus isn't wired up yet).
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// ADR-P26 — Mobile Field Console Extends 948 In Place (Option C);
+// Registry Refactor Deferred to an Explicit Trigger
+// ═══════════════════════════════════════════════════════════════════════
+//
+// STATUS: APPROVED (2026-09-06), IN USE — M1/M2/M3 real-device VERIFIED
+//   (2026-09-08/09), Search/Sort IMPLEMENTED — REAL-DEVICE VERIFICATION
+//   PENDING (2026-09-09)
+//
+// CONTEXT:
+//   948_MobileConsole.html was, as of BL-12, a 2-view Web App (Daily
+//   Check + read-only Case Overview). Extending it to a real DLP Field
+//   Console (Defect Detail, then mutation actions) raised an
+//   architecture question analogous to the one ADR-P24 already answered
+//   for Desktop: does Mobile need a bigger structural change (a view
+//   registry, mirroring 945's new ConsolePages pattern from Phase A), or
+//   does the existing flat `.view`/`.view.active` toggle (DlpMobileConsole
+//   _UIContract.md §3, "no routing library") still fit? Unlike ADR-P24,
+//   this was not a hosting-mechanism question (948's doGet() Web App
+//   deployment is untouched and out of scope here) — purely about
+//   internal view-management structure as capability grows.
+//
+// DECISION:
+//   Extend 948 in place: each new capability (Defect Detail, Owner
+//   Verification, Developer Status, Search/Sort) is added as another
+//   `.view` div plus its own render/setup functions in the same file,
+//   reusing existing CSS classes wherever the visual need is a genuine
+//   match (`.chips`→`.ovchip` after a real class-name collision was found
+//   and fixed once; `.btn-secondary`/`.btn-secondary:disabled` after a
+//   real missing-style bug was found and fixed once), rather than
+//   building a view-registry abstraction upfront. A concrete, pre-
+//   committed trigger for revisiting this is recorded now rather than
+//   left open-ended: if 948 grows past roughly 5-6 views, or its file
+//   size roughly doubles again from its BL-12-era baseline, that is the
+//   signal to refactor toward a registry pattern — not a vague "maybe
+//   later." As of this ADR, 948 has 3 views (dailyCheck/overview/
+//   defectDetail).
+//
+// CONSEQUENCES:
+//   M4 (Rectification Event) and M5 (Evidence, still IMPLEMENTED —
+//   UNVERIFIED) should default to the same in-place extension approach
+//   unless the view-count/file-size trigger above has been hit by the
+//   time they're built — check the trigger condition again before
+//   assuming Option C still applies without re-checking. Any new Mobile
+//   read/write capability continues reusing existing 947 wrappers or a
+//   thin new one (per-slice, e.g. dlp_getMobileDefectDetail) rather than
+//   duplicating Domain/Adapter logic — this ADR does not change that
+//   already-established boundary, only 948's own internal structure.
+//
+// ALTERNATIVES CONSIDERED:
+//   Option A (from the original Upgrade Proposal) — continue expanding
+//   948 exactly as it already worked for Daily Check/Overview: this IS
+//   the option approved here, relabeled Option C in the proposal that
+//   combined it with an explicit revisit trigger (see next).
+//   Option B — rebuild 948 around a lightweight view registry now,
+//   mirroring Desktop's ConsolePages pattern (from ADR-P24/Phase A):
+//   rejected for now — building that structure ahead of real usage
+//   validating the need for more than 2-3 additional views would be
+//   over-building relative to ADR-P14's Console MVP principle, the same
+//   reasoning ACTIVE_DLP_CASE_ID's deferred-Case-Selector decision
+//   already established for this project. Not rejected permanently —
+//   the trigger condition above exists specifically so this gets
+//   revisited on real evidence (view count/file growth), not vibes.
+//
+// Related ADRs: ADR-P24 (the analogous Desktop decision — different
+//   surface, same "don't over-build the hosting/structure ahead of real
+//   need" reasoning); ADR-P14 (Console MVP principle this decision
+//   applies).

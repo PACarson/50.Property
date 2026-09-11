@@ -1,5 +1,7 @@
 # DLP Mobile Console — UI Contract (Phase 9/10)
 
+**★ 2026-09-09 — see §12 Amendment before reading §1's Scope table as current.** Mobile has since gained Defect Detail, Owner Verification, and Developer Status (M1-M3, real-device VERIFIED), plus Defect Search/Sort (real-device verification pending) — none of which §0/§1 below describe, since they predate all of this by three weeks. §0-§11 are preserved exactly as originally approved (2026-08-19) for historical accuracy; §12 is the current word on scope.
+
 **Status: RUNTIME CODE COMPLETE, NOT PRODUCTION-READY (2026-08-19) — all §9 items resolved. 947/948/900/appsscript.json written and `node --check` syntax-clean only; zero real GAS or real-device verification performed. Production-Ready requires the 11-step real-device pass in §11 below — see that section before assuming any of this works.**
 **Scope**: the standalone `doGet()` Mobile Web Console only. The Sidebar "DLP" Tab (945/946) is a Desktop management surface and is explicitly out of scope for this document — it gets its own design pass later.
 **Governance**: builds on ADR-P14 (Console MVP principle — real usage feedback, not feature-complete; no per-UI-layer business rules) and Phase 0 Audit §7 "Web UI Structure." §9.1/§9.2 are deliberately kept as MVP Configuration in `900_PropertyConfig.js`, not Domain Model changes — 918 is untouched by this contract.
@@ -251,3 +253,33 @@ A binary gate, not something earned gradually through more code review. Required
 Only after all 11 pass does `MANUAL_VERIFICATION_CHECKLIST.md` get updated per UEF's Production-Ready definition — that update is evidence the verification happened, not a formality done ahead of it.
 
 **Where the real bugs are likely hiding** — none of this is catchable by `node --check` or any amount of static review, which is the entire reason this gate exists rather than being waved through: mobile browser quirks, login/session state, `google.script.run` behavior under real network conditions, file upload handling, Drive permissions, the Web App deployment itself, degraded-connection UI states, double-tap-after-save behavior, date/timezone handling, and Blob/file handling for phone-camera-captured photos specifically.
+
+---
+
+## 12. Amendment (2026-09-09) — Current Scope
+
+§0/§1/§10/§11 above describe this Contract's state as of its 2026-08-19 approval and 2026-08-22 Production-Ready pass. Everything below was added across BL-14 through BL-17 and is additive to, not a replacement of, everything above — Daily Check remains the landing view and behaves exactly as §2.1 describes; nothing in this Amendment changes it.
+
+### 12.1 Current Scope Table (supersedes §1's table for what Mobile shows today)
+
+| Surface | Access | Verification | Backlog |
+|---|---|---|---|
+| Daily Check | read + write | Production-Ready since 2026-08-22 (§11) | — |
+| Evidence capture (on Daily Check) | write only | Production-Ready since 2026-08-22 (§11) | — |
+| Case Overview (Dashboard + Defect List + Timeline) | read-only | Production-Ready since 2026-08-22 (§11) | — |
+| Defect List Search / Sort | read-only, client-side | IMPLEMENTED — REAL-DEVICE VERIFICATION PENDING | BL-17 |
+| Defect Detail (Identity/Description/Priority-State/Dates + read-only Rectification Events/Evidence) | read-only | **REAL-DEVICE VERIFIED** (2026-09-08) | BL-14 |
+| Owner Verification | write | **REAL-DEVICE VERIFIED**, incl. the `.btn-secondary:disabled` visual fix (2026-09-09) | BL-15 |
+| Developer Status | write | **REAL-DEVICE VERIFIED** (2026-09-09) | BL-16 |
+
+### 12.2 Still Explicitly Out of Scope
+
+Unchanged from §1's original assumption, still true today: **Secondary Damage is not surfaced at all, not even read-only** — `dlp_getMobileDefectDetail`'s payload includes a `secondaryDamage` array (since it reuses `buildDefectDetailForSidebar_` as-is), but 948's Defect Detail view deliberately never renders it. Also still out of scope: Correspondence (any form), Rectification Event mutation (M4 — not yet built), Evidence upload beyond the existing Daily-Check-linked flow (M5 — not yet built, Evidence itself remains IMPLEMENTED — UNVERIFIED per BL-13), Close Defect, Reopen Defect, Close Case.
+
+### 12.3 Architecture Note
+
+How these were added — extend `948_MobileConsole.html` in place (another `.view` + its own render/setup functions per capability), reusing 947 wrappers directly (`dlp_recordDeveloperStatus`/`dlp_recordOwnerVerification`, unchanged from Sidebar's own use of them) or a thin new one where a Desktop-shared wrapper wasn't appropriate (`dlp_getMobileDefectDetail`) — is now recorded as **ADR-P26**, including the concrete trigger for when this stops being the right approach. The `clientRequestId` extension to `recordDeveloperStatus`/`recordOwnerVerification` that Owner Verification/Developer Status depend on is **ADR-P25**. Neither this Contract nor those ADRs change §8's original idempotency description — they extend the same mechanism to two more Commands.
+
+### 12.4 What This Amendment Does Not Cover
+
+This is a scope/status record, not a new visual/interaction spec — it does not replace the need to actually read `948_MobileConsole.html` for exact UI details the way §2-§7 did for the original Daily Check/Overview surfaces. If Defect Detail/Owner Verification/Developer Status grow enough to need their own detailed spec sections the way §2.1/§2.2 do, that is future documentation work, not implied to already exist here.

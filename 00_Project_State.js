@@ -381,7 +381,28 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
-//   2026-09-09      M1/M2/M3 真机测试全数通过，无异常。M2 的
+//   2026-09-11      CC 要求暂停 coding，对本窗口（2026-09-06~09-09，
+//                   DLP Mobile Field Console 全部工作）做一次完整
+//                   重新核对，并把散落在各次交付报告里、尚未正式写进
+//                   治理档案的决定补齐。新增 ADR-P25（
+//                   recordDeveloperStatus/recordOwnerVerification 在
+//                   918 新增 clientRequestId，动机来自 Mobile，跟
+//                   ADR-P21 互为对照）与 ADR-P26（Mobile Field Console
+//                   Option C——原地扩充 948 而非重建 view registry，
+//                   含明确的重新考虑触发条件）；ADR-P21 补上对
+//                   ADR-P25 的前向交叉引用。DlpMobileConsole_UIContract.md
+//                   新增 §12 Amendment，反映目前真实范围（Defect
+//                   Detail/Owner Verification/Developer Status 已真机
+//                   验证，Search/Sort 待验证），原始 §0-§11 保留不动
+//                   当历史记录。00_File_Map.js 补上 947/948 这三周的
+//                   完整能力成长记录。本次重新逐一执行全部现役
+//                   local_precheck_test_*.js 确认现况（918 163/163、
+//                   947 22/22、948_search 29/29、922 67/67，911 与
+//                   phase11 reorder migration 维持既有、跟本次无关的
+//                   失败），并用档案 mtime 客观核对
+//                   900/901/911/922/945/946 六个档案本窗口逐字未被
+//                   写过一次。交付完整 checkpoint/handoff 文件，本次
+//                   之后停止，不继续写代码。
 //                   .btn-secondary:disabled 视觉修正这次一併确认——
 //                   BL-15 至此整体 VERIFIED，没有遗留待确认项目。M3
 //                   （BL-16）第一次真的被真机验证，不再只是"代码跟

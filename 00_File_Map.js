@@ -698,6 +698,26 @@
 //   物件补上 itemId/subCategory/remark，948 的 renderOverview_ 卡片
 //   跟着显示。CC 已部署真实 GAS、初步确认无异常（"暂时无误"，非正式
 //   逐项真机验证）。完整记录见 00_Review_History.js REVIEW-006。
+//   ★★★ 2026-09-06~09 大幅扩充（BL-13~BL-17，完整脉络见
+//   DlpMobileConsole_UIContract.md §12 Amendment、ADR-P25、ADR-P26，
+//   不在此重复展开）：918 的 recordDeveloperStatus/recordOwnerVerification
+//   两者新增 clientRequestId（ADR-P25），947 对应两个 wrapper 转传，
+//   同时补上 dlp_addRectificationEvent/dlp_attachDefectEvidence 原本
+//   遗漏的转传；947 新增 dlp_getMobileDefectDetail（重用既有
+//   buildDefectDetailForSidebar_，922 未新增函式）；948 从 2 个 view
+//   （Daily Check + 唯读 Overview）扩充成 3 个 view，新增 Defect Detail
+//   （只读）、Owner Verification 写入、Developer Status 写入、Defect
+//   Search + A-Z/Z-A Sort（纯 client-side，零新增 backend API）。
+//   Defect Detail/Owner Verification/Developer Status 三者
+//   ★ 已真机验证（2026-09-08/09）；Search/Sort 本地测试过、真机验证
+//   PENDING。M4（Rectification Event）/M5（Evidence 上传）尚未开始。
+//   Secondary Damage/Correspondence/Close-Reopen-CloseCase 依然完全
+//   不曝光给 Mobile。新建 local_precheck_test_947.js（947 首个本地
+//   测试，22 项）与 local_precheck_test_948_search.js（948 首个、也是
+//   首个真的可执行而非纯静态核对的本地测试，29 项）——两者说明见本文件
+//   下方 test 档案区块。.claspignore 同期补上
+//   `local_precheck_test_*.js` wildcard，修正现役 local test 档案原本
+//   未被排除、可能被整批 clasp push 带进真实专案的部署安全缺口。
 //   PRODUCTION-READY 状态维持不变——这是既有 PRODUCTION-READY 子系统上
 //   的小幅追加，不是重新走一次 Gate。
 //   ★ 2026-08-31 (b) 新增：6 个 dlp_* Sidebar wrapper
