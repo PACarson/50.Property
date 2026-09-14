@@ -22,3 +22,6 @@ GasShim.js
 999_Tests_PlatformVerification.js
 runAllTests.js
 TestKit.js
+
+# Local precheck tests (Node-only, top-level require()) — 2026-09-06, re-applied 2026-09-14
+local_precheck_test_*.js
