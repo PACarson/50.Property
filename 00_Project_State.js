@@ -381,6 +381,17 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-14      新窗口从 2026-09-11 checkpoint 重新开始，CC 上传
+//                   checkpoint 与当时的 repository 快照。核对 checkpoint
+//                   叙述与快照实际内容时，发现 .claspignore 缺少 BL-13
+//                   Addendum 1（见上方 BL-13）声称已经加上的
+//                   local_precheck_test_*.js wildcard——governance
+//                   记录与实际档案不一致。已重新补上同一行，静态验证
+//                   脚本确认涵盖现役 8 个档案（Addendum 1 当时是 7 个，
+//                   948_search 之后才新建）、不误伤任何 runtime 档案，
+//                   详细记录见 BL-13 Addendum 2。governance/reality
+//                   落差本身的成因未调查。
+//
 //   2026-09-11      CC 要求暂停 coding，对本窗口（2026-09-06~09-09，
 //                   DLP Mobile Field Console 全部工作）做一次完整
 //                   重新核对，并把散落在各次交付报告里、尚未正式写进

@@ -653,6 +653,20 @@
 // test flakiness，未去调查根因或修复。另外核对 .claspignore 时也注意
 // 到 990-996 那批档案不在排除清单里，但它们不用 require()，不属于
 // 这次要处理的同一种风险，未进一步调查。
+//
+// Addendum 2（2026-09-14，新窗口从 2026-09-11 checkpoint 重新开始时发现）：
+// 上面 Addendum 1 声称已经加上的 local_precheck_test_*.js wildcard，实际
+// 并不存在于这次上传给新窗口的 repository 快照里的 .claspignore——
+// governance 记录与实际档案内容不一致，新窗口没有仅凭 Addendum 1 的叙述
+// 就假设已完成。已重新补上同一行 wildcard，用同样手法（独立撰写、跑完
+// 即删除的静态验证脚本）重新确认：这次涵盖现役 8 个档案（比 Addendum 1
+// 写的 7 个多一个 local_precheck_test_948_search.js——2026-09-09 才新建，
+// Addendum 1 写的时候还不存在；用 wildcard 而非条列档名，本来就是为了
+// 不必因为新增同名档案而回来改这一行，这次验证只是确认这个设计确实如
+// 预期生效），且同样确认不误伤任何 runtime/domain 档案。未调查这个
+// governance/reality 落差最初是怎么发生的（例如：修正是否只套用到真实
+// GAS 专案本身、没有同步回被打包进这份 zip 的那个来源）——不在这次修正
+// 范围内，如实记录待查。
 
 // BL-14 — Mobile Defect Detail MVP，M1 只读展开（提出并实作于 2026-09-08，
 // Idempotency Gate 报告规划的 Slice M1-M5 第一个）
