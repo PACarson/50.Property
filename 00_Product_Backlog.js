@@ -668,6 +668,38 @@
 // GAS 专案本身、没有同步回被打包进这份 zip 的那个来源）——不在这次修正
 // 范围内，如实记录待查。
 
+// Addendum 3（2026-09-14，Step 1 closure）：CC 在真实 GAS 环境执行了 Addendum 2
+// 之后规划的两段验证，针对 dlp_attachDefectEvidence 的 clientRequestId
+// 去重机制（不是重新测 Evidence 上传本身——那部分 2026-08-17 已经验证过，
+// 这次刻意分开看，详见 MANUAL_VERIFICATION_CHECKLIST.md 新增的
+// 911_DocumentEngine clientRequestId 段落）。ALL TESTS PASSED，逐项核对
+// Execution Log 而非只看总结行：相同 clientRequestId 重打，两次呼叫回传
+// 逐位相同的结果物件（同一个 EvidenceID DOC-mu1hkgxc-ud7p、同一个
+// UploadedAt/CreatedAt 时间戳、同一段 Description 文字），Evidence 表与
+// Timeline 表两次呼叫合计各只多 1 笔——是真正命中快取重放，不是巧合的
+// ID 重复。换一个 clientRequestId，产生真正独立的新 EvidenceID
+// DOC-mu1hkitv-l61q、新时间戳，各表再各多 1 笔，证明快取 key 是
+// clientRequestId 本身、不会误挡合法的第二次附件。唯一没有直接做到的：
+// 第二次呼叫后没有回头重读、逐位比对原始那笔记录，只能从 appendRow 的
+// 只增不改语义与精确的行数增量间接推断原记录没被动到，未直接眼见为凭
+// ——已如实记录在 checklist 里，不算过（append-only 结构上不太可能被
+// 动到），但不是同一等级的确认。
+//
+// 状态用词精确区分：clientRequestId 去重「机制」在真实 GAS 里已验证
+// 正确（Production Verified，针对这个机制本身）；但**不等于**「945 的
+// Evidence 上传现在对使用者来说是幂等的」——因为 945 目前的实际呼叫
+// 完全不带 clientRequestId（见上方讨论），这道 backstop 在日常 Sidebar
+// 操作下仍然摸不到。945 本次继续未修改。
+//
+// 因此 CC 要求「单独评估」的 Backlog item 在此提出评估，尚未正式加入
+// 本档案、也未授权动 945：把 945 的 dlp_attachDefectEvidence 呼叫改成
+// 跟 948 的 dlp_attachEvidence 一样，用既有的 generateClientRequestId_()
+// 送出 clientRequestId，让两个 Evidence 相关的 947 wrapper 有一致的
+// idempotency propagation contract。影响范围预估：只动 945_OperatorConsole.html
+// 一处呼叫端，947/911 后端已经支援、不需要改；风险预估低（948 已经用
+// 同一个 generateClientRequestId_() 生成方式在真实环境跑了一段时间）。
+// 是否要把这个正式编成 BL-18 并排入 Backlog，等 CC 明确答复。
+
 // BL-14 — Mobile Defect Detail MVP，M1 只读展开（提出并实作于 2026-09-08，
 // Idempotency Gate 报告规划的 Slice M1-M5 第一个）
 //
@@ -855,4 +887,43 @@
 // 真机验证：PENDING。M1/M2（mutation 路径）既有 VERIFIED 状态、M2
 // 视觉修正的 RECHECK PENDING 状态都维持不变，未受这次改动影响。
 //
+// ★ 2026-09-14 更新：重新读过当前代码与 UI Contract 后，针对这个
+// PENDING 状态设计了完整的真机验证方案（覆盖 Search/Sort/交互/
+// M1-M3 regression/性能观察），见
+// REPORT_2026-09-14_Step2-BL17-SearchSort-VerificationPlan.md。方案
+// 本身不改变这里的状态——仍然是 PENDING，等 CC 实际执行后才更新。
+// 同一次重新核对也把 local test 全部重跑确认：948_search 29/29、
+// 947 22/22、918 163/163、922 67/67，跟原始报告数字一致，不是引用
+// 旧数字。
+//
 // 依赖：无新增 Domain/Bridge/Schema 行为。
+
+// BL-18 — 945 dlp_attachDefectEvidence 呼叫端补上 clientRequestId（登记于
+// 2026-09-14，源自 Step 1 Evidence 真机验证时发现的观察；本轮只登记，
+// 不实施）
+//
+// 背景：Step 1（2026-09-14）验证了 dlp_attachDefectEvidence 的
+// clientRequestId 去重机制本身在真实 GAS 里正确（见 BL-13 Addendum 3、
+// MANUAL_VERIFICATION_CHECKLIST.md）。但同一次验证也发现：945
+// Sidebar 目前呼叫 dlp_attachDefectEvidence 时完全不带 clientRequestId
+// 这个欄位，靠 Submit 按钮 disable 当唯一防线。对照之下，948 Mobile
+// Daily Check 的 dlp_attachEvidence（不同的 947 wrapper，同样调用 911）
+// 早就在呼叫时用 generateClientRequestId_() 生成并送出。两个 Evidence
+// 相关 wrapper 目前的 idempotency propagation contract 不一致。
+//
+// 提议内容：945_OperatorConsole.html 的 evidence 上传呼叫端比照 948
+// 既有作法，呼叫 dlp_attachDefectEvidence 前先用 generateClientRequestId_()
+// 生成一个 clientRequestId 并放进呼叫参数。
+//
+// 范围（刻意维持最小，CC 明确要求）：
+// - 仅修改 945_OperatorConsole.html 的呼叫端
+// - 不改 911 / 918（后端已经支援，不需要新代码）
+// - 不顺手重构 Evidence flow 的其他部分
+// - 不提前实作其他 idempotency enhancement
+//
+// 状态：REGISTERED — NOT IMPLEMENTED。本轮（2026-09-14）只登记这个
+// Backlog item，945 本身逐字未动。是否排入实际实作排程，等 CC 另行
+// 授权。
+//
+// 依赖：无新增 Domain/Bridge/Schema 行为——911/918 已经支援
+// clientRequestId，这次纯粹是让 945 也开始使用既有能力。

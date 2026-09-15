@@ -381,6 +381,37 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-14（三） 三件事。(1) BL-18 正式登记（945 比照 948 送出
+//                   clientRequestId，仅登记不实施，945 未改动）。
+//                   (2) 追到 BL-13 原始条目的第一手证据（2026-09-08，
+//                   真实 DefectID 5124，Execution Log + 手动核对
+//                   Timeline），重新核对后确认 2026-08-16 那笔 918
+//                   cache-hit checklist 缺口其实属于「已经做过，
+//                   checklist 没打勾」，不是「从未测过」——已在
+//                   checklist 标注理由与证据来源，明确不含 Evidence
+//                   （那条独立追踪，2026-09-14 才真正首次验证）。
+//                   (3) 重新读当前 948 代码与 UI Contract §12 后，
+//                   为 BL-17 设计完整真机验证方案，见
+//                   REPORT_2026-09-14_Step2-BL17-SearchSort-
+//                   VerificationPlan.md；BL-17 状态维持 PENDING，
+//                   方案本身不构成验证完成。本地测试全部重新实际
+//                   跑过确认（948_search 29/29、947 22/22、
+//                   918 163/163、922 67/67），不是引用旧数字。
+//
+//   2026-09-14（续） CC 在真实 GAS 环境执行了 dlp_attachDefectEvidence
+//                   clientRequestId 去重的两段验证（真实 Case/DefectID，
+//                   非模拟）。ALL TESTS PASSED，逐项核对 Execution Log：
+//                   同一 clientRequestId 重打回传逐位相同结果（含相同
+//                   时间戳，非巧合 ID 重复）、两次合计只多 1 行/1 笔
+//                   Timeline；换新 clientRequestId 正常产生独立新记录。
+//                   详细记录见 BL-13 Addendum 3、
+//                   MANUAL_VERIFICATION_CHECKLIST.md 新增段落。状态
+//                   用词精确区分：机制本身 Production Verified，但不
+//                   等于 945 日常操作是幂等的——945 目前呼叫不带
+//                   clientRequestId，本次仍未修改 945。CC 待评估是否
+//                   将「945 比照 948 送出 clientRequestId」正式编为
+//                   BL-18。
+//
 //   2026-09-14      新窗口从 2026-09-11 checkpoint 重新开始，CC 上传
 //                   checkpoint 与当时的 repository 快照。核对 checkpoint
 //                   叙述与快照实际内容时，发现 .claspignore 缺少 BL-13
