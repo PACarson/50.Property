@@ -71,11 +71,33 @@
 
 | 项目 | 状态 |
 |---|---|
-| Local Test | ✅ DONE——29/29 (`local_precheck_test_948_search.js`) + 947/918/922 (22/163/67) 不受影响，SEARCH-18/19/20 静态 grep 确认。这次沙箱重新执行确认过，不是引用旧数字。 |
-| GAS Runtime Verification | BLOCKED — Production verification pending（等 CC 执行 A/B/C） |
-| UI Verification | BLOCKED — Production verification pending（等 CC 执行 A/B/C 的真机操作部分） |
-| Regression Verification | BLOCKED — Production verification pending（等 CC 执行 D） |
-| Production Verification | BLOCKED — Production verification pending |
-| Production Ready | 未评估——在 Production Verification 打勾前不适用 |
+| Local Test | ✅ DONE——29/29 (`local_precheck_test_948_search.js`) + 947/918/922 (22/163/67) 不受影响，SEARCH-18/19/20 静态 grep 确认。 |
+| GAS Runtime Verification | ✅ PASS（见下方证据等级说明） |
+| UI Verification | ✅ PASS |
+| Regression Verification | ✅ PASS |
+| Production Verification | ✅ PASS——证据等级：CC 第一手真机具体叙述，非逐行可独立核对的原始 Execution Log |
+| Production Ready | 未由 Claude 单方宣告——这个判断留给 CC |
 
-等 CC 贴回真实 Execution Log / 实际操作结果后，再逐项把上面表格改成实际状态，不会自动把其中一项打勾去推论另一项。
+---
+
+## Closure（2026-09-14）
+
+CC 在真实手机/真实 GAS 环境执行了以上方案，回报 Phase 0-5（对应本方案 A-E）全部通过：
+
+- **Search**：ItemID 匹配、关键词匹配、大小写不敏感、无匹配提示、清空按钮，均正常。
+- **Sort**：A-Z 确认是自然数字序（1, 2...10，不是字典序 1, 10, 2）、Z-A、再按一次取消排序，均正常。
+- **Search+Sort 交互**：先搜后排、先排后搜、清空搜索词后排序状态保留，均符合预期。
+- **Regression**：过滤后点卡片进入正确 Detail、无索引错位；M2/M3 提交与刷新正常。
+- **零副作用证明**：纯 search/sort 期间 Timeline 增加 0 笔；另外独立提交一次 M2、一次 M3，各自产生 1 笔（共 2 笔）。这干净地把"Search/Sort 是零副作用 projection"和"M2/M3 才是 domain mutation"分开证明，不是含混地报一个总数。
+- **手机体感**：打字搜寻与排序流畅，无掉帧、无白屏、无报错。
+
+**证据等级如实记录**：以上是 CC 具体、一致、正确抓到重点的第一手真机叙述——不是泛泛的"都通过"，而是包含了对的自然排序判断跟对的 Timeline 拆分逻辑。但这不是跟 Step 1 Evidence 验证同一个等级：那次贴的是逐行可独立核对的原始 Execution Log（含精确 EvidenceID、时间戳），这次没有附上这个 Case 实际的 DefectItem 总数、排序结果的实际 ItemID 清单（只确认了模式）、各个 search 情境的实际命中笔数。这几个数字如果之后补得上，可以另开 Addendum 加进 governance 记录，不会覆盖这次的记录。
+
+**Governance 已同步**：
+- `00_Product_Backlog.js`：BL-17 新增真机验证 Closure Addendum
+- `MANUAL_VERIFICATION_CHECKLIST.md`：新增 948_MobileConsole Search/Sort 段落
+- `DlpMobileConsole_UIContract.md`：§12 状态栏从 PENDING 改为 VERIFIED，避免留下 governance 与现实不一致的缺口
+- `00_Project_State.js`：CHANGELOG 新增条目
+
+**明确停在这里**：BL-17 Closure 完成，不自动进入 M4。M4 需要 CC 另行审阅并授权，包含 CC 已预告的「M4 Contract / Idempotency / Repair Lifecycle Impact Review」在实际写代码之前先做。
+

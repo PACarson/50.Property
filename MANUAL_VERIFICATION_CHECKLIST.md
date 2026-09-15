@@ -61,7 +61,16 @@
 
 
 
-## Phase 6 (Correspondence + addWorkingDays_) — confirmed 2026-08-17
+### 948_MobileConsole — Defect Search/Sort (BL-17) real-device verification, confirmed 2026-09-14
+- [x] Search: ItemID match, keyword match, case-insensitive, no-match state, clear (×) button — all confirmed on real device against a real Case, per CC's first-hand account.
+- [x] Sort: A-Z natural numeric order (explicitly confirmed as `1, 2, ... 10`, not lexicographic `1, 10, 2`), Z-A reverse, re-clicking the same button to cancel sort — all confirmed.
+- [x] Search+Sort interaction, both directions (search-then-sort, sort-then-search), and sort state surviving a cleared search — all confirmed.
+- [x] Zero-side-effect claim for Search/Sort itself — CC reported 0 Timeline rows added during pure search/sort operation, isolated from a separate +1/+1 (=2 total) from one deliberate M2 and one deliberate M3 submission done as part of the same regression pass. This is the cleanest possible separation of "Search/Sort is a pure projection" from "M2/M3 are domain mutations."
+- [x] M1/M2/M3 regression through a filtered/sorted view — card index correctly maps to the right Defect Detail after filtering (no array-index drift); M2/M3 submit-and-refresh behave as before.
+- [x] Mobile feel: real-time typing search and sort responsive, no dropped frames, no white screen, no errors.
+- **Evidence tier, stated plainly**: the above is CC's specific, first-hand real-device narrative (not a generic "all passed" — it correctly isolates the exact things this check needed to isolate), but it is not the same tier as a byte-comparable raw Execution Log like the 2026-09-14 Evidence clientRequestId test above. Not included: the Case's actual total DefectItem count, the actual ItemID sequence observed in the sort test (only the pattern was confirmed, not the literal list), and per-scenario actual result counts. If those numbers surface later they can be added as a further addendum without overwriting this one.
+
+
 `runAllPropertyOSTests()` 141/141 + a Phase 6 smoke test reported as passed (banner only this time, not the full step-by-step log the earlier phases got). Accepted without the detailed log because Phase 6's only genuinely new surface area, `addWorkingDays_`, is a pure function — no `SpreadsheetApp`/`LockService`/`DriveApp` calls at all — so the local pre-check (101/101, including the exact real 14→19 Aug 2026 case from the task's own seed data) is already fully dispositive for it; everything else in Phase 6 reuses Sheet-write/Timeline/Event patterns already independently confirmed real in Phases 2-5. Will go back to asking for full logs on anything that touches genuinely new GAS surface area (as Phase 5's Drive integration did).
 
 ## Not yet applicable (blocked on other Phases, not on this checklist)

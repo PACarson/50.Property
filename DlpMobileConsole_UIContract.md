@@ -267,7 +267,7 @@ Only after all 11 pass does `MANUAL_VERIFICATION_CHECKLIST.md` get updated per U
 | Daily Check | read + write | Production-Ready since 2026-08-22 (§11) | — |
 | Evidence capture (on Daily Check) | write only | Production-Ready since 2026-08-22 (§11) | — |
 | Case Overview (Dashboard + Defect List + Timeline) | read-only | Production-Ready since 2026-08-22 (§11) | — |
-| Defect List Search / Sort | read-only, client-side | IMPLEMENTED — REAL-DEVICE VERIFICATION PENDING | BL-17 |
+| Defect List Search / Sort | read-only, client-side | IMPLEMENTED — REAL-DEVICE VERIFIED 2026-09-14（CC 第一手真机叙述，见 BL-17 Closure Addendum） | BL-17 |
 | Defect Detail (Identity/Description/Priority-State/Dates + read-only Rectification Events/Evidence) | read-only | **REAL-DEVICE VERIFIED** (2026-09-08) | BL-14 |
 | Owner Verification | write | **REAL-DEVICE VERIFIED**, incl. the `.btn-secondary:disabled` visual fix (2026-09-09) | BL-15 |
 | Developer Status | write | **REAL-DEVICE VERIFIED** (2026-09-09) | BL-16 |

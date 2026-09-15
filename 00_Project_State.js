@@ -381,6 +381,20 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-14（四） BL-17 真机验证 Closure。CC 在真实手机/真实 GAS
+//                   环境跑完方案的 Phase 0-5，全部通过：Search、Sort
+//                   （含自然数字序确认）、Search+Sort 交互、M1-M3
+//                   回归（含索引正确性）、手机体感。Timeline 拆分
+//                   干净：search/sort 期间 0 新增，M2/M3 各自提交
+//                   +1（共 2）——证明 Search/Sort 是零副作用的
+//                   projection，M2/M3 才是 domain mutation。证据
+//                   等级如实记录为 CC 第一手真机叙述，非逐行原始
+//                   log（缺：实际 DefectItem 总数、实际 ItemID
+//                   序列、各情境实际命中笔数）。DlpMobileConsole_
+//                   UIContract.md §12 状态栏同步改为 VERIFIED，
+//                   不留 governance/现实缺口。明确停在 BL-17
+//                   Closure，未进入 M4，等 CC 审阅决定。
+//
 //   2026-09-14（三） 三件事。(1) BL-18 正式登记（945 比照 948 送出
 //                   clientRequestId，仅登记不实施，945 未改动）。
 //                   (2) 追到 BL-13 原始条目的第一手证据（2026-09-08，
