@@ -271,6 +271,7 @@ Only after all 11 pass does `MANUAL_VERIFICATION_CHECKLIST.md` get updated per U
 | Defect Detail (Identity/Description/Priority-State/Dates + read-only Rectification Events/Evidence) | read-only | **REAL-DEVICE VERIFIED** (2026-09-08) | BL-14 |
 | Owner Verification | write | **REAL-DEVICE VERIFIED**, incl. the `.btn-secondary:disabled` visual fix (2026-09-09) | BL-15 |
 | Developer Status | write | **REAL-DEVICE VERIFIED** (2026-09-09) | BL-16 |
+| Rectification Event (log a milestone) | write | IMPLEMENTED — LOCAL VERIFIED — GAS VERIFICATION PENDING | BL-19 |
 
 ### 12.2 Still Explicitly Out of Scope
 

@@ -954,3 +954,62 @@
 //
 // 依赖：无新增 Domain/Bridge/Schema 行为——911/918 已经支援
 // clientRequestId，这次纯粹是让 945 也开始使用既有能力。
+
+// BL-19 — Mobile DLP Console：M4 Rectification Event 提交（2026-09-14，
+// 提出并实作，Option A only——见 GATE_2026-09-14_M4-RectificationEvent-
+// ArchitectureReview.md 与 CC 的 Implementation Authorization）
+//
+// 背景：M4 是 Mobile Defect Detail 系列（M1 只读展开/BL-14、M2 Owner
+// Verification/BL-15、M3 Developer Status/BL-16）里第一个需要写入的
+// EventType 枚举（而非既有 Status 枚举）的 slice。Architecture Gate 已经
+//确认：RectificationEvent 这个 Entity、其 Schema、其 clientRequestId
+// 幂等层，全部早就存在且已在 945 Sidebar 活跃使用、已在 BL-13
+// （2026-09-08）真机验证过——本次 M4 严格只是「给这个既有能力接一个
+// Mobile UI」，不是新的 Domain 设计。
+//
+// 内容：948_MobileConsole.html 新增一个 chip-then-submit 区块（"Log
+// Rectification Event"），紧接在既有的唯读 Rectification Events 历史
+// 清单之后、Evidence 区块之前。7 个 chip 对应 PROPERTY_CONFIG.
+// RECTIFICATION_EVENT_TYPES 逐字（AccessRequested/AccessGranted/
+// RectificationStarted/RectificationCompleted/RectificationRejected/
+// ReinspectionRequired/DeveloperClaimedCompleted），额外一个可选 Notes
+// 栏位（复用既有 Daily Check 的 textarea 样式，未新增任何 CSS）。呼叫
+// 既有 dlp_addRectificationEvent（947，逐字未动），自己生成
+// clientRequestId（`generateClientRequestId_()`，跟 M2/M3 完全同一个
+// 函式、同一个"同一次尝试重试沿用同一个 ID、成功后清空等下一次尝试
+// 重新生成"生命周期）。openDefectDetail_ 补上跟 M2/M3 对称的 4 项状态
+// 重置（选取状态、clientRequestId、chip 视觉、Notes 栏位内容），确保
+// 每次打开 Detail 都是干净的边界，不会让上一个 defect 或上一次成功
+// 提交的残留状态漏进下一次操作。
+//
+// 明确没有做的（HARD SCOPE BOUNDARY，逐条对照 Authorization）：
+// 没有建立 Repair Cycle Entity；没有动 DefectItem schema；没有新增
+// Sheet；没有动 DeveloperStatus/OwnerVerificationStatus 架构；没有把
+// Status 改成 Event projection；没有动 ADR-P15；没有重构或重写
+// logRectificationEvent（918 逐字未动）；没有动 922 business logic
+// （922 逐字未动，本来就已经在读 RectificationEvent 做 Dashboard 聚合，
+// 不需要因为多一个写入来源而改）；没有动 EventBus/Evidence 架构；没有
+// 实施 BL-18；没有修 945 既有的 clientRequestId 缺口（Architecture Gate
+// 已经点出来，本次刻意不动，跟 BL-18 一样是独立、未处理的既有缺口）；
+// 没有新增第二套 idempotency 机制（完全复用 918 既有的
+// getCachedDefectEngineCommandResult_/cacheDefectEngineCommandResult_）。
+//
+// 本地测试：新建 local_precheck_test_948_rectification.js（27 项，含
+// 全部 7 个 EventType 逐一真的透过 dlp_addRectificationEvent 提交成功、
+// Notes 栏位端到端保真、对 948_MobileConsole.html 原始碼的静态核对
+// ——clientRequestId 生成与传递、Notes 传递、openDefectDetail_ 状态
+// 重置、setupRectificationEvent_ 确实被呼叫、M2/M3 呼叫形状未被误动
+// 的回归防线）。重新实际跑过既有三个套件确认零回归：918 163/163、
+// 947 22/22、948_search 29/29。M4-03（缺栏位拒绝）/M4-04（无效
+// DefectID 拒绝）/M4-07（呼叫端重复不产生第二次 mutation）三项，因为
+// 918/947 既有测试套件本来就已经涵盖同一个 logRectificationEvent/
+// dlp_addRectificationEvent 路径，没有重复新写测试——沿用既有覆盖，
+// 不是没测。
+//
+// 状态：IMPLEMENTED — LOCAL VERIFIED — GAS VERIFICATION PENDING。真机
+// 验证程序已经在 IMPLEMENTATION_2026-09-14_M4-RectificationEvent.md
+// 里备妥（A 首次提交/B 相同 clientRequestId 重复/C 新 clientRequestId/
+// D M1-M3 回归），尚未执行，不自动宣告 Production Verified/Production
+// Ready。
+//
+// 依赖：无新增 Domain/Bridge/Schema 行为——完全复用 918/947 既有能力。

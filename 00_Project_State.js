@@ -381,6 +381,23 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-14（五） M4（Rectification Event Mobile 提交）实作完成，
+//                   Option A only，严格按 Architecture Gate 后的
+//                   Implementation Authorization 执行。948 新增
+//                   chip-then-submit 区块，复用既有 logRectificationEvent/
+//                   dlp_addRectificationEvent（918/947 逐字未动）与
+//                   generateClientRequestId_()（跟 M2/M3 同一函式）。
+//                   新建 local_precheck_test_948_rectification.js
+//                   （27/27），既有 918/947/948_search 三套件重新
+//                   实际跑过零回归（163/22/29）。HARD SCOPE BOUNDARY
+//                   逐条遵守：无 Repair Cycle、无 schema 变更、无 922
+//                   改动、945 既有缺口未处理、BL-18 未实施、无第二套
+//                   idempotency 机制。状态：IMPLEMENTED — LOCAL
+//                   VERIFIED — GAS VERIFICATION PENDING，未自动宣告
+//                   Production Verified/Ready。详见 BL-19、
+//                   DlpMobileConsole_UIContract.md §12、
+//                   IMPLEMENTATION_2026-09-14_M4-RectificationEvent.md。
+//
 //   2026-09-14（四） BL-17 真机验证 Closure。CC 在真实手机/真实 GAS
 //                   环境跑完方案的 Phase 0-5，全部通过：Search、Sort
 //                   （含自然数字序确认）、Search+Sort 交互、M1-M3
