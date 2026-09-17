@@ -944,6 +944,61 @@
 //   作为验证依据，已同步修正（见该档案本身）。删除后重新执行全部
 //   语法检查与测试套件，结果见本次 housekeeping completion report。
 //
+// ★★ 2026-09-14 窗口（BL-13 Addendum 3/BL-17 Closure/BL-18 登记/M4
+// Architecture Gate/M4 实作，BL-19）——本节此前一直没有更新到这个窗口，
+// 2026-09-16 全窗口 checkpoint 稽核时发现这个落差，在此一次补齐：
+//
+//   .claspignore —— 重新补上 local_precheck_test_*.js wildcard（本次
+//     上传的 zip 快照里缺失，governance 记录与实际档案不一致，详见
+//     BL-13 Addendum 2）。现涵盖现役 8 个档案（非当初 7 个，
+//     948_search 是第 8 个）。
+//   911_DocumentEngine.js —— 逐字未动。dlp_attachDefectEvidence 的
+//     clientRequestId 去重机制本次首次真机验证（2026-09-14，见 BL-13
+//     Addendum 3、MANUAL_VERIFICATION_CHECKLIST.md）。
+//   948_MobileConsole.html —— 本窗口新增 M4（Rectification Event
+//     提交，BL-19）：一个新区块（7 个 EventType chip + 可选 Notes +
+//     Submit），`openDefectDetail_` 新增对称状态重置，init 新增一行
+//     呼叫，新增 setupRectificationEvent_/submitRectificationEvent_
+//     两个函式，逐字比照既有 M2/M3 的 chip-then-submit 结构。918/947
+//     逐字未动——完全复用既有 logRectificationEvent/
+//     dlp_addRectificationEvent。真机验证：CC 已确认 Sheet 行数模式
+//     （新记录/重复不增加/新记录）与手机 UI 操作正常，但 M1-M3
+//     回归这一项本次 checkpoint 时仍未确认，见 CHECKPOINT_2026-09-16
+//     的未解决事项。
+//   local_precheck_test_948_rectification.js —— 新建（27 项）。测
+//     全部 7 个 EventType 逐一真的透过 dlp_addRectificationEvent
+//     提交成功（既有 947 测试只测过 1 个）、Notes 端到端保真、对
+//     948 原始码的静态核对（clientRequestId 生成/传递、状态重置、
+//     M2/M3 呼叫形状回归防线）。跑法：
+//     node local_precheck_test_948_rectification.js。
+//   新增的分析/报告档案（均为一次性交付文件，非治理档案本体，内容
+//     摘要已同步进对应的 00_*.js/UI Contract）：
+//     REPORT_2026-09-14_Step0-ClaspignoreFix_Step1-EvidenceVerificationPlan.md、
+//     REPORT_2026-09-14_Step2-BL17-SearchSort-VerificationPlan.md、
+//     GATE_2026-09-14_M4-RectificationEvent-ArchitectureReview.md（分析
+//     结论：ADR-P15 早已分析并搁置 Repair Cycle 问题，M4 只需要
+//     Option A，不需要新 ADR）、
+//     IMPLEMENTATION_2026-09-14_M4-RectificationEvent.md。
+//   DlpMobileConsole_UIContract.md —— §12 状态表：Search/Sort 行改为
+//     VERIFIED；新增 Rectification Event 一行，状态
+//     `IMPLEMENTED — LOCAL VERIFIED — GAS VERIFICATION PENDING`（这行
+//     文字目前落后于最新对话进度——CC 已经给了部分真机证据，但因为
+//     M1-M3 回归那一项还没确认，故意还没重新改这行，等确认后一次
+//     写完整，不要看到这行文字就以为完全没有真机证据）。
+//   MANUAL_VERIFICATION_CHECKLIST.md —— 新增 911_DocumentEngine
+//     clientRequestId 段落（2026-09-14）、948_MobileConsole
+//     Search/Sort 段落（2026-09-14）、以及对 2026-08-16 那笔 918
+//     cache-hit 旧缺口的 reconciliation（追到 BL-13 原始 2026-09-08
+//     证据，确认「已经做过，只是没打勾」，明确排除 Evidence 在外）。
+//     M4/Rectification Event 尚未在这份档案里立项——比照 BL-17 的
+//     既有惯例（这份档案只记录「真机证据已经存在」之后的结果，不
+//     提前写全 PENDING 的段落），等 M4 的真机验证完全确认后才补。
+//   00_Product_Backlog.js —— BL-18（945 补 clientRequestId，比照
+//     948 已有的 generateClientRequestId_() 模式）：REGISTERED — NOT
+//     IMPLEMENTED，本窗口未实施。BL-19（M4 Option A 实作）：见上方
+//     948_MobileConsole.html 说明，状态文字同样落后于对话进度，理由
+//     同上。
+//
 // ═══════════════════════════════════════════════════════════════════════
 // END OF 00_File_Map.js
 // ═══════════════════════════════════════════════════════════════════════
