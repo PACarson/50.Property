@@ -381,6 +381,23 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-18      M4（BL-19，Rectification Event Mobile 提交）真机
+//                   验证 Closure，A-D 全部完成。A/B/C 沿用 CC
+//                   2026-09-16 已回报、Claude 已核对可信的 Sheet 行数
+//                   模式（+1/+0/+1）。D（M1-M3 回归 + 联动）本次
+//                   （2026-09-18）由 CC 逐项回报：M1 详情展开、M2
+//                   Owner Verification 提交、M3 Developer Status
+//                   提交、卡片/Overview 联动、Timeline 增量，全部
+//                   正常。状态用词精确：IMPLEMENTED — REAL-DEVICE
+//                   VERIFIED（证据等级：CC 第一手具体叙述，非逐行
+//                   原始 log；D 未给出精确 Timeline 行数，与 A/B/C
+//                   的"各只 +1 行"量化说法不同层级）。详见 BL-19
+//                   Closure Addendum、DlpMobileConsole_UIContract.md
+//                   §12、MANUAL_VERIFICATION_CHECKLIST.md 新增段落、
+//                   00_File_Map.js 同步追记。明确停在这里：不自动
+//                   进入 M5，也不自动处理 BL-18 或 945 既有缺口，均
+//                   需 CC 另行明确授权。
+//
 //   2026-09-14（五） M4（Rectification Event Mobile 提交）实作完成，
 //                   Option A only，严格按 Architecture Gate 后的
 //                   Implementation Authorization 执行。948 新增

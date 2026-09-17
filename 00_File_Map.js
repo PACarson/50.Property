@@ -999,6 +999,17 @@
 //     948_MobileConsole.html 说明，状态文字同样落后于对话进度，理由
 //     同上。
 //
+// ★★★ 2026-09-18 追记（D 项确认，闭环上述三处"落后于对话进度"的
+// 备注）：CC 已逐项回报 M1 详情展开、M2 Owner Verification 提交、
+// M3 Developer Status 提交、卡片/Overview 联动、Timeline 增量，全部
+// 正常——D 项确认完成，CC 自己定义的 A-D 真机验证程序全部到齐。
+// 00_Product_Backlog.js（BL-19）、DlpMobileConsole_UIContract.md
+// （§12）、MANUAL_VERIFICATION_CHECKLIST.md 均已同步改为
+// REAL-DEVICE VERIFIED（证据等级：CC 第一手具体叙述，逐项区分
+// M1/M2/M3/联动/Timeline，非逐行原始 log；D 未给出精确 Timeline
+// 行数，与 A/B/C 的"各只 +1 行"量化说法不同层级）。上方三处备注
+// 均不再落后于对话进度。
+//
 // ═══════════════════════════════════════════════════════════════════════
 // END OF 00_File_Map.js
 // ═══════════════════════════════════════════════════════════════════════

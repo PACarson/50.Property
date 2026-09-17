@@ -1013,3 +1013,32 @@
 // Ready。
 //
 // 依赖：无新增 Domain/Bridge/Schema 行为——完全复用 918/947 既有能力。
+
+// ★★ 2026-09-18 真机验证 Closure（D 项确认，A-D 全部到齐）：CC 已于
+// 2026-09-16 回报 A/B/C（Sheet 行数模式：首次提交 +1、同一
+// clientRequestId 重打 +0/结果相同、换新 clientRequestId +1，对应
+// 手机端实际提交一次与历史查看正常）——这部分已由 Claude 独立核对
+// 行数模式的诊断力，视为可信。本次（2026-09-18）CC 逐项回报 D
+// （M1-M3 回归 + 联动）：M1 详情展开正常（卡片点击即开、排版完整、
+// 无白屏）；M2 Owner Verification 正常（chip 点选激活按钮、提交后
+// 提示并刷新状态）；M3 Developer Status 正常（同上模式）；导航与
+// 卡片联动正常（返回 Overview 后卡片徽标同步更新、返回首页顺畅）；
+// Timeline 增量对应产生记录、无异常报错。至此 CC 自己在
+// IMPLEMENTATION_2026-09-14_M4-RectificationEvent.md 定义的 A-D
+// 真机验证程序全部完成。
+//
+// 证据等级如实记录：以上是 CC 第一手真机操作的具体叙述（逐项区分
+// M1/M2/M3/导航/Timeline，不是笼统"都过了"），但不是逐行可独立
+// 核对的原始 Execution Log——D 项未给出本次使用的具体 DefectID，
+// 未给出 Timeline 行数的精确计数（只说"对应产生记录，无异常报错"，
+// 跟 A/B/C 当时"各只 +1 行"的量化说法不同层级）。这些如果之后要
+// 补，可以用 Addendum 形式加入，不影响本次 Closure。
+//
+// 状态：M4（Rectification Event Mobile 提交，BL-19）真机验证 PASS
+// （A-D 全部完成；证据等级：CC 第一手具体叙述，非逐行原始 log）。
+// DlpMobileConsole_UIContract.md §12、MANUAL_VERIFICATION_CHECKLIST.md
+// 状态栏同步更新，不留 governance 与现实不一致的缺口。
+//
+// 明确停在这里：不自动进入 M5，也不自动处理 BL-18 或 945 既有的
+// Rectification Event clientRequestId 缺口——三者都需要 CC 另行
+// 明确授权。
