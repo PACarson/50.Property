@@ -381,6 +381,31 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-20（续） CC 上传一份新 zip，作为「已人工同步」的 read-back
+//                   证据。逐字节核对（不是只比大小）：这份上传里的
+//                   00_Product_Backlog.js / 00_Project_State.js，跟
+//                   2026-09-18 交付版本完全一致（含 M4/BL-19 真机验证
+//                   Closure），但**不含 BL-20**——缺少 2026-09-20 新增
+//                   的 BL-20 登记与对应 CHANGELOG 条目。另外发现：
+//                   00_File_Map.js、DlpMobileConsole_UIContract.md、
+//                   MANUAL_VERIFICATION_CHECKLIST.md 这三份档案在这次
+//                   上传里，内容跟最原始（未经任何编辑）的 zip 逐字节
+//                   相同——2026-09-18 对这三份做的编辑，目前看起来也
+//                   还没有反映在这次上传里。结论：BL-20 read-back =
+//                   MISMATCH（不是 VERIFIED & SYNCED）；09-18 五份
+//                   治理档案里，目前只有 Backlog / Project State 两份
+//                   看起来已经同步，另外三份看起来还没有。生产代码
+//                   （918/947/948/945/911/922/appsscript.json/
+//                   ADR Log/Business Rules/Constitution）逐一 md5
+//                   核对，全部与最原始上传一致，未受影响。
+//
+//   2026-09-20      登记 BL-20（945 dlp_addRectificationEvent 呼叫端
+//                   clientRequestId 缺口，Rectification Event 版的
+//                   BL-18；直接重读 945/947/918/948 代码后确认，E1
+//                   证据）。仅 Backlog 登记，945/918/947 production
+//                   code、schema、business data、BL-18、BL-19、M5
+//                   均未变更。
+//
 //   2026-09-18      M4（BL-19，Rectification Event Mobile 提交）真机
 //                   验证 Closure，A-D 全部完成。A/B/C 沿用 CC
 //                   2026-09-16 已回报、Claude 已核对可信的 Sheet 行数

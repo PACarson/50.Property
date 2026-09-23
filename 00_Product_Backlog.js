@@ -1042,3 +1042,82 @@
 // 明确停在这里：不自动进入 M5，也不自动处理 BL-18 或 945 既有的
 // Rectification Event clientRequestId 缺口——三者都需要 CC 另行
 // 明确授权。
+
+// BL-20 — 945 dlp_addRectificationEvent 呼叫端补上 clientRequestId（登记于
+// 2026-09-20，源自专项核对时直接重读代码发现的观察；本轮只登记，不实施）
+//
+// 背景：BL-13（2026-09-08）当时 Owner 核准的决定，是让 947 的
+// dlp_addRectificationEvent 与 dlp_attachDefectEvidence 这两个 wrapper
+// 都把 clientRequestId 转传给 918/911——这部分已经完成，直接重读 947
+// 目前代码确认 dlp_addRectificationEvent（281-296 行）确实已经在转传
+// input.clientRequestId。但 Bridge 层接上，不等于 Caller 层会送——直接
+// 重读 945_OperatorConsole.html 的 submitDlpAddRectificationEvent
+// （1186-1210 行）确认它组出的 input 物件完全没有 clientRequestId 这个
+// 欄位，跟 918 的 logRectificationEvent（918_DefectEngine.js 1374 行起）
+// 早就支援、也早就在用的幂等 cache 机制（1378-1379、1452 行）完全没有
+// 接上。对照 948 M4（BL-19）的 submitRectificationEvent_，一样呼叫
+// dlp_addRectificationEvent，但会先用 generateClientRequestId_() 产生
+// 一个值再放进呼叫参数（948_MobileConsole.html 1191、1222-1226 行）。
+// 两个呼叫端（945/948）打同一个 Bridge、同一个 918 Domain Command，目前
+// 呼叫参数不一致。
+//
+// 证据等级：E1——本轮直接重读 945/947/918/948 现有代码得出（行号如上），
+// 不是沿用旧报告或猜测。BL-19 背景段落有一句提到 RectificationEvent 的
+// clientRequestId 幂等层"已在 945 Sidebar 活跃使用"，读起来容易被误解成
+// 945 呼叫端已经在送这个欄位——直接重读 945 目前代码后，这句更准确的
+// 理解应该是「Entity/Schema 已经在 945 使用」，不是「呼叫端已经送
+// clientRequestId」。本条目以这次直接重读的 E1 结果为准。
+//
+// 这跟 BL-18（945 的 Evidence 呼叫端缺口）是同一个模式（945 呼叫端没接
+// 上既有能力），但不是同一个呼叫端、也不是同一个 Backend Command——BL-18
+// 管的是 dlp_attachDefectEvidence/911，这里管的是
+// dlp_addRectificationEvent/918。两者是兄弟缺口，不是同一个 item，分开
+// 登记。BL-18 relationship: NOT EXPLICITLY IN SCOPE（BL-18 本文明确把
+// 范围限定在 Evidence 呼叫端，逐字没有提到 Rectification Event）。
+//
+// 明确不是什么（避免误读成更大的问题）：这不是「918 幂等机制坏了」、不是
+// 「945 目前会产生重复 RectificationEvent」、不是「业务资料已经损坏」、
+// 也不是「M4/948 有缺陷」——现有代码没有任何证据支持这几点，945 现在的
+// 唯一防线是 Submit 按钮 disable（跟 BL-18 当时对 Evidence 的描述完全
+// 一样的情况）。分类是「Caller 端幂等传播缺口」，不是「Backend 幂等
+// 失效」。
+//
+// 提议内容（未来实作，本轮不动手）：945_OperatorConsole.html 的
+// submitDlpAddRectificationEvent 比照 948 既有作法与 BL-18 已经提议的
+// 模式，呼叫 dlp_addRectificationEvent 前先用 generateClientRequestId_()
+// 生成一个 clientRequestId 并放进呼叫参数。
+//
+// 范围（刻意维持最小，比照 BL-18 先例）：
+// - 仅修改 945_OperatorConsole.html 的 submitDlpAddRectificationEvent
+//   呼叫端
+// - 不改 918（Backend 已经支援，不需要新代码——已直接重读代码确认）
+// - 不改 947 的 dlp_addRectificationEvent（Bridge 层已经支援转传，
+//   BL-13 时就做好了——已直接重读代码确认）
+// - 不改 BL-18（两者是独立 item，即使未来实作时可能顺手一起做，登记
+//   必须分开）
+// - 不顺手重构 Rectification Event flow 的其他部分
+// - 不提前实作其他 idempotency enhancement
+// - 不涉及 M5 Evidence Mobile
+//
+// 验收标准（未来实作完成后才适用，本轮不执行）：
+// 1. 945 的 Rectification Event submission 会产生一个有效、唯一的
+//    clientRequestId。
+// 2. 这个值会转传给既有的 918 logRectificationEvent 呼叫。
+// 3. 918 backend 保持不变，除非未来另有分析证明需要改。
+// 4. 用同一个 clientRequestId 重复提交时，行为符合既有 918 幂等
+//    contract。
+// 5. 有真实 GAS 验证（不是只有 local test）确认上述行为。
+// 6. 如果既有 918 contract 是「同 clientRequestId 不建重复记录」，则
+//    重复提交不应该产生第二笔 RectificationEvent。
+// 7. 证据需要跟本地/unit test 结果分开记录，比照 BL-19 的证据分级写法。
+//
+// 状态：REGISTERED — NOT STARTED。本轮（2026-09-20）只登记这个 Backlog
+// item，945 本身逐字未动。是否排入实际实作排程、是否与 BL-18 一起做，
+// 等 CC 另行授权。
+//
+// 依赖：无新增 Domain/Bridge/Schema 行为——918（Domain）与 947（Bridge）
+// 已经支援 clientRequestId，这次纯粹是让 945 的 Rectification Event
+// 呼叫端也开始使用既有能力。
+//
+// 相关 item：BL-18（同模式的兄弟缺口，Evidence 呼叫端）、BL-19（M4，
+// 948 侧已经在用同一个 918 Command 的对照组，是这次比对的依据）。
