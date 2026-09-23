@@ -381,6 +381,18 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-20（三） 收到 BL-20 实作授权，依规定动手前先读
+//                   00_ADR_Log.js，发现 ADR-P21（APPROVED）明确决定
+//                   945 Sidebar 的 dlp_addRectificationEvent 等全部
+//                   write wrapper"不"应该加 clientRequestId，即使底层
+//                   Command 已支援——这跟 BL-20 原本的提议方向直接
+//                   冲突。已 STOP，未修改 945_OperatorConsole.html 或
+//                   任何 production code。BL-20 追记 ADR-P21 冲突
+//                   发现，状态改为 REGISTERED — BLOCKED（ADR-P21
+//                   冲突），等 CC 决定关闭本条目或另开 superseding
+//                   ADR。BL-20 登记当时没有检查既有 ADR 是否冲突，
+//                   这是本次发现的检查缺口，如实记录。
+//
 //   2026-09-20（续） CC 上传一份新 zip，作为「已人工同步」的 read-back
 //                   证据。逐字节核对（不是只比大小）：这份上传里的
 //                   00_Product_Backlog.js / 00_Project_State.js，跟

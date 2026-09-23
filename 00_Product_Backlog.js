@@ -1114,6 +1114,37 @@
 // 状态：REGISTERED — NOT STARTED。本轮（2026-09-20）只登记这个 Backlog
 // item，945 本身逐字未动。是否排入实际实作排程、是否与 BL-18 一起做，
 // 等 CC 另行授权。
+
+// ★ 2026-09-20 追记（收到实作授权后、动手前发现治理冲突——已 STOP，
+// 未实作，E1 证据）：依规定在动手前先读 00_ADR_Log.js，发现 ADR-P21
+// （APPROVED，2026-09-01，"Sidebar DLP Write Actions Don't Adopt
+// clientRequestId, Even Where the Underlying Command Already Supports
+// It"）明确决定：945 Sidebar 全部 dlp_* write wrapper（逐字点名含本条目
+// 要动的 dlp_addRectificationEvent）"不"应该生成/转传 clientRequestId，
+// 即使底层 Command 已经支援——这是权衡过 Sidebar 风险 profile（桌面、
+// 已登入 Google Sheets session，不是手机工地网路）后的明确决定，不是
+// 遗漏。ADR-P21 原文自己写明：如果 Sidebar 连线品质的假设未来被证明
+// 有误，应该另外产生一份 superseding ADR 重新决定，不能逐项悄悄绕过。
+// 2026-09-09 的追记（ADR-P25，Mobile 侧对称决定）再次确认"This ADR's
+// decision for Sidebar is unaffected and unchanged"。
+//
+// 这代表本条目当初登记时的定性——「Caller 端幂等传播缺口」——不准确：
+// 这不是疏漏，是已经被 ADR-P21 明确、刻意排除的行为。登记当时只检查了
+// 「登记这件事本身需不需要新开 ADR」，没有检查「是否与既有 ADR 冲突」，
+// 这是当时的检查缺口，这次实作前的强制 ADR 核对步骤里发现并如实记录，
+// 不隐藏、不悄悄改写原本的登记文字。
+//
+// 本次没有修改 945_OperatorConsole.html 或任何 production code——这不是
+// 可以自己决定顺手做掉的事：ADR-P21 自己写明"重新决定"需要一份新的
+// superseding ADR，不是逐项覆盖，所以即使 CC 想要 945 也加上
+// clientRequestId，正确路径也是先产生那份 superseding ADR，不是直接
+// 动手实作本条目原本的提议内容。
+//
+// 状态（更新，取代上面 "NOT STARTED"，历史文字保留不删）：
+// REGISTERED — BLOCKED（ADR-P21 冲突）。等 CC 决定：(a) 确认 ADR-P21
+// 仍然适用、本条目应重新定性为"不是缺口，是既有架构决定"并关闭，或
+// (b) 明确要另开一份 superseding ADR 改变 Sidebar 的风险评估，本条目
+// 才有可能真正进入实作。
 //
 // 依赖：无新增 Domain/Bridge/Schema 行为——918（Domain）与 947（Bridge）
 // 已经支援 clientRequestId，这次纯粹是让 945 的 Rectification Event
