@@ -579,6 +579,52 @@ function renderOccurrenceList(containerId, items, kind, emptyText) {
       payBtn.textContent = 'Pay';
       payBtn.addEventListener('click', function () { showPayForm(card, item); });
       card.appendChild(payBtn);
+
+      // BL-21 — pauseObligation/cancelObligation already exist in 912
+      // (locking, transition checks, events all handled there); this
+      // is the first UI wiring for either. Acts on the whole recurring
+      // ObligationRule (item.obligationId), not just this Occurrence —
+      // label text says "obligation" explicitly so that's not ambiguous
+      // to the person clicking it.
+      var pauseBtn = document.createElement('button');
+      pauseBtn.className = 'btn small secondary';
+      pauseBtn.style.marginTop = '8px';
+      pauseBtn.style.marginLeft = '4px';
+      pauseBtn.textContent = 'Pause obligation';
+      pauseBtn.addEventListener('click', function () {
+        if (!window.confirm('Pause this recurring obligation? No new occurrences will be generated until it is resumed.')) return;
+        pauseBtn.disabled = true;
+        google.script.run
+          .withSuccessHandler(function (res) {
+            pauseBtn.disabled = false;
+            if (!res.success) { showToast(res.error, true); return; }
+            showToast('Obligation paused.');
+            loadDashboard();
+          })
+          .withFailureHandler(function (err) { pauseBtn.disabled = false; showToast(err.message, true); })
+          .console_pauseObligation(item.obligationId, '');
+      });
+      card.appendChild(pauseBtn);
+
+      var cancelObBtn = document.createElement('button');
+      cancelObBtn.className = 'btn small secondary';
+      cancelObBtn.style.marginTop = '8px';
+      cancelObBtn.style.marginLeft = '4px';
+      cancelObBtn.textContent = 'Cancel obligation';
+      cancelObBtn.addEventListener('click', function () {
+        if (!window.confirm('Cancel this recurring obligation? Future occurrences will stop being generated. This does not affect payments already made.')) return;
+        cancelObBtn.disabled = true;
+        google.script.run
+          .withSuccessHandler(function (res) {
+            cancelObBtn.disabled = false;
+            if (!res.success) { showToast(res.error, true); return; }
+            showToast('Obligation cancelled.');
+            loadDashboard();
+          })
+          .withFailureHandler(function (err) { cancelObBtn.disabled = false; showToast(err.message, true); })
+          .console_cancelObligation(item.obligationId, '');
+      });
+      card.appendChild(cancelObBtn);
     }
     container.appendChild(card);
   });

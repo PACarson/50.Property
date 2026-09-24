@@ -1145,6 +1145,38 @@
 // 仍然适用、本条目应重新定性为"不是缺口，是既有架构决定"并关闭，或
 // (b) 明确要另开一份 superseding ADR 改变 Sidebar 的风险评估，本条目
 // 才有可能真正进入实作。
+
+// ★★ 2026-09-20 Closure（CC 决定：(a)，正式关闭，非实作性关闭）：
+//
+// Original classification：本条目最初登记时的定性是「Caller 端幂等
+// 传播缺口」（"945 呼叫端没接上既有能力"）。
+//
+// Subsequent governance finding：实作前置核查发现 ADR-P21（APPROVED，
+// 2026-09-01）明确规定 945 Sidebar 的全部 write wrapper（逐字点名含
+// dlp_addRectificationEvent）不应传播 clientRequestId，即使底层
+// Command 已支援——这是权衡过 Sidebar 风险 profile 后的刻意决定，
+// 2026-09-09 ADR-P25 追记再次确认这条对 Sidebar 的决定"unaffected and
+// unchanged"。因此本条目当初描述的行为，不是 implementation omission。
+//
+// Resolution：The behavior described by BL-20 is an intentional
+// architecture decision under ADR-P21, subsequently reaffirmed by
+// ADR-P25, and is therefore not an implementation gap under the
+// current governance baseline. No code change is authorized or
+// required。
+//
+// 目前没有新的事实证据显示 Sidebar 的连线风险 profile、session model、
+// 或 945 的调用模式已经改变——ADR-P21 原始假设依然成立，不需要、也
+// 没有开立 superseding ADR，ADR-P21 逐字未动，维持 APPROVED。
+//
+// 状态（最终，取代上面 "BLOCKED"）：
+// CLOSED — NOT A GAP UNDER ADR-P21。945_OperatorConsole.html、918、
+// 911、ADR-P21、ADR-P25 均未修改。
+//
+// Process lesson（如实记录，不扩展成新框架）：Backlog registration
+// must check not only whether a new ADR is required, but also whether
+// the proposed backlog item conflicts with an existing Approved ADR——
+// 本条目登记当时只做了前者，这次才补上后者，往后登记新 item 时应该
+// 两者都查。
 //
 // 依赖：无新增 Domain/Bridge/Schema 行为——918（Domain）与 947（Bridge）
 // 已经支援 clientRequestId，这次纯粹是让 945 的 Rectification Event
@@ -1152,3 +1184,63 @@
 //
 // 相关 item：BL-18（同模式的兄弟缺口，Evidence 呼叫端）、BL-19（M4，
 // 948 侧已经在用同一个 918 Command 的对照组，是这次比对的依据）。
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-21 — Operator Console：补上 Pause/Cancel Obligation 的 UI 呼叫
+// （提出并实作于 2026-09-20，Billing/Obligation Capability Audit 期间
+// 发现，比照 BL-14/15/16 的"提出并实作"惯例，不另外分开登记再实作）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 背景：Billing/Property Obligations Capability Audit（2026-09-20）
+// 逐项核对 912_ObligationEngine.js 实际代码后发现：`pauseObligation`、
+// `resumeObligation`、`cancelObligation` 三个函式本身早就实作完整
+// （lock、状态转换检查、event 发布，946-702 行）——但 946
+// （OperatorConsoleServer）只包了 `console_createObligation` 跟
+// `console_recordPayment` 两个 console_ wrapper，从来没有人把
+// pause/resume/cancel 也包起来给 945 UI 用。跟 918/945 之前
+// clientRequestId 的情况不一样：这次不是"故意排除"（没有对应 ADR
+// 说不要），单纯是"还没有人接上"。
+//
+// 范围：只加 UI 呼叫这一层，不碰 912 的既有逻辑：
+// - 946_OperatorConsoleServer.js 新增 `console_pauseObligation`、
+//   `console_cancelObligation`，逐字比照既有
+//   `console_recordPayment` 的 `console_wrap_` 包法。
+// - 945_OperatorConsole.html 的 `renderOccurrenceList`，在既有 "Pay"
+//   按钮旁边加 "Pause obligation"、"Cancel obligation" 两个按钮，
+//   点击先 `window.confirm()` 二次确认（这两个操作影响的是整条
+//   recurring ObligationRule，不是这一笔 Occurrence，按钮文字刻意
+//   写"obligation"避免混淆），确认后呼叫对应 console_ wrapper，
+//   成功后 `loadDashboard()` 刷新。
+//
+// 刻意排除 `resumeObligation`：目前 Dashboard 只查询
+// `queryUpcomingPayments`/`queryOverdue`（对应 Active 状态的
+// Obligation），一个已经 Suspended 的 Obligation 本来就不会出现在
+// 这个列表里——没有existing UI 入口可以自然地放"Resume"按钮。要做
+// Resume，需要先有一个"列出 Paused/Cancelled Obligation"的新查询 +
+// 新列表 UI，这是比"补一个按钮"更大的一块，这次不顺手做，留给需要
+// 时再评估——不是遗漏，是刻意的最小范围决定。
+//
+// 证据等级如实记录：946/945 语法检查通过（`node -c` + 抽出 945 的
+// <script> 区块单独检查），912/913/903/900/901 逐一 SHA-256 核对，
+// 跟最原始上传 zip 完全一致，没有被这次改动触碰。**没有、也无法在这个
+// 环境执行 912/913 既有的 GAS-native 测试套件**（990_TestKit.js 自己
+// 的档头写明"这些测试设计成要贴进真实 Apps Script 专案、从 Script
+// Editor 执行"，Node 沙箱版本已经在更早的 session 被 CC 指示移除——
+// 这不是这次环境限制，是这整个测试套件从设计上就不支援 Node 执行，
+// 跟 DLP 那边 918/947/948 有 `local_precheck_test_*.js`＋GAS shim 的
+// 情况不同）。这代表 pause/resume/cancel 底层逻辑"本来就有"这件事，
+// 证据来自阅读 912 现有代码與 REVIEW-001 记录，不是这次重新跑测试
+// confirm 的；新加的 console wrapper + UI 呼叫本身，目前只有语法/
+// 一致性层级的核实，尚未有任何形式的执行验证（本地或真实 GAS）。
+//
+// 状态：IMPLEMENTED — LOCAL SYNTAX/CONSISTENCY CHECKED ONLY — GAS
+// VERIFICATION PENDING。真机/真实 GAS 验证（含真的点击 Pause/Cancel、
+// 确认 Dashboard 刷新、确认 Status 栏正确写回 Sheet）待 CC 回到真实
+// 环境后进行。
+//
+// 依赖：无新增 Domain/Bridge/Schema 行为——912 既有能力，纯粹补上
+// console 层跟 UI 层的呼叫。
+//
+// 相关 item：无直接关联的既有 backlog item——是这次 Capability Audit
+// 的直接产物。

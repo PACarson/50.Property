@@ -381,6 +381,71 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-20（五） Billing/Property Obligations Capability Audit +
+//                   BL-21 实作。审计发现：912_ObligationEngine（含
+//                   Mortgage/MaintenanceFee/SinkingFund/QuitRent/
+//                   Assessment/Insurance/Electricity/Water 等全部 17
+//                   个 Category）、913_ObligationScheduler、
+//                   REMINDER_REQUESTED 事件发布、922 Dashboard 聚合，
+//                   均已实作且已在 945/946 走完整条 create→pay→
+//                   dashboard 路径；REVIEW-001（2026-07-29）记录的
+//                   结论——纯逻辑/GAS-native 测试通过，但 UEF §0.5
+//                   定义下仍是 pending、不是 Production-Ready（并发/
+//                   Cache TTL/schema drift/Runtime 限制未核实）——
+//                   自那之后没有新记录更新过，本次审计沿用不重新定论。
+//                   另外发现两处明确缺口，如实分类、这次都没有处理：
+//                   (1) Mortgage/Insurance 目前只是 Category 值，
+//                   DomainModel 规划中的独立 Loan/Mortgage Engine、
+//                   BL-2 提案的 Insurance Policy 详细栏位均未实作
+//                   （Planned-only）；(2) REMINDER_REQUESTED 有发布、
+//                   有 contract-level 测试，但仓库里找不到真正的
+//                   ReminderConnector 实作或任何 Telegram 送达路径
+//                   （Planned/contracted-only）。本次选择实作的
+//                   最小切片是 BL-21：946 补上
+//                   console_pauseObligation/console_cancelObligation
+//                   两个 wrapper（逐字比照 console_recordPayment 既有
+//                   包法），945 Dashboard 卡片补上对应按钮——912 本身
+//                   的 pause/cancel 逻辑早就存在且完整，只是从未被
+//                   接上 UI。刻意不做 resumeObligation 的 UI（现有
+//                   Dashboard 查询只列 Active 状态，没有地方能自然
+//                   放 Resume 按钮，需要新的"列出 Paused"查询/列表才
+//                   合理，这次不顺手做）。912/913/903/900/901 逐一
+//                   SHA-256 核对，跟最原始上传一致，未被触碰。946/945
+//                   语法检查通过；912/913 既有的 GAS-native 测试套件
+//                   （990-996）设计上就不支援 Node 执行（990_TestKit.js
+//                   档头明写"要贴进真实 Apps Script 项目跑"，Node
+//                   沙箱版本更早之前已被 CC 指示移除），所以这次没有、
+//                   也无法在本环境重新执行——不是环境限制，是这套测试
+//                   从设计上就是 GAS-only，跟 DLP 那边 918/947/948 有
+//                   Node 相容 shim 的情况不同，如实记录，不混为一谈。
+//                   BL-21 状态：IMPLEMENTED — LOCAL SYNTAX/CONSISTENCY
+//                   CHECKED ONLY — GAS VERIFICATION PENDING。真实 GAS
+//                   验证待 CC 回到真实环境后进行。
+//
+//   2026-09-20（四） BL-20 — CLOSED — NOT A GAP UNDER ADR-P21。CC
+//                   审阅上一条发现的 ADR-P21 冲突后，决定关闭 BL-20，
+//                   不开 superseding ADR，不修改 945。Closure 理由
+//                   （逐字）：the behavior described by BL-20 is an
+//                   intentional architecture decision under ADR-P21,
+//                   subsequently reaffirmed by ADR-P25, and is
+//                   therefore not an implementation gap under the
+//                   current governance baseline。implementation was
+//                   stopped before any production code modification；
+//                   945_OperatorConsole.html、918、911 均未变更；
+//                   ADR-P21 逐字未动，维持 APPROVED；ADR-P25
+//                   reaffirmation 维持不变；没有开立 superseding
+//                   ADR；这次关闭是治理层面的关闭，不是实作完成。
+//                   BL-20 原始登记文字与上一条 ADR 冲突发现记录都
+//                   保留未删——historical accountability，不是删除
+//                   重写。Process lesson（如实记录）：backlog
+//                   registration 除了检查"登记本身需不需要新开
+//                   ADR"，也要检查"是否与既有 Approved ADR 冲突"。
+//                   00_Review_History.js 结构是给大型 Review/Audit
+//                   用的（如 REVIEW-008/009 那种整个 Vertical Slice
+//                   规模），BL-20 这种单一 backlog item 的关闭事件
+//                   比照本专案一路的既有惯例记在这里，没有另外开
+//                   一笔 REVIEW-NNN 记录，避免不成比例。
+//
 //   2026-09-20（三） 收到 BL-20 实作授权，依规定动手前先读
 //                   00_ADR_Log.js，发现 ADR-P21（APPROVED）明确决定
 //                   945 Sidebar 的 dlp_addRectificationEvent 等全部

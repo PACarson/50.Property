@@ -85,6 +85,22 @@ function console_recordPayment(occurrenceId, paidAmount, paidDate, note) {
   });
 }
 
+// BL-21 — 912 already implements pauseObligation/cancelObligation with
+// full lock/transition/event handling; these were simply never wrapped
+// for console use. No new logic here, same console_wrap_ pattern as
+// console_recordPayment above.
+function console_pauseObligation(obligationId, reason) {
+  return console_wrap_(function () {
+    return pauseObligation({ obligationId: obligationId, reason: reason || '' });
+  });
+}
+
+function console_cancelObligation(obligationId, reason) {
+  return console_wrap_(function () {
+    return cancelObligation({ obligationId: obligationId, reason: reason || '' });
+  });
+}
+
 function console_getPaymentHistory(propertyId, searchText) {
   return console_wrap_(function () {
     var all = queryRecentPayments({ propertyId: propertyId || undefined, limit: 500 }).results;
