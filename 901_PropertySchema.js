@@ -86,6 +86,45 @@ var PROPERTY_SCHEMA = Object.freeze({
     dateColumns: Object.freeze(['ChangedAt'])
   }),
 
+  // BL-2 / REVIEW-010 (Review Approval 2026-09-20). Satellite entity of
+  // ObligationRule (ADR-P01: Obligation Engine owns all recurring
+  // scheduling/payment/reminder, including Insurance — this entity only
+  // holds the descriptive fields ADR-P01's Obligation Schema has no room
+  // for). Deliberately no PropertyID here — REVIEW-010 Condition 5:
+  // one relationship, one owner; PropertyID is reached via
+  // ObligationID -> ObligationRule.PropertyID, not duplicated.
+  // Deliberately no DocumentID/EvidenceID reference yet — REVIEW-010
+  // Condition 3 called for reusing 911's Evidence mechanism, but
+  // attachEvidence() hard-requires a relatedCaseId tied to a
+  // PropertyCase (DLP-only concept); Insurance has no Case. Left out
+  // rather than faked or given a second storage path — see
+  // 00_Product_Backlog.js BL-2 for the finding.
+  // Renewal model (Condition 2): renewing never overwrites a row — a
+  // new PropertyInsurancePolicy row is created (Status=Active) and the
+  // previous row is updated to Status=Superseded, both sharing the same
+  // ObligationID. History stays queryable by ObligationID.
+  // No dedicated event family (Condition 4) — see 912_ObligationEngine.js.
+  PropertyInsurancePolicy: Object.freeze({
+    sheetName: PROPERTY_CONFIG.SHEET_NAMES.PROPERTY_INSURANCE_POLICIES,
+    columns: Object.freeze([
+      'PolicyID',           // string PK, INS-...
+      'ObligationID',        // string FK -> ObligationRule (Category='Insurance')
+      'InsuranceCompany',     // string
+      'PolicyNumber',          // string
+      'CoverageType',           // string
+      'CoverageAmount',         // number
+      'PolicyStartDate',       // ISO date string (yyyy-MM-dd)
+      'PolicyExpiryDate',     // ISO date string (yyyy-MM-dd) — this specific
+                               // policy period's end, distinct from the
+                               // linked ObligationRule.DueAnchor (the next
+                               // premium due date)
+      'Status',              // enum, PROPERTY_CONFIG.INSURANCE_POLICY_STATUSES
+      'CreatedAt',           // ISO datetime string
+      'UpdatedAt'            // ISO datetime string
+    ]),
+    dateColumns: Object.freeze(['PolicyStartDate', 'PolicyExpiryDate', 'CreatedAt', 'UpdatedAt'])
+  }),
+
   // 910_PropertyAssetEngine. Field list + Address VO decision:
   // PropertyAssetEngine_VerticalSlice.md §2 (Review Approval 2026-07-19).
   // DevelopmentName/UnitLabel added Phase 1 of the 918_DefectEngine

@@ -44,6 +44,11 @@ function generateHistoryId_() {
   return generateId_(PROPERTY_CONFIG.ID_PREFIXES.HISTORY);
 }
 
+// BL-2 / REVIEW-010. ID_PREFIXES.INSURANCE was already reserved.
+function generateInsurancePolicyId_() {
+  return generateId_(PROPERTY_CONFIG.ID_PREFIXES.INSURANCE);
+}
+
 function generatePropertyId_() {
   return generateId_(PROPERTY_CONFIG.ID_PREFIXES.PROPERTY);
 }

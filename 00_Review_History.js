@@ -1116,5 +1116,203 @@
 
 
 // ═══════════════════════════════════════════════════════════════════════
-// END OF 00_Review_History.js
+// REVIEW-010 — BL-2 PropertyInsurancePolicy: Architecture / Vertical
+// Slice Review
 // ═══════════════════════════════════════════════════════════════════════
+//
+// Date: 2026-09-20
+// Profile: Architecture Review — Review Gate before any Schema/Runtime
+//   work, comparable in kind to REVIEW-007 (no code exists yet to
+//   audit; this certifies whether the design is fit to build, not
+//   whether a build works).
+// Scope: BL-2（Property Insurance）的 PropertyInsurancePolicy entity——
+//   是否已具备进入 901_PropertySchema.js / Truth Layer 的架构条件。不
+//   评价"保险功能好不好"，只做 architecture gate。
+// Owner: CC (solo dev)
+//
+// ─── Evidence Examined ─────────────────────────────────────────────────
+//   00_Project_Constitution.js（P1-P12 全部、engine tree、ID_PREFIXES
+//   引用）、00_ADR_Log.js（ADR-P01 全文、逐项搜索 Insurance/schema
+//   governance 相关条目）、00_Business_Rules.js（BR-5 Reminder
+//   Policy）、00_Project_State.js（Phase roadmap、既有 CHANGELOG）、
+//   00_File_Map.js（920_InsuranceEngine 条目）、
+//   PropertyOS_DomainModel.md（132 行附近的 PropertyInsurancePolicy
+//   说明）、901_PropertySchema.js（档头 + ObligationRule 既有欄位/
+//   命名/ID/date 惯例）、900_PropertyConfig.js（ID_PREFIXES.INSURANCE
+//   既有保留）、00_Review_History.js（REVIEW-002/003/004/006/007/
+//   008/009 逐一确认既有 entity 都有对应 Review 的惯例）、全仓库
+//   "Insurance"关键字搜索（不只靠档名）。
+//
+// ─── Key Finding — Entity Ownership Question（本次审查的核心）───────────
+//   发现两组治理文件对"PropertyInsurancePolicy 归谁"给出不一致的
+//   框架：
+//   (a) 00_Project_Constitution.js 的 Engine Tree、00_File_Map.js
+//   （920_InsuranceEngine，Purpose: MRTA/MLTA/Fire/House Insurance，
+//   Status: Planned — Phase 3）、00_Project_State.js 的 Phase Roadmap
+//   （Insurance 排在 Phase 3，目前进度只到 Phase 1e）——三份文件一致
+//   把 Insurance Policy 框成一个独立、尚未开始的 Engine。
+//   (b) BL-2 本身的设计草图与 PropertyOS_DomainModel.md 132 行附近，
+//   把 PropertyInsurancePolicy 设计成 912 Obligation Engine 的卫星
+//   entity（透过 ObligationID 关联，不另立 Engine，明确引用 ADR-P01）。
+//
+//   重新核对 **ADR-P01**（APPROVED，2026-07-19，"Obligation Engine 为
+//   唯一真相来源"）后确认：该 ADR 的 Question 本身就把"保险"列为它要
+//   解决的 Recurring Obligation 类型之一，Decision 明确把这类
+//   Obligation 的 Due Date / Schedule 判给 Obligation Engine——也就是
+//   说，**保险的排程/提醒/付款归属，已经被一份 APPROVED ADR 解决了，
+//   而且是在 BL-2 之前**。Constitution/File_Map 的"Insurance Engine，
+//   Phase 3"框架，写成时间早于这份细节分析，比较合理的理解是：那描述
+//   的是未来一个更完整、处理 claims/多保单比较等 ADR-P01 没有涵盖的
+//   非排程业务逻辑的可能扩充，不是在否定 ADR-P01 已经解决的排程归属
+//   问题。但这两份文件彼此从未明确 cross-reference 或註记这个关系，
+//   目前是**平行存在、没有互相承认**的状态。
+//
+//   本审查的判断（recommendation，非单方面决定）：倾向支持 (b)——
+//   BL-2/DomainModel 的卫星设计——因为它是 ADR-P01 已核准决定的直接
+//   延伸，而不是重新发明排程。但这是 recommendation，不是本审查可以
+//   自己拍板的事：Constitution 是这个专案的最高层级架构文件，本审查
+//   不会、也不应该自己认定它"过时"然后忽略，需要 CC 明确确认。
+//
+// ─── C. Entity Boundary ────────────────────────────────────────────────
+//   若采 (b)：PropertyInsurancePolicy 的唯一 owner 是（新扩充的）
+//   912_ObligationEngine 模块，不与 Obligation/Asset/Document/
+//   Reminder/Dashboard 重复拥有同一状态——Policy 只存 Obligation
+//   Schema 装不下的保险专属描述栏位，付款/到期/提醒状态完全交给已经
+//   存在的 ObligationRule/ObligationOccurrence。
+//
+// ─── D. Obligation vs Insurance Policy Boundary ────────────────────────
+//   Obligation 负责：payment obligation、due date、recurring payment、
+//   paid/unpaid、overdue（既有能力，不需要改）。
+//   Insurance Policy 负责（BL-2 明确列出的）：insurer、policy number、
+//   coverage type/amount。**没有重复**——BL-2 的设计本身已经很小心
+//   地把这两者切开，这点核实无误。
+//
+// ─── E. Asset / Document / Reminder Relationships ──────────────────────
+//   Asset：现有设计只透过 ObligationID → ObligationRule.PropertyID
+//   间接关联到 Property，Policy 本身不重复存 PropertyID——**未明确
+//   决定**是否要为查询方便而冗余存一份 PropertyID，属于可以两种做法
+//   都成立的小决定，留给实作前决定，不视为 blocking。
+//   Document：BL-2 目前的欄位列表**没有**引用 911 既有 Document/
+//   Evidence 机制存放保单扫描件——如果 CC 想要这个功能（很自然的
+//   需求），欄位需要补一个 DocumentID/EvidenceID 参照，而不是自建
+//   第二套档案储存；如果不需要，也该明确讲清楚"这次不做"，而不是
+//   留白。
+//   Cardinality / Renewal / History：**未明确决定**——续保时是在
+//   原记录上更新，还是新增一笔 PropertyInsurancePolicy 保留历史？
+//   如果要保留历史，需要一个 Status 栏位（例如 Current/Superseded）
+//   区分现役保单跟历史保单——BL-2 目前的欄位列表里没有这个栏位。这是
+//   一个真实、需要回答的 lifecycle 问题，不是本审查可以替 CC 决定的
+//   事。
+//   Reminder：设计正确——Policy 完全不需要直接碰 REMINDER_REQUESTED
+//   或 Telegram，续保提醒透过挂在同一个 ObligationRule 上的既有
+//   Reminder/Overdue 机制自然产生，BR-5 也已经支援个别 Obligation
+//   覆写提醒天数（"Insurance 续保可能想要更早提醒"，逐字写在既有
+//   Business Rules 里）。这部分不需要新设计。
+//
+// ─── G. Event / Lifecycle Analysis ─────────────────────────────────────
+//   BL-2 目前没有为 PropertyInsurancePolicy 定义任何专属 event
+//   （created/renewed/cancelled）。鉴于 P1（Event-Driven Everything）
+//   是核心原则，且其他新 entity（RectificationEvent、SecondaryDamage
+//   等）都有自己的 event——是否需要一个（例如）
+//   INSURANCE_POLICY_RECORDED 事件，还是"底层 ObligationRule 的既有
+//   事件已经足够表达"，是一个需要明确回答、而非本审查自行假设的问题。
+//   Lifecycle Status：见上方 Renewal/History 讨论，同一个未决问题的
+//   另一面。
+//
+// ─── H. ADR Compatibility ───────────────────────────────────────────────
+//   没有发现 (b) 卫星设计与任何 APPROVED ADR 直接冲突——相反，ADR-P01
+//   实际上支持这个方向。真正需要厘清的不是 ADR 冲突，是 Constitution/
+//   File_Map 这两份非 ADR 但同样权威的架构文件，跟 BL-2/DomainModel
+//   的框架没有互相承认这件事。
+//
+// ─── I. Schema Readiness ────────────────────────────────────────────────
+//   901 的既有惯例（entity 命名、ID_PREFIXES.INSURANCE 已经保留、
+//   dateColumns 处理方式、sheetName/columns 结构）都可以自然容纳一个
+//   PropertyInsurancePolicy 定义，没有技术障碍。901 档头"only the
+//   three Obligation tables"字面数字虽然过时，但其"新 entity 需要先
+//   过自己的 Phase/Review"这个背后原则，本审查（REVIEW-010 本身）
+//   正是在满足这个要求——不需要另外修正档头文字才能继续。
+//
+// ─── Definition of Done ────────────────────────────────────────────────
+//   ✓ 直接重读全部相关治理文件与 ADR-P01 全文，不是转述上一轮报告。
+//   ✓ 找到并如实记录 Entity Ownership 的框架不一致（Constitution/
+//   File_Map vs BL-2/DomainModel），附上 ADR-P01 这个关键的解决依据。
+//   ✓ 逐项核对 Obligation/Policy 边界、Document 边界、Cardinality/
+//   History、Event/Lifecycle、ADR 相容性、Schema 惯例契合度。
+//   ✓ 零 Schema/Runtime 档案被修改——本审查全程只读，SHA-256 核对
+//   901/912/913/900/902/903/945/946/947/948 与最原始上传一致。
+//
+// ─── Definition of Production-Ready — N/A，明确排除 ─────────────────────
+//   跟 REVIEW-007 一样：这里没有任何 Runtime 代码，这份审查只回答
+//   "设计是否具备开始实作的架构条件"，不是"实作完成、可用于生产"。
+//
+// ─── Disposition ────────────────────────────────────────────────────────
+//   **APPROVED WITH CONDITIONS.** 核心架构方向（PropertyInsurancePolicy
+//   作为 912 的卫星 entity，透过 ObligationID 关联，复用既有 Reminder/
+//   Overdue 机制）本身站得住脚，且有 ADR-P01 的既有决定支持，不是
+//   本审查自己发明的方向。但在实作前，以下条件需要 CC 明确回答（本审查
+//   不代答）：
+//   1. 确认 Entity Ownership 方向——接受本审查的 (b) 卫星设计
+//      recommendation，并知悉这跟 Constitution/File_Map 里"920_
+//      InsuranceEngine，Phase 3"的早期框架不完全一致（本审查判断
+//      两者可以并存，理由见上）；或者选择等待完整的 920 Engine。
+//   2. Policy 续保时是新增记录（保留历史）还是原地更新？如果保留
+//      历史，需要补一个 Status 栏位。
+//   3. Policy 是否要引用 911 既有 Document/Evidence 机制存放保单
+//      扫描件，还是这次明确不做？
+//   4. Policy 是否需要自己的 lifecycle event，还是底层 Obligation
+//      的既有 event 已经足够？
+//   5.（次要，非 blocking）Policy 是否要冗余存一份 PropertyID 方便
+//      查询，还是严格只透过 ObligationID 间接关联？
+//   本审查不会、也没有自行回答以上任一条，避免重演 BL-20"没查就做"
+//   的相反面——"查到了但自己替 CC 决定"同样不对。
+//
+// ─── Next Steps ──────────────────────────────────────────────────────
+//   1. CC 针对上述 5 个条件逐一给出决定。
+//   2. 条件全部回答后，可以授权下一轮任务真正开始
+//      PropertyInsurancePolicy 的 Schema（901）+ 912 扩充 + 946/945
+//      UI 实作。
+//   3. 本轮完全没有涉及 Reminder delivery（ReminderConnector 缺口）
+//      与 Mortgage/Loan——两者维持上一轮记录的状态，不在本审查范围。
+//
+// ─── ★ 2026-09-20 追记 — CONDITIONS RESOLVED，实作已完成 ─────────────
+//   CC 对 5 项条件逐一给出决定：
+//   1. Architecture → 912 卫星 entity（不等 920，Constitution/File_Map
+//      的 920 条目维持原样，不在本轮修改，留给日后另一个治理任务处理
+//      这个文件间的不一致）。
+//   2. Renewal → 新增记录、保留历史，旧记录 Status 改 Superseded。
+//   3. Documents → 使用既有 911 Document/Evidence 机制——**实作时发现
+//      技术障碍**：`attachEvidence()` 硬性要求 `relatedCaseId` 并验证
+//      对应 PropertyCase 真实存在（911_DocumentEngine.js
+//      194-210 行附近），Insurance 没有 Case，无法直接套用。没有绕过
+//      这个验证、没有塞假 CaseID、也没有另建第二套储存——选择这次
+//      不实作文件关联，PropertyInsurancePolicy 的 Schema 里也没有放
+//      DocumentID 这个欄位（放了也用不了）。记录为需要另一个小型、
+//      单独授权的 911 扩充（把既有的 `RelatedEntityType`/
+//      `RelatedEntityID` 这两个已经存在但目前没被 `attachEvidence`
+//      实际使用的欄位，变成 `relatedCaseId` 的替代路径）才能真正做到。
+//   4. Events → 沿用既有 Obligation event，没有新增 Policy 专属 event。
+//   5. PropertyID → 没有加，维持只透过 ObligationID 间接关联。
+//
+//   实作内容：901 新增 PropertyInsurancePolicy schema（PolicyID/
+//   ObligationID/InsuranceCompany/PolicyNumber/CoverageType/
+//   CoverageAmount/PolicyStartDate/PolicyExpiryDate/Status/CreatedAt/
+//   UpdatedAt）；900 新增对应 SHEET_NAMES 与 INSURANCE_POLICY_STATUSES
+//   （Active/Superseded）；902 新增 generateInsurancePolicyId_()；912
+//   新增 createInsurancePolicy/renewInsurancePolicy/
+//   getActiveInsurancePolicyForObligation/
+//   listInsurancePolicyHistoryForObligation；946 新增四个对应
+//   console_ wrapper；945 的 Add Bill 表单在 Category=Insurance 时
+//   显示保单栏位（建立时两段式呼叫：先建 Obligation 再建 Policy），
+//   Dashboard 卡片新增"Policy"按钮可查看/续保。
+//
+//   验证边界：四套既有 DLP 本地套件（918/947/948_search/
+//   948_rectification）重新跑过，163/22/29/27 全部通过——这几套测试
+//   共用 900/901/902 这几份被这次改动到的 foundation 档案，零回归。
+//   PropertyInsurancePolicy 本身的新函式，跟 912/913 既有测试套件
+//   一样是 GAS-native 性质（读写真实 Sheet），这个环境没有、也无法
+//   跑真的执行测试，只做了语法检查——如实记录，不混为一谈。
+//
+//   Disposition 更新：**APPROVED WITH CONDITIONS → CONDITIONS
+//   RESOLVED → IMPLEMENTED（LOCAL SYNTAX CHECKED ONLY，GAS 验证
+//   PENDING）**。

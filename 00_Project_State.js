@@ -381,6 +381,78 @@
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //
+//   2026-09-20（八） BL-2 PropertyInsurancePolicy 实作完成（CC 就
+//                   REVIEW-010 的 5 项条件逐一决定后授权）。901 新增
+//                   PropertyInsurancePolicy schema；900 新增
+//                   SHEET_NAMES 条目与 INSURANCE_POLICY_STATUSES
+//                   （Active/Superseded）；902 新增
+//                   generateInsurancePolicyId_()；912 新增
+//                   createInsurancePolicy/renewInsurancePolicy/
+//                   getActiveInsurancePolicyForObligation/
+//                   listInsurancePolicyHistoryForObligation，全部走
+//                   withObligationLock_，续保采新增记录保留历史（不
+//                   覆写）；946 新增四个对应 console_ wrapper；945 的
+//                   Add Bill 表单 Category=Insurance 时显示保单栏位
+//                   （两段式呼叫：先建 Obligation 再建 Policy），
+//                   Dashboard 卡片新增 Policy 按钮可查看/续保。条件 3
+//                   （911 Document 整合）实作时发现技术障碍——
+//                   attachEvidence() 硬性要求 relatedCaseId，Insurance
+//                   没有 Case，没有绕过或造假，选择不实作，记录为
+//                   独立后续项目（见 00_Product_Backlog.js BL-2 与
+//                   00_Review_History.js REVIEW-010 追记）。四套既有
+//                   DLP 本地套件（918/947/948_search/
+//                   948_rectification，共用被这次改动的 900/901/902
+//                   foundation 档案）重新跑过，163/22/29/27 全部通过，
+//                   零回归。913/903/918/911/922/947/948 及全部 ADR/
+//                   Constitution/DomainModel 未修改（SHA-256 核对）。
+//                   新增代码本身是 GAS-native 性质（读写真实 Sheet），
+//                   本环境只做了语法检查，没有、也无法执行真实测试。
+//                   状态：IMPLEMENTED — LOCAL SYNTAX CHECKED ONLY —
+//                   GAS VERIFICATION PENDING。
+//
+//   2026-09-20（七） REVIEW-010——BL-2 PropertyInsurancePolicy
+//                   Architecture Review 完成（见 00_Review_History.js
+//                   完整记录）。核心发现：Constitution/File_Map 把
+//                   Insurance Policy 框成独立的 920_InsuranceEngine
+//                   （Planned — Phase 3）；BL-2/DomainModel 则是 912
+//                   卫星 entity 方案——重读 ADR-P01 全文确认保险的
+//                   排程/提醒/付款归属早已判给 Obligation Engine，
+//                   支持卫星方向，但两组文件从未互相 cross-reference，
+//                   需要 CC 确认。另外找到 4 个设计草图未回答的
+//                   lifecycle 问题（续保历史/Status 栏、911 Document
+//                   引用、专属 event、冗余 PropertyID）。Decision:
+//                   APPROVED WITH CONDITIONS——5 项条件列在
+//                   REVIEW-010，本次没有替 CC 回答任何一项。BL-2
+//                   状态更新为 REVIEW APPROVED WITH CONDITIONS。
+//                   零 Schema/Runtime 变更：901/912/913/900/902/903/
+//                   945/946/947/948 逐一 SHA-256 核对，与最原始上传
+//                   一致。NO PRODUCTION CODE CHANGED。
+//
+//   2026-09-20（六） Continue Development after BL-21：依优先序检查
+//                   Reminder delivery（Priority 1）与 Mortgage/
+//                   Insurance backlog item（Priority 2），两者目前都
+//                   没有安全可实施的授权，依 Priority 3 只做治理登记、
+//                   不实作新代码、STOP。Priority 1：整个 Backlog
+//                   （BL-1 到 BL-21）里没有任何一项是 Reminder/
+//                   Connector/delivery 相关的已授权 item——
+//                   REMINDER_REQUESTED 事件本身已发布、已 contract
+//                   测试，但没有对应的 backlog 授权要求实作
+//                   ReminderConnector 本身，不能无中生有。Priority 2：
+//                   BL-2（Property Insurance）设计草图完整、
+//                   PropertyOS_DomainModel.md 也有对应说明，但动手前
+//                   直接重读 901_PropertySchema.js 档头，确认这个专案
+//                   一贯的实际做法是——新 entity 要先有自己的 Vertical
+//                   Slice/Review（核对 Review_History，DefectItem/
+//                   RectificationEvent/SecondaryDamage 等后来加入 901
+//                   的每个 entity 都能找到对应 REVIEW-NNN）才能进
+//                   Schema——PropertyInsurancePolicy 目前没有走过
+//                   这一步。为避免重演 BL-20"没查就做"的情况，选择
+//                   STOP，不加 Schema、不碰 912/946/945。BL-2 追记
+//                   这个发现，状态改为 DESIGNED — AWAITING VERTICAL
+//                   SLICE / ARCHITECTURE REVIEW。本轮没有任何
+//                   production/schema 档案被修改，只有 Backlog（BL-2
+//                   追记）与本条 CHANGELOG。
+//
 //   2026-09-20（五） Billing/Property Obligations Capability Audit +
 //                   BL-21 实作。审计发现：912_ObligationEngine（含
 //                   Mortgage/MaintenanceFee/SinkingFund/QuitRent/

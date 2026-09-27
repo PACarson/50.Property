@@ -59,6 +59,12 @@ var PROPERTY_CONFIG = Object.freeze({
     ['Draft', 'Active', 'Suspended', 'Cancelled', 'Completed']
   ),
 
+  // BL-2 / REVIEW-010 Condition 2 — minimal: a policy row is either the
+  // current one (Active) or a past one kept for history (Superseded).
+  // Not reusing OBLIGATION_RULE_STATUSES — different semantics (this is
+  // "is this row the current policy record", not a payment lifecycle).
+  INSURANCE_POLICY_STATUSES: Object.freeze(['Active', 'Superseded']),
+
   // Overdue is deliberately absent — it is a Derived State, never
   // stored (Vertical Slice §1, Review Approval 2026-07-19).
   OBLIGATION_OCCURRENCE_STATUSES: Object.freeze(
@@ -209,6 +215,7 @@ var PROPERTY_CONFIG = Object.freeze({
     OBLIGATION_RULES: 'ObligationRules',
     OBLIGATION_OCCURRENCES: 'ObligationOccurrences',
     OBLIGATION_HISTORY: 'ObligationHistory',
+    PROPERTY_INSURANCE_POLICIES: 'PropertyInsurancePolicies', // BL-2 / REVIEW-010
     PROPERTIES: 'Properties',
     // 918_DefectEngine / 911_DocumentEngine Vertical Slice — Phase 1:
     PROPERTY_CASES: 'PropertyCases',

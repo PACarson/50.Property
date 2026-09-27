@@ -101,6 +101,47 @@ function console_cancelObligation(obligationId, reason) {
   });
 }
 
+// BL-2 / REVIEW-010 — same console_wrap_ pattern as every wrapper above.
+function console_createInsurancePolicy(obligationId, insuranceCompany, policyNumber, coverageType, coverageAmount, policyStartDate, policyExpiryDate) {
+  return console_wrap_(function () {
+    return createInsurancePolicy({
+      obligationId: obligationId,
+      insuranceCompany: insuranceCompany,
+      policyNumber: policyNumber,
+      coverageType: coverageType,
+      coverageAmount: Number(coverageAmount),
+      policyStartDate: policyStartDate,
+      policyExpiryDate: policyExpiryDate
+    });
+  });
+}
+
+function console_renewInsurancePolicy(obligationId, insuranceCompany, policyNumber, coverageType, coverageAmount, policyStartDate, policyExpiryDate) {
+  return console_wrap_(function () {
+    return renewInsurancePolicy({
+      obligationId: obligationId,
+      insuranceCompany: insuranceCompany,
+      policyNumber: policyNumber,
+      coverageType: coverageType,
+      coverageAmount: Number(coverageAmount),
+      policyStartDate: policyStartDate,
+      policyExpiryDate: policyExpiryDate
+    });
+  });
+}
+
+function console_getActiveInsurancePolicyForObligation(obligationId) {
+  return console_wrap_(function () {
+    return getActiveInsurancePolicyForObligation(obligationId);
+  });
+}
+
+function console_listInsurancePolicyHistoryForObligation(obligationId) {
+  return console_wrap_(function () {
+    return listInsurancePolicyHistoryForObligation(obligationId);
+  });
+}
+
 function console_getPaymentHistory(propertyId, searchText) {
   return console_wrap_(function () {
     var all = queryRecentPayments({ propertyId: propertyId || undefined, limit: 500 }).results;

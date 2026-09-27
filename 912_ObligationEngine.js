@@ -915,3 +915,208 @@ function queryRecentPayments(params) {
 
   return { dataAsOf: toIsoDateTime_(new Date()), kind: 'authoritative', results: results };
 }
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-2 / REVIEW-010 — PropertyInsurancePolicy (satellite entity)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Owns ONLY the descriptive fields ADR-P01's ObligationRule schema has
+// no room for (insurer, policy number, coverage, policy period). Does
+// NOT own payment/due/overdue/recurrence — that stays entirely on the
+// linked ObligationRule (Category='Insurance'). No dedicated event
+// family (Condition 4) — the linked Obligation's own
+// OBLIGATION_CREATED/OBLIGATION_UPDATED events already signal that an
+// insurance-related Obligation exists; nothing here currently depends
+// on a Policy-specific event firing separately. No PropertyID field
+// (Condition 5) — reached via ObligationID -> ObligationRule.PropertyID.
+// No document/evidence reference field (Condition 3 finding) — see the
+// schema comment on PropertyInsurancePolicy in 901 for why.
+
+function insurancePolicySheet_() {
+  return ensureSheetSchema_(
+    PROPERTY_SCHEMA.PropertyInsurancePolicy.sheetName,
+    PROPERTY_SCHEMA.PropertyInsurancePolicy.columns,
+    PROPERTY_SCHEMA.PropertyInsurancePolicy.dateColumns
+  );
+}
+
+function findInsurancePolicyRowIndex_(policyId) {
+  return findRowIndexByFirstColumn_(insurancePolicySheet_(), policyId);
+}
+
+function getInsurancePolicy(policyId) {
+  var row = findInsurancePolicyRowIndex_(policyId);
+  if (row === -1) return null;
+  return readRowAsObject_(insurancePolicySheet_(), row, PROPERTY_SCHEMA.PropertyInsurancePolicy.columns);
+}
+
+/**
+ * The current (Status='Active') policy for a given Obligation, or null
+ * if none has been recorded yet. At most one Active row per
+ * ObligationID is an invariant this module maintains (createInsurancePolicy
+ * refuses a second Active row; renewInsurancePolicy supersedes the old
+ * one in the same write that creates the new one).
+ */
+function getActiveInsurancePolicyForObligation(obligationId) {
+  var sheet = insurancePolicySheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  var columns = PROPERTY_SCHEMA.PropertyInsurancePolicy.columns;
+  var data = sheet.getRange(2, 1, lastRow - 1, columns.length).getValues();
+  var obligationCol = columns.indexOf('ObligationID');
+  var statusCol = columns.indexOf('Status');
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][obligationCol] === obligationId && data[i][statusCol] === 'Active') {
+      var obj = {};
+      columns.forEach(function (col, idx) { obj[col] = data[i][idx]; });
+      return obj;
+    }
+  }
+  return null;
+}
+
+/** All policy rows (Active + Superseded) for an Obligation, newest first. */
+function listInsurancePolicyHistoryForObligation(obligationId) {
+  var sheet = insurancePolicySheet_();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  var columns = PROPERTY_SCHEMA.PropertyInsurancePolicy.columns;
+  var data = sheet.getRange(2, 1, lastRow - 1, columns.length).getValues();
+  var obligationCol = columns.indexOf('ObligationID');
+  var results = [];
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][obligationCol] !== obligationId) continue;
+    var obj = {};
+    columns.forEach(function (col, idx) { obj[col] = data[i][idx]; });
+    results.push(obj);
+  }
+  results.sort(function (a, b) {
+    return parseIsoDate_(b.PolicyStartDate).getTime() - parseIsoDate_(a.PolicyStartDate).getTime();
+  });
+  return results;
+}
+
+function validateInsurancePolicyFields_(input) {
+  if (!input || typeof input !== 'object') {
+    throw propertyError_('INVALID_INPUT', 'PropertyInsurancePolicy input object is required.');
+  }
+  if (!input.insuranceCompany) {
+    throw propertyError_('INVALID_INPUT', 'insuranceCompany is required.');
+  }
+  if (!input.policyNumber) {
+    throw propertyError_('INVALID_INPUT', 'policyNumber is required.');
+  }
+  if (!input.coverageType) {
+    throw propertyError_('INVALID_INPUT', 'coverageType is required.');
+  }
+  if (!(Number(input.coverageAmount) > 0)) {
+    throw propertyError_('INVALID_INPUT', 'coverageAmount must be greater than 0.');
+  }
+  if (!input.policyStartDate) {
+    throw propertyError_('INVALID_INPUT', 'policyStartDate (yyyy-MM-dd) is required.');
+  }
+  if (!input.policyExpiryDate) {
+    throw propertyError_('INVALID_INPUT', 'policyExpiryDate (yyyy-MM-dd) is required.');
+  }
+}
+
+function assertObligationIsInsuranceCategory_(obligationId) {
+  assertIdPrefix_(obligationId, PROPERTY_CONFIG.ID_PREFIXES.OBLIGATION);
+  var rule = getObligationRuleById_(obligationId);
+  if (!rule) {
+    throw propertyError_('OBLIGATION_NOT_FOUND', 'No ObligationRule found for ' + obligationId);
+  }
+  if (rule.Category !== 'Insurance') {
+    throw propertyError_(
+      'OBLIGATION_NOT_INSURANCE',
+      'ObligationRule ' + obligationId + ' has Category ' + rule.Category + ', not Insurance.'
+    );
+  }
+  return rule;
+}
+
+/**
+ * Creates the first PropertyInsurancePolicy record for an existing
+ * Insurance-category Obligation. Use renewInsurancePolicy() instead if
+ * one already exists for this obligationId (this refuses to create a
+ * second Active row for the same Obligation).
+ */
+function createInsurancePolicy(input) {
+  return withObligationLock_(function () {
+    if (!input || typeof input !== 'object') {
+      throw propertyError_('INVALID_INPUT', 'createInsurancePolicy requires an input object.');
+    }
+    assertObligationIsInsuranceCategory_(input.obligationId);
+    if (getActiveInsurancePolicyForObligation(input.obligationId)) {
+      throw propertyError_(
+        'INSURANCE_POLICY_ALREADY_ACTIVE',
+        'Obligation ' + input.obligationId + ' already has an active PropertyInsurancePolicy — use renewInsurancePolicy() to replace it.'
+      );
+    }
+    validateInsurancePolicyFields_(input);
+
+    var now = toIsoDateTime_(new Date());
+    var policy = {
+      PolicyID: generateInsurancePolicyId_(),
+      ObligationID: input.obligationId,
+      InsuranceCompany: input.insuranceCompany,
+      PolicyNumber: input.policyNumber,
+      CoverageType: input.coverageType,
+      CoverageAmount: Number(input.coverageAmount),
+      PolicyStartDate: input.policyStartDate,
+      PolicyExpiryDate: input.policyExpiryDate,
+      Status: 'Active',
+      CreatedAt: now,
+      UpdatedAt: now
+    };
+    insurancePolicySheet_().appendRow(objectToRowArray_(policy, PROPERTY_SCHEMA.PropertyInsurancePolicy.columns));
+    return { success: true, policyId: policy.PolicyID, policy: policy };
+  });
+}
+
+/**
+ * Renewal (Condition 2): never overwrites — supersedes the current
+ * Active row and appends a new Active row, both sharing obligationId.
+ * The underlying recurring Obligation (payment amount/due cycle) is
+ * untouched; only the descriptive policy-period record changes.
+ */
+function renewInsurancePolicy(input) {
+  return withObligationLock_(function () {
+    if (!input || typeof input !== 'object') {
+      throw propertyError_('INVALID_INPUT', 'renewInsurancePolicy requires an input object.');
+    }
+    assertObligationIsInsuranceCategory_(input.obligationId);
+    var current = getActiveInsurancePolicyForObligation(input.obligationId);
+    if (!current) {
+      throw propertyError_(
+        'INSURANCE_POLICY_NOT_FOUND',
+        'No active PropertyInsurancePolicy found for ' + input.obligationId + ' — use createInsurancePolicy() first.'
+      );
+    }
+    validateInsurancePolicyFields_(input);
+
+    var now = toIsoDateTime_(new Date());
+    var currentRow = findInsurancePolicyRowIndex_(current.PolicyID);
+    updateRowFields_(insurancePolicySheet_(), currentRow, PROPERTY_SCHEMA.PropertyInsurancePolicy.columns, {
+      Status: 'Superseded',
+      UpdatedAt: now
+    });
+
+    var renewed = {
+      PolicyID: generateInsurancePolicyId_(),
+      ObligationID: input.obligationId,
+      InsuranceCompany: input.insuranceCompany,
+      PolicyNumber: input.policyNumber,
+      CoverageType: input.coverageType,
+      CoverageAmount: Number(input.coverageAmount),
+      PolicyStartDate: input.policyStartDate,
+      PolicyExpiryDate: input.policyExpiryDate,
+      Status: 'Active',
+      CreatedAt: now,
+      UpdatedAt: now
+    };
+    insurancePolicySheet_().appendRow(objectToRowArray_(renewed, PROPERTY_SCHEMA.PropertyInsurancePolicy.columns));
+    return { success: true, policyId: renewed.PolicyID, previousPolicyId: current.PolicyID, policy: renewed };
+  });
+}
+

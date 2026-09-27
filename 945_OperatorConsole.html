@@ -270,6 +270,38 @@
     <label>First due date</label>
     <input id="ob_dueAnchor" type="date">
   </div>
+  <!-- BL-2 / REVIEW-010 — only relevant when Category=Insurance; toggled by
+       the ob_category change listener below, same pattern as ob_customIntervalField. -->
+  <div id="ob_insuranceFields" style="display:none">
+    <div class="field">
+      <label>Insurance Company</label>
+      <input id="ob_insInsuranceCompany" type="text" placeholder="e.g. Allianz, Etiqa">
+    </div>
+    <div class="field">
+      <label>Policy Number</label>
+      <input id="ob_insPolicyNumber" type="text">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Coverage Type</label>
+        <input id="ob_insCoverageType" type="text" placeholder="e.g. Fire, MRTA">
+      </div>
+      <div class="field">
+        <label>Coverage Amount (MYR)</label>
+        <input id="ob_insCoverageAmount" type="number" step="0.01" min="0">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Policy Start Date</label>
+        <input id="ob_insPolicyStartDate" type="date">
+      </div>
+      <div class="field">
+        <label>Policy Expiry Date</label>
+        <input id="ob_insPolicyExpiryDate" type="date">
+      </div>
+    </div>
+  </div>
   <details>
     <summary>More options</summary>
     <div class="field">
@@ -625,8 +657,96 @@ function renderOccurrenceList(containerId, items, kind, emptyText) {
           .console_cancelObligation(item.obligationId, '');
       });
       card.appendChild(cancelObBtn);
+
+      // BL-2 / REVIEW-010 — Insurance-only; view current policy + renew.
+      if (item.category === 'Insurance') {
+        var policyBtn = document.createElement('button');
+        policyBtn.className = 'btn small secondary';
+        policyBtn.style.marginTop = '8px';
+        policyBtn.style.marginLeft = '4px';
+        policyBtn.textContent = 'Policy';
+        policyBtn.addEventListener('click', function () { showPolicyPanel(card, item); });
+        card.appendChild(policyBtn);
+      }
     }
     container.appendChild(card);
+  });
+}
+
+function showPolicyPanel(card, item) {
+  if (card.querySelector('.policy-panel')) return; // already open
+  var panel = document.createElement('div');
+  panel.className = 'policy-panel pay-form';
+  panel.innerHTML = '<div>Loading policy…</div>';
+  card.appendChild(panel);
+
+  google.script.run
+    .withSuccessHandler(function (policy) { renderPolicyPanel(panel, item, policy); })
+    .withFailureHandler(function (err) { panel.innerHTML = '<div>' + err.message + '</div>'; })
+    .console_getActiveInsurancePolicyForObligation(item.obligationId);
+}
+
+function renderPolicyPanel(panel, item, policy) {
+  if (!policy) {
+    panel.innerHTML = '<div>No policy on file for this obligation yet.</div>';
+    return;
+  }
+  panel.innerHTML =
+    '<div><strong>' + policy.InsuranceCompany + '</strong> — ' + policy.PolicyNumber + '</div>' +
+    '<div>' + policy.CoverageType + ', RM ' + policy.CoverageAmount + '</div>' +
+    '<div>' + policy.PolicyStartDate + ' \u2192 ' + policy.PolicyExpiryDate + '</div>';
+  var renewBtn = document.createElement('button');
+  renewBtn.className = 'btn small';
+  renewBtn.style.marginTop = '6px';
+  renewBtn.textContent = 'Renew';
+  panel.appendChild(renewBtn);
+  var closeBtn = document.createElement('button');
+  closeBtn.className = 'btn small secondary';
+  closeBtn.style.marginTop = '6px';
+  closeBtn.style.marginLeft = '4px';
+  closeBtn.textContent = 'Close';
+  closeBtn.addEventListener('click', function () { panel.remove(); });
+  panel.appendChild(closeBtn);
+
+  renewBtn.addEventListener('click', function () {
+    renewBtn.remove();
+    closeBtn.remove();
+    var form = document.createElement('div');
+    var nextStart = new Date(policy.PolicyExpiryDate);
+    nextStart.setDate(nextStart.getDate() + 1);
+    form.innerHTML =
+      '<div><label>Insurance Company</label><input class="rf-company" value="' + policy.InsuranceCompany + '"></div>' +
+      '<div><label>Policy Number</label><input class="rf-policynum"></div>' +
+      '<div><label>Coverage Type</label><input class="rf-coveragetype" value="' + policy.CoverageType + '"></div>' +
+      '<div><label>Coverage Amount</label><input type="number" step="0.01" class="rf-coverageamt" value="' + policy.CoverageAmount + '"></div>' +
+      '<div><label>New Start Date</label><input type="date" class="rf-start" value="' + nextStart.toISOString().slice(0, 10) + '"></div>' +
+      '<div><label>New Expiry Date</label><input type="date" class="rf-expiry"></div>';
+    var saveBtn = document.createElement('button');
+    saveBtn.className = 'btn small';
+    saveBtn.style.marginTop = '6px';
+    saveBtn.textContent = 'Save Renewal';
+    saveBtn.addEventListener('click', function () {
+      saveBtn.disabled = true;
+      google.script.run
+        .withSuccessHandler(function (res) {
+          saveBtn.disabled = false;
+          if (!res.success) { showToast(res.error, true); return; }
+          showToast('Policy renewed.');
+          panel.remove();
+        })
+        .withFailureHandler(function (err) { saveBtn.disabled = false; showToast(err.message, true); })
+        .console_renewInsurancePolicy(
+          item.obligationId,
+          form.querySelector('.rf-company').value,
+          form.querySelector('.rf-policynum').value,
+          form.querySelector('.rf-coveragetype').value,
+          Number(form.querySelector('.rf-coverageamt').value),
+          form.querySelector('.rf-start').value,
+          form.querySelector('.rf-expiry').value
+        );
+    });
+    form.appendChild(saveBtn);
+    panel.appendChild(form);
   });
 }
 
@@ -678,6 +798,10 @@ function setupAddBillForm() {
   document.getElementById('ob_frequencyType').addEventListener('change', function (e) {
     document.getElementById('ob_customIntervalField').style.display = e.target.value === 'Custom' ? 'block' : 'none';
   });
+  // BL-2 / REVIEW-010
+  document.getElementById('ob_category').addEventListener('change', function (e) {
+    document.getElementById('ob_insuranceFields').style.display = e.target.value === 'Insurance' ? 'block' : 'none';
+  });
   document.getElementById('ob_submit').addEventListener('click', submitAddBill);
 }
 
@@ -703,15 +827,68 @@ function submitAddBill() {
     return;
   }
 
+  // BL-2 / REVIEW-010 — captured before the async round trip; read the
+  // DOM once, not inside the nested callback below.
+  var isInsurance = input.category === 'Insurance';
+  var insuranceInput = null;
+  if (isInsurance) {
+    insuranceInput = {
+      insuranceCompany: document.getElementById('ob_insInsuranceCompany').value,
+      policyNumber: document.getElementById('ob_insPolicyNumber').value,
+      coverageType: document.getElementById('ob_insCoverageType').value,
+      coverageAmount: Number(document.getElementById('ob_insCoverageAmount').value),
+      policyStartDate: document.getElementById('ob_insPolicyStartDate').value,
+      policyExpiryDate: document.getElementById('ob_insPolicyExpiryDate').value
+    };
+    if (!insuranceInput.insuranceCompany || !insuranceInput.policyNumber || !insuranceInput.coverageType ||
+        !insuranceInput.coverageAmount || !insuranceInput.policyStartDate || !insuranceInput.policyExpiryDate) {
+      showToast('Category is Insurance — please fill in the policy details too.', true);
+      return;
+    }
+  }
+
   btn.disabled = true;
   google.script.run
     .withSuccessHandler(function (res) {
-      btn.disabled = false;
-      if (!res.success) { showToast(res.error, true); return; }
-      showToast('Bill added.');
-      document.getElementById('ob_payee').value = '';
-      document.getElementById('ob_amount').value = '';
-      loadDashboard();
+      if (!res.success) { btn.disabled = false; showToast(res.error, true); return; }
+      if (!isInsurance) {
+        btn.disabled = false;
+        showToast('Bill added.');
+        document.getElementById('ob_payee').value = '';
+        document.getElementById('ob_amount').value = '';
+        loadDashboard();
+        return;
+      }
+      // Obligation exists now — second step creates its linked Policy.
+      // The Obligation is already committed at this point regardless of
+      // what happens next; a Policy-step failure is reported so the
+      // person can add the Policy afterwards, not silently dropped.
+      insuranceInput.obligationId = res.data.obligationId;
+      google.script.run
+        .withSuccessHandler(function (policyRes) {
+          btn.disabled = false;
+          if (!policyRes.success) {
+            showToast('Bill added, but the policy details failed to save: ' + policyRes.error, true);
+            loadDashboard();
+            return;
+          }
+          showToast('Bill and policy added.');
+          document.getElementById('ob_payee').value = '';
+          document.getElementById('ob_amount').value = '';
+          document.getElementById('ob_insInsuranceCompany').value = '';
+          document.getElementById('ob_insPolicyNumber').value = '';
+          loadDashboard();
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          showToast('Bill added, but the policy details failed to save: ' + err.message, true);
+          loadDashboard();
+        })
+        .console_createInsurancePolicy(
+          insuranceInput.obligationId, insuranceInput.insuranceCompany, insuranceInput.policyNumber,
+          insuranceInput.coverageType, insuranceInput.coverageAmount,
+          insuranceInput.policyStartDate, insuranceInput.policyExpiryDate
+        );
     })
     .withFailureHandler(function (err) { btn.disabled = false; showToast(err.message, true); })
     .console_createObligation(input);

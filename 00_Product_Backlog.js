@@ -108,6 +108,69 @@
 //     排程/提醒机制——降低未来维护负担。
 //
 // 依赖：912_ObligationEngine（复用其 Category/Reminder/Overdue 机制）
+//
+// ★ 2026-09-20 追记（Continue Development 任务中发现的治理前提缺口，
+// 已 STOP，未实作，E1 证据）：本条目设计草图完整、PropertyOS_
+// DomainModel.md 132 行附近也已经有对应的详细说明并互相引用——但动手
+// 加 Schema 前直接重读 901_PropertySchema.js 档头，写着"Only the
+// three Obligation tables are defined here — they are the only
+// entities whose schema has passed Architecture Review. Other
+// entities (Property, Loan, Document, ...) are added when their own
+// Phase begins."。这句话字面上的"只有三张表"已经不是现状（901 现在
+// 有 12 个 entity），但背后的原则——新 entity 进 901 之前，要先走过
+// 那个 entity 自己的 Phase/Vertical Slice/Review——核对 Review_History
+// 后确认仍然是这个专案实际在遵守的做法：DefectItem/RectificationEvent
+// /SecondaryDamage 等后来加进 901 的每一个 entity，都能在
+// 00_Review_History.js 找到对应的 REVIEW-NNN 设计/实作审查记录，
+// PropertyInsurancePolicy 目前没有——没有独立的
+// InsurancePolicy_VerticalSlice.md，Review_History 里也没有专门
+// 审查过这个 entity 的 REVIEW-NNN。
+//
+// 因此：本条目的设计草图是未来走 Vertical Slice/Review 时的良好
+// 起点，但不能替代那个流程本身——直接现在把 PropertyInsurancePolicy
+// 的 Schema 加进 901，会重演 BL-20 那次"没查就做、事后才发现跟既有
+// 治理规则冲突"的情况，这次在动手前就查到，选择 STOP。
+//
+// 状态（新增，取代原本隐含的"待实作"）：DESIGNED — AWAITING VERTICAL
+// SLICE / ARCHITECTURE REVIEW（不是 REGISTERED — NOT STARTED 那种
+// "还没规划"，是"规划已经有了，但还没走 Review 这一步"）。
+//
+// 顺带记录（跟本条目关联但不属于本条目）：901 档头那句"only the
+// three Obligation tables"字面数字已经过时（现在 12 个 entity），
+// 但没有在本次任务范围内修正这份档头文字——留给日后处理 901 本身
+// 治理文字时一并更新。
+
+// ★★ 2026-09-20 REVIEW-010（Architecture / Vertical Slice Review 完成，
+// 见 00_Review_History.js）：核心发现——Constitution/File_Map 把
+// Insurance Policy 框成独立的、Phase 3 才开始的"920_InsuranceEngine"；
+// 本条目自己的设计草图与 DomainModel 132 行则是 912 的卫星 entity
+// 方案。重读 ADR-P01 全文后确认：保险的排程/提醒/付款归属早已被这份
+// APPROVED ADR 判给 Obligation Engine，在本条目之前——支持卫星
+// entity 方向，但 Constitution/File_Map 从未与此 cross-reference，
+// 需要 CC 明确确认要走哪个方向。另外发现四个设计草图没回答的
+// lifecycle 问题（续保是否留历史/需不需要 Status 栏、是否接 911
+// Document、是否需要自己的 event、要不要冗余存 PropertyID）。
+//
+// 状态（更新，取代上面 "DESIGNED — AWAITING VERTICAL SLICE /
+// ARCHITECTURE REVIEW"）：REVIEW APPROVED WITH CONDITIONS——完整
+// 5 项条件见 00_Review_History.js REVIEW-010 的 Disposition，本次
+// 没有替 CC 回答任何一项，也没有修改 Schema/Runtime。条件全部回答
+// 后才能授权下一轮真正开始 Schema/Runtime 实作。
+
+// ★★★ 2026-09-20 CC 逐一回答 5 项条件后授权实作，已完成本地实作
+// （见 00_Review_History.js REVIEW-010 的 CONDITIONS RESOLVED 追记，
+// 完整实作细节记在那边，这里不重复）。唯一没有照原计划做到的是
+// 条件 3（911 Document 整合）——实作时发现 attachEvidence() 硬性
+// 要求 relatedCaseId，Insurance 没有 Case，技术上套不进去，没有绕过
+// 或造假，选择不实作这部分，记录为需要另一个小型 911 扩充的独立
+// 后续项目。
+//
+// 状态（最终，取代上面 "REVIEW APPROVED WITH CONDITIONS"）：
+// IMPLEMENTED — LOCAL SYNTAX CHECKED ONLY — GAS VERIFICATION PENDING。
+// 945/946/912/902/901/900 均有改动（见 REVIEW-010 追记的完整清单），
+// 913/903/918/911/922/947/948 及全部 ADR/Constitution 未修改。四套
+// 既有 DLP 本地套件（共用 900/901/902）重新跑过，163/22/29/27 零
+// 回归。真实 GAS 验证待 CC 回到真实环境后进行。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
