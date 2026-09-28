@@ -530,6 +530,22 @@
 //                   ADR。BL-20 登记当时没有检查既有 ADR 是否冲突，
 //                   这是本次发现的检查缺口，如实记录。
 //
+//   2026-09-20（续之後、三之前，本条为本次全窗口核对时才补记——
+//                   追补，不是当时写的）Governance Reconciliation：
+//                   针对下面（续）条记录的 MISMATCH，CC 授权以这个
+//                   对话自己持续维护的本地版本（repo_check）为准，
+//                   取代上传里落后的 5 份治理档案，其余全部档案（含
+//                   全部 production code）原样保留自 CC 那次上传。
+//                   SHA-256 核对五份档案与本地已知good版本一致，
+//                   production code 三方比对（最原始上传/本地工作
+//                   副本/CC 那次上传）全部一致。额外打包一份合并后
+//                   的完整 zip 方便 CC 一次覆盖。状态：RECONCILIATION
+//                   VERIFIED。本条追补原因：本次全窗口核对时发现这个
+//                   事件当时只写进了独立的 REPORT 档案与对话回复，
+//                   没有同步写进这份 CHANGELOG——按"决定要写进
+//                   Governance 档案，不能只留在 checkpoint 里"的
+//                   原则，现在补上。
+//
 //   2026-09-20（续） CC 上传一份新 zip，作为「已人工同步」的 read-back
 //                   证据。逐字节核对（不是只比大小）：这份上传里的
 //                   00_Product_Backlog.js / 00_Project_State.js，跟
