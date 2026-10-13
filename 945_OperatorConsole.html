@@ -579,6 +579,13 @@ function loadProperties() {
   renderPropertyStatus_();
   google.script.run
     .withSuccessHandler(function (res) {
+    // google.script.run hands the success handler null when the server's
+    // return value cannot be serialized — that is a load failure, not "no properties".
+    if (!res) {
+      setPropertiesError_('The server returned no data (its result may contain values the browser cannot receive).');
+      showToast('Failed to load properties: no data returned by the server.', true);
+      return;
+    }
     if (!res.success) { setPropertiesError_(res.error); showToast(res.error, true); return; }
     if (!Array.isArray(res.data)) { setPropertiesError_('Unexpected response from the server.'); return; }
     state.properties = res.data;
