@@ -118,6 +118,8 @@
     display: none;
   }
   .toast.error { background: #d93025; }
+  .field-note { font-size: 12px; margin-top: 4px; color: #5f6368; }
+  .field-note.error { color: #d93025; }
   .summary-box {
     background: #fff;
     border: 1px solid #e0e0e0;
@@ -243,6 +245,7 @@
   <div class="field">
     <label>Property</label>
     <select id="ob_propertyId"></select>
+    <div id="ob_propertyStatus" class="field-note" style="display:none"></div>
   </div>
   <div class="field">
     <label>Category</label>
@@ -434,6 +437,8 @@
 <script>
 var state = {
   properties: [],
+  propertiesStatus: 'loading',   // 'loading' | 'ready' | 'empty' | 'error'
+  propertiesError: '',
   formOptions: null,
   currentPropertyFilter: '',
   dlp: {
@@ -531,10 +536,51 @@ function setupPropertyFilter() {
   });
 }
 
+// "PropertyName \u00b7 UnitLabel" when a unit label exists; otherwise just the
+// name (no separator). PropertyID is never shown here and stays the option value.
+function propertyLabel_(p) {
+  var name = p && p.PropertyName != null ? String(p.PropertyName).trim() : '';
+  var unit = p && p.UnitLabel != null ? String(p.UnitLabel).trim() : '';
+  if (!name) name = p && p.PropertyID != null ? String(p.PropertyID) : '';
+  if (!name) name = '(unnamed property)';
+  return unit ? name + ' \u00b7 ' + unit : name;
+}
+
+// Add Bill: loading / empty / failed-to-load are three different states.
+function renderPropertyStatus_() {
+  var el = document.getElementById('ob_propertyStatus');
+  if (!el) return;
+  var msg = '';
+  var isError = false;
+  if (state.propertiesStatus === 'loading') {
+    msg = 'Loading properties\u2026';
+  } else if (state.propertiesStatus === 'empty') {
+    msg = 'No properties available. Please add a property before creating a bill.';
+  } else if (state.propertiesStatus === 'error') {
+    isError = true;
+    msg = 'Failed to load properties' + (state.propertiesError ? ': ' + state.propertiesError : '.') +
+      (state.properties.length
+        ? ' Showing the last loaded list.'
+        : ' This does not mean there are no properties \u2014 reload the console and try again.');
+  }
+  el.textContent = msg;
+  el.className = 'field-note' + (isError ? ' error' : '');
+  el.style.display = msg ? 'block' : 'none';
+}
+
+function setPropertiesError_(message) {
+  state.propertiesStatus = 'error';
+  state.propertiesError = message ? String(message) : '';
+  renderPropertyStatus_();
+}
+
 function loadProperties() {
+  state.propertiesStatus = 'loading';
+  renderPropertyStatus_();
   google.script.run
     .withSuccessHandler(function (res) {
-    if (!res.success) { showToast(res.error, true); return; }
+    if (!res.success) { setPropertiesError_(res.error); showToast(res.error, true); return; }
+    if (!Array.isArray(res.data)) { setPropertiesError_('Unexpected response from the server.'); return; }
     state.properties = res.data;
     var sel = document.getElementById('propertyFilter');
     var obSel = document.getElementById('ob_propertyId');
@@ -542,14 +588,19 @@ function loadProperties() {
     obSel.innerHTML = '';
     res.data.forEach(function (p) {
       var opt1 = document.createElement('option');
-      opt1.value = p.PropertyID; opt1.textContent = p.PropertyName;
+      opt1.value = p.PropertyID; opt1.textContent = propertyLabel_(p);
       sel.appendChild(opt1);
       var opt2 = opt1.cloneNode(true);
       obSel.appendChild(opt2);
     });
+    state.propertiesStatus = res.data.length === 0 ? 'empty' : 'ready';
+    renderPropertyStatus_();
     renderPropertiesList();
     })
-    .withFailureHandler(function (err) { showToast('Failed to load properties: ' + err.message, true); })
+    .withFailureHandler(function (err) {
+      setPropertiesError_(err && err.message);
+      showToast('Failed to load properties: ' + err.message, true);
+    })
     .console_listProperties();
 }
 
@@ -822,6 +873,20 @@ function submitAddBill() {
   var endDate = document.getElementById('ob_endDate').value;
   if (endDate) input.endDate = endDate;
 
+  if (!input.propertyId) {
+    if (state.propertiesStatus === 'empty') {
+      showToast('No properties available. Please add a property before creating a bill.', true);
+      return;
+    }
+    if (state.propertiesStatus === 'error') {
+      showToast('Properties failed to load, so no property can be selected. Reload the console and try again.', true);
+      return;
+    }
+    if (state.propertiesStatus === 'loading') {
+      showToast('Properties are still loading. Please wait a moment and try again.', true);
+      return;
+    }
+  }
   if (!input.propertyId || !input.category || !input.payee || !input.amount || !input.dueAnchor) {
     showToast('Please fill in Property, Category, Payee, Amount, and Due Date.', true);
     return;
@@ -853,7 +918,7 @@ function submitAddBill() {
       if (!res.success) { btn.disabled = false; showToast(res.error, true); return; }
       if (!isInsurance) {
         btn.disabled = false;
-        showToast('Bill added.');
+        showToast(billSavedMessage_('Bill added.', res.data), false, 10000);
         document.getElementById('ob_payee').value = '';
         document.getElementById('ob_amount').value = '';
         loadDashboard();
@@ -872,7 +937,7 @@ function submitAddBill() {
             loadDashboard();
             return;
           }
-          showToast('Bill and policy added.');
+          showToast(billSavedMessage_('Bill and policy added.', res.data), false, 10000);
           document.getElementById('ob_payee').value = '';
           document.getElementById('ob_amount').value = '';
           document.getElementById('ob_insInsuranceCompany').value = '';
@@ -1620,14 +1685,26 @@ function escapeHtml(s) {
   return div.innerHTML;
 }
 
+// Only values the backend actually returned are shown. "First due" is the
+// returned rule.DueAnchor (the first Occurrence is created at that date,
+// 912 createObligation); nothing is computed or filled in client-side.
+function billSavedMessage_(prefix, data) {
+  var details = [];
+  var id = data && data.obligationId ? String(data.obligationId) : '';
+  var due = data && data.rule && data.rule.DueAnchor ? String(data.rule.DueAnchor) : '';
+  if (id) details.push('Obligation ID: ' + id);
+  if (due) details.push('First due: ' + due);
+  return details.length ? prefix + ' ' + details.join(' \u00b7 ') : prefix;
+}
+
 var toastTimer;
-function showToast(msg, isError) {
+function showToast(msg, isError, durationMs) {
   var t = document.getElementById('toast');
   t.textContent = msg;
   t.className = 'toast' + (isError ? ' error' : '');
   t.style.display = 'block';
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(function () { t.style.display = 'none'; }, 3500);
+  toastTimer = setTimeout(function () { t.style.display = 'none'; }, durationMs || 3500);
 }
 </script>
 </body>
