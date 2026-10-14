@@ -59,7 +59,28 @@ function console_getDashboardSnapshot(propertyId) {
 // ─── Properties ────────────────────────────────────────────────────
 
 function console_listProperties() {
-  return console_wrap_(function () { return listActiveProperties(); });
+  return console_wrap_(function () { return listActiveProperties().map(console_browserSafeRow_); });
+}
+
+// google.script.run cannot hand a Date to the browser: a Date anywhere in a
+// return value makes the success handler receive null (this is why the Add
+// Bill Property dropdown reported "server returned no data", 2026-10-13).
+// listActiveProperties() returns raw getValues() cells, so any Properties
+// date cell that Sheets stored as a real date (a manual edit, or a sheet whose
+// date columns were never text-formatted — see ensureSheetSchema_) arrives
+// here as a Date. Convert only those to text; every other value passes through.
+// '...At' columns are datetimes (ISO, same as toIsoDateTime_); the rest are
+// calendar dates ('yyyy-MM-dd', same as coerceToIsoDateString_).
+function console_browserSafeRow_(row) {
+  var out = {};
+  Object.keys(row).forEach(function (key) {
+    var value = row[key];
+    if (value instanceof Date) {
+      value = /At$/.test(key) ? toIsoDateTime_(value) : coerceToIsoDateString_(value);
+    }
+    out[key] = value;
+  });
+  return out;
 }
 
 function console_createProperty(input) {
