@@ -297,11 +297,36 @@
 //      诊断修复——文件同步、ensureSheetSchema_ 执行超时——才达到
 //      这个结果，过程完整记在上面几笔 CHANGELOG）。至此 990-996
 //      全部 20 个文件都已在真实 GAS 环境验证过至少一次。
+//  10. [待确认 2026-10-16] 912 createObligation 保存路径非原子：Rule 写入后 createOccurrence_ 失败 → 孤儿 Rule（无
+//      Occurrence、无部分失败日志）；Occurrence 写入后 History 失败 → 缺创建历史行（无日志）；event 发布失败 → 三者都已
+//      写入但界面报失败（有日志）。证据：隔离环境模拟（非真实 GAS）。912:387–393 的注释写"见本文件 TECH DEBT"，此前
+//      本文件没有对应条目，这条补上。UEF v1.6 §2 / D9 接受非原子写入，但前两个边缘连日志都没有。→ BL-24（PROPOSED，
+//      未授权）。
+//  11. [待确认-未授权] 945 Add Bill 保存回调对 null / 空响应没有保护：null → 回调抛 TypeError，Save 按钮保持禁用且无
+//      提示；失败结果缺 error 文字时 toast 显示 "undefined"。loadProperties 已在 S2 补上保护。→ BL-23（PROPOSED）。
+//  12. [未证实风险-CC 明确不授权修复] Date 序列化边界：console_getActiveInsurancePolicyForObligation、
+//      console_listInsurancePolicyHistoryForObligation（946）、dlp_listSidebarDefects、dlp_getSidebarDefectDetail（922 DTO
+//      原样传出 submittedAt / closedDate）。隔离环境模拟显示真日期格子会带到响应；没有观察到真实症状。→ BL-27；
+//      ADR-P29(b) PROPOSED。
+//  13. [待确认] EventBus / P1 解释：publishPropertyEvent_() 仍是 LOGGING ONLY（903:180–190，ADR-P07 刻意占位）；
+//      Constitution 264、ADR-P04:145、Vertical Slice 258/292 仍按"有持久事件日志"描述，Constitution 364–375（2026-08-17
+//      订正）已说明目前没有。→ ADR-P30 PENDING（决策单 Q1–Q7 未作答）；BL-26。
+//  14. [待确认] 来源权威性未确认：上传 ZIP、outputs 副本、本地修改副本都不是权威来源；已部署的 GAS 源码无法直接检查
+//      → ADR-P32。ZIP 内还有遗留的 Node 沙箱测试（900/912/919/999 + runAllTests.js + TestKit.js），与本文件 #5（Node
+//      沙箱已移除）不符；在重建的目录布局里跑 67/101（shim 文件清单缺 910）。→ BL-29。
+//  15. [既有失败，未调查] local_precheck_test_911（shim 没有 PropertiesService）、
+//      local_precheck_test_phase11_defectitem_reorder_migration 一直失败；local_precheck_test_922 间歇性失败（ZIP 原版
+//      25 次中 5 次）。均在本窗口的任何修改之前就存在。
 
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // NEXT PRIORITY 下一步开发
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+//  ★ 2026-10-16 CC 指示（见 CHANGELOG 同日条目）：Billing（让 Operator Console 能记录真实的 Water / Electricity /
+//     MaintenanceFee 账单）是当前最高优先级。EventBus Decision Gate 与 912 F-01 暂缓，除非 Billing 的写入路径出现真实
+//     依赖。Billing 现状：S2 已实作、隔离环境测试通过；真实 GAS / 浏览器 / 生产录入验证 PENDING（见 BL-22、
+//     Billing_Real_Environment_Checklist.md v2）。下面 1–11 是 2026-08 的原有顺序，本条没有改动它们。
 //
 //   顺序已由 CC 确认（DLP Defect Engine 插队到 914 之前——真实 DLP
 //   期限比 Finance Engine 更急迫，ADR-P15 记录了这个决定）：
@@ -380,6 +405,38 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CHANGELOG 近期更新记录
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+//  2026-10-16      Checkpoint / 治理持久化。CC 指示暂停 coding，核对本窗口全部决定、修改、测试与未完成事项，并把决定
+//                  写入 Governance 文件与 ADR Log。日期取自沙盒时钟，CC 的本地日期可能不同。本条只做记录：没有修改任何
+//                  运行代码，没有同步到任何 GAS / GitHub，没有创建 ZIP 或基线。交接文件：
+//                  CHECKPOINT_2026-10-16_PropertyOS-Billing-EventBus-Handoff.md
+//
+//                  【CC 决定（本窗口）】
+//                  - 2026-10-01 追溯批准记录已重建并正式采用（见下一条）；该工作项 CLOSED。
+//                  - D-912-F01（2026-10-06）Choice A → ADR-P27；事件语义后续决定 A1–I1 → ADR-P28（同样记在
+//                    REVIEW-010 的 2026-10-07 追记）。912 F-01 实作授权：NOT GRANTED（授权单 A–H 尚未作答）。
+//                  - Billing 为最高优先级；EventBus Decision Gate 只读调查已完成，未选任何选项 → ADR-P30 PENDING，
+//                    不阻塞 Billing。
+//                  - Billing S2（只改 945）与 946 console_listProperties 的 Date 序列化修复已授权并实作 → BL-22、
+//                    ADR-P29(a)。其他 Date 风险端点：CC 明确不授权修复。
+//                  - 不授权建立 945 / 946 合并基线或权威副本 → ADR-P32。
+//                  - 945 UI 逻辑的隔离测试方式（Node vm + 手写假 DOM）已授权 → ADR-P31。
+//
+//                  【实作与验证状态】（SHA-256 见 CHECKPOINT 文件的 manifest）
+//                  - 945（S2 B1–B3 + loadProperties 空响应保护）：实作完成；隔离测试 52 通过 + 4 项已知缺陷（BL-23）；
+//                    用户在真实环境看到该版本的空响应提示。
+//                  - 946（console_browserSafeRow_）：实作完成；隔离测试 15/15；用户回报部署后 Add Bill 下拉显示
+//                    Est8 Seputeh（是否带 "· A-19-11" 未确认）。
+//                  - 真实表（Drive 只读）：Est8 记录存在；ObligationRules / ObligationOccurrences 只有表头，没有任何账单。
+//                    真实保存路径：NOT VERIFIED。
+//                  - 912 Insurance Static Audit：FAIL（F-01…F-10，见 REVIEW-012）；F-02–F-10 Deferred。
+//
+//                  【待确认 / 未授权】TECH DEBT #10–#15；BL-23 至 BL-30。
+//                  【限制】新增的 ADR-P27–P32 编号依据 ZIP 里的 ADR Log，权威副本未确认；沙盒在本窗口中途被重置，
+//                  临时证据脚本已丢失（结果已记入 REVIEW-012，编号暂定）。本文件以 ZIP / Adopted 为基础：项目记忆显示真实仓库
+//                  有 2026-10-01 的原始批准条目与 2026-10-02 的交接记录（CHECKPOINT_2026-10-02_PropertyOS-Governance
+//                  Ratification-Handoff.md），而下一条的 2026-10-01 条目是依据 CC 的决定重建的。合并时以真实条目为准，
+//                  只合并本条与 TECH DEBT #10–#15、NEXT PRIORITY 说明。
 //
 //   2026-10-01      CC Ratification & Disposition（追溯批准）。决
 //                   定日与生效日：2026-10-01。本条是依据 CC 已作出的

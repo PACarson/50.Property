@@ -1307,3 +1307,108 @@
 //
 // 相关 item：无直接关联的既有 backlog item——是这次 Capability Audit
 // 的直接产物。
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-22 至 BL-30 的编号说明（2026-10-16）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 编号为暂定：依据上传 ZIP 的 Backlog（最后是 BL-21）。真实仓库可能已用到这些编号（ZIP 比真实仓库旧）；合并前先核对，必要时顺延。
+// 只能以'合并新增块'的方式使用，不能整份覆盖真实 Backlog。
+//
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-22 — Billing UI Slice S2：Operator Console 的 Property 标签 / 空状态 / 成功反馈
+// 状态：IMPLEMENTED（输出副本）— 隔离环境测试通过 — 真实环境验证 PENDING
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 授权：CC 授权 S2（只改 945 与直接相关的测试）。复用既有 Add Bill / Pay 流程与既有 Billing API，不改 schema。
+// 内容：B1 下拉标签 "PropertyName · UnitLabel"（option value 仍是 PropertyID；UnitLabel 为空时只显示名称）；
+//   B2 无 Property / 加载中 / 加载失败 / 空响应是四种不同状态；B3 保存成功提示显示 Obligation ID 与首个到期日
+//   （rule.DueAnchor，首个 Occurrence 的 EffectiveDue 同值，912:386）；loadProperties 对 null 响应的保护。
+// 证据：945 d1bf51ed…（ZIP 原版 98b6e98d…）；Node vm + 假 DOM 测试 52 通过 / 4 项已知缺陷；变异检查 9/9；
+//   946 的配套修复见 ADR-P29(a)。真实环境：用户观察到 945 的空响应提示，并回报 946 部署后下拉显示 Est8；
+//   其余（标签是否带 "· A-19-11"、失败测试、真实保存、三张表核对）NOT VERIFIED。
+// 待办：按 Billing_Real_Environment_Checklist.md v2 做真实验证。
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-23 — 945 Add Bill 保存回调的 null / 空响应保护
+// 状态：PROPOSED — NOT AUTHORIZED
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 问题（隔离测试的 4 项已知缺陷）：保存收到 null → 回调抛 TypeError，Save 按钮保持禁用且没有提示；保险第二步
+// 收到 null → 没有提示；失败结果缺 error 文字 → toast 显示字面的 "undefined"。当前后端返回的对象可序列化，
+// 触发可能性低。
+// 最小方案（只改 945，约 6 行）：三处回调开头加 if (!res) 分支（恢复按钮并提示"先检查 ObligationRules 再重试"），
+// 并把 showToast(res.error, true) 改为 showToast(res.error || 'Save failed.', true)。需要 CC 单独授权。
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-24 — 912 createObligation 的部分失败日志（Rule→Occurrence、Occurrence→History 两个边缘）
+// 状态：PROPOSED — NOT AUTHORIZED
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 问题（隔离环境模拟，非真实 GAS 观察）：Rule 写入后 Occurrence 失败 → 孤儿 Rule（1/0/0 行，无日志）；Occurrence
+// 写入后 History 失败 → 缺创建历史行（1/1/0，无日志）；event 发布失败 → 三者都写入但界面报失败（有日志）。
+// 重试都会产生重复或孤儿，clientRequestId 也不能防（结果只在成功后缓存，912:423；UI 本来也不发）。
+// 912:387–393 的注释写"见 Project State TECH DEBT"，本 ZIP 里没有对应条目——已补为 TECH DEBT #10。
+// 最小方案：把期次创建与历史追加包进 try/catch，调用 logPartialFailure_ 后重新抛出（与 event 那一步一致）。
+// 只让失败"大声"，不会变原子，也不防重复。需要 CC 单独授权（改动 912）。
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-25 — 912 F-01：Insurance Policy create/renew 发布 OBLIGATION_UPDATED
+// 状态：DECISION MADE（ADR-P27、ADR-P28）— IMPLEMENTATION AUTHORIZATION NOT GRANTED
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 语义已由 CC 决定；实作授权单（决策 A–H：changedFields、消费者、终态 Obligation、publishPropertyEvent_/P1、失败语义、
+// 幂等、代码范围、测试范围）尚未作答。F-03、F-04 维持 Deferred。依赖：ADR-P28 的 OPEN POINTS；ADR-P30 的 Q1、Q2、Q5。
+// 在 CC 作答之前不得实作。
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-26 — EventBus / P1 基础设施决策
+// 状态：PENDING DECISION（ADR-P30）— 没有选择任何选项
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// publishPropertyEvent_ 为 LOGGING ONLY；P1 解释 AMBIGUOUS；Constitution 264 / ADR-P04:145 / Vertical Slice 258、292
+// 与 Constitution 364–375 的订正之间有文字漂移。决策单 Q1–Q7 未作答；Option A–D 未选。CC 指示：不阻塞 Billing。
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-27 — Date 序列化边界：未证实的风险端点
+// 状态：UNCONFIRMED RISK — NOT AUTHORIZED（CC 明确不授权修复，不做推测性修补）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// console_getActiveInsurancePolicyForObligation、console_listInsurancePolicyHistoryForObligation（946）、
+// dlp_listSidebarDefects、dlp_getSidebarDefectDetail（922 DTO 原样传出 submittedAt / closedDate）。隔离环境模拟显示
+// 格子为真日期时 Date 会带到响应；没有观察到真实症状。诊断办法：只读 probe() 看哪些列是真日期。ADR-P29(b) 为 PROPOSED。
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-28 — Billing 数据模型与周边（均需单独授权；S5 需 schema 决定）
+// 状态：PROPOSED — NOT AUTHORIZED
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// - 没有地方记录：账期、开单日、账单编号、备注、账单图片（S5，需 schema 变更）。
+// - 付款凭证 evidence 已被 recordPayment 支持，但 946 wrapper 只传 note、UI 传空字符串（S3）。
+// - 一步式"新增并标记已付"（S4）：两次连续写入，需先决定部分失败的处理。
+// - 币种：代码配置 DEFAULT_CURRENCY = 'MYR'（900:44），UI 不发送币种；治理文件只定义 Money = {amount, currency}，
+//   没有写 MYR → 治理层面 UNSPECIFIED，待 CC 决定是否写入 Business Rules。
+// - 观察到、未确认：Pay 表单默认日期取 UTC 日期（945:760），马来西亚时间 0–8 点可能是前一天。
+// - 金额不四舍五入（42.555 原样存储）；规则金额是预计金额，下个月期次仍预填该金额。
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-29 — 本窗口新增测试的采用与 File Map 同步；遗留 Node 沙箱测试的处理
+// 状态：PENDING — 需要 CC 授权
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 新增（目前只是输出副本）：local_precheck_test_946_listProperties.js、local_precheck_test_946_createObligation.js、
+// local_precheck_test_945_addBill_ui.js（ADR-P31）。采用进仓库时需同步 File Map。
+// ZIP 内另有遗留的 Node 沙箱测试（900/912/919/999 + runAllTests.js + TestKit.js），与 Project State TECH DEBT #5
+// （Node 沙箱已移除）不符；在重建的目录布局中跑 67/101（shim 文件清单缺 910，propertyExists_ 未定义）。
+// 它们是否应保留，待 CC 确认。
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BL-30 — 912 Insurance Static Audit 其余发现（F-02 至 F-10）
+// 状态：DEFERRED（CC 明确）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// F-02 945 保单面板把 console_wrap_ 信封当成保单本身（High，静态推导，未在浏览器验证）；F-03 renew 重试重复；
+// F-04 renew 两步写入无部分失败日志；F-05 日期只验非空；F-06 保单面板 innerHTML 未转义；F-07 Obligation 取消或改类别后
+// Policy 的行为未定义；F-08 状态字面值 vs 配置枚举；F-09 文件漂移（920_InsuranceEngine 命名、ERD、sheet 名、
+// "seven Command functions" 注释）；F-10 没有 Policy 函式的测试。详见 REVIEW-012。

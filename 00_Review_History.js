@@ -1316,3 +1316,138 @@
 //   Disposition 更新：**APPROVED WITH CONDITIONS → CONDITIONS
 //   RESOLVED → IMPLEMENTED（LOCAL SYNTAX CHECKED ONLY，GAS 验证
 //   PENDING）**。
+//
+// ─── ★ 2026-10-07 追记 — D-912-F01 Event Semantics Follow-up（仅记录）──
+//   性质：仅为治理记录，不是实作授权。本追记没有修改任何代码、测试、
+//   903/912/913/945/946，也没有修改其他治理文件。REVIEW-010 的上述
+//   Disposition 不变。
+//   记录日期：2026-10-07（记录日；CC 的决定文字于当次会话提供，没有另附
+//   独立的决定时间戳）。
+//   来源：912 Insurance Static Audit（2026-10-05）的 finding F-01（Policy
+//   create/renew 是没有任何 event 的 Truth Layer 写入）→ CC 决定 D-912-F01。
+//
+//   ① 上游决定 D-912-F01（CC，2026-10-06）— Choice A — Existing Obligation
+//   Event。（本包内此前没有这条决定的治理记录，故在此一并留底。）
+//   "PropertyInsurancePolicy" 的 create/renew 属于既有 Obligation event
+//   boundary，必须遵守 P1 的 Truth Layer EventBus requirement。上面条件 4
+//   "沿用既有 Obligation event，没有新增 Policy 专属 event"应解释为：不建立
+//   独立的 Insurance Policy event vocabulary；并不表示 PropertyInsurancePolicy
+//   的 Truth Layer mutation 可以绕过 EventBus。
+//
+//   ② 后续决定 — Event Semantics Follow-up：Option A — YES。
+//   "OBLIGATION_UPDATED" 可以代表 Obligation aggregate / 其拥有的领域状态的
+//   变更，包括其 Insurance Policy 卫星 entity，即使没有任何 ObligationRule
+//   栏位改变。
+//   A1 = ②：OBLIGATION_UPDATED 表示"Obligation aggregate / 其拥有的领域状态
+//        发生变更"，不限于直接的 ObligationRule 栏位变更。
+//   A2 = YES：为既有 Insurance Obligation 建立 PropertyInsurancePolicy 时，
+//        发出一个 OBLIGATION_UPDATED，因为 Obligation 的 owned domain state
+//        变了；这不表示 ObligationRule 本身改变。
+//   A3 = YES：续保在两次 Truth Layer 写入都完成后（旧 Policy → Superseded，
+//        新 Policy → Active）发出一个 OBLIGATION_UPDATED。两次 sheet 写入
+//        是实作细节，不是两个独立的 domain event。
+//   A4 = B：changedFields 仍保留给 ObligationRule 栏位变更；Policy 变更由另
+//        一个概念性 payload 区块 policyChange 表达（本记录不实作该结构）。
+//   A5：Policy create → policyId、mutationType。Policy renew → policyId、
+//        previousPolicyId、mutationType。目的：区分受影响的 Obligation 身份
+//        与受影响的 Policy 身份。
+//   A6 = YES：Policy 变更必须在既有 OBLIGATION_UPDATED 内可区分。批准的概念
+//        值：POLICY_CREATED / POLICY_RENEWED；最终栏位名记录为 "mutationType"。
+//   A7：仅涉及 Policy 的 OBLIGATION_UPDATED 不得被当作普通 ObligationRule
+//        栏位更新；未来的消费者必须能识别并忽略 / 另行处理。本记录没有修改
+//        913 / 922 / 930。
+//   P3 = CONDITIONAL：额外的 Policy 专属 payload 只授权给本决定涵盖的
+//        Insurance Policy create/renew mutation，概念扩展为 policyChange。
+//        这不是对所有 OBLIGATION_UPDATED payload 的一般性扩展许可，也没有
+//        重新定义无关的 event contract。
+//   C2：create 与 renew 都使用 OBLIGATION_UPDATED，并以显式的 mutation
+//        metadata（POLICY_CREATED / POLICY_RENEWED）区分。
+//   O1：先 Truth，后 Event。Create：Policy Active 写入 → OBLIGATION_UPDATED。
+//        Renew：旧 Policy → Superseded → 新 Policy → Active →
+//        OBLIGATION_UPDATED。event 不得先于 Truth 变更。
+//   F1：Truth 已写入、event 发布失败时：Truth 保留；视为 partial failure；
+//        操作回报失败；既有 logPartialFailure_() 风格为参考模式。本决定没有
+//        授权实作该失败路径。
+//   I1：F-01 的实作范围仅限 event boundary。F-03（renew 重复 / 重试幂等缺口）
+//        与 F-04（renew 部分失败缺口）维持 Deferred，本决定明确不授权解决
+//        它们。F-02、F-05 至 F-10 同样维持 Deferred。
+//
+//   基础设施边界（须保留）：Phase 1 静态分析发现 publishPropertyEvent_()
+//   （903_PropertyEventDefinitions.js 180-190 行）为 LOGGING ONLY——只构造并
+//   校验 event envelope，然后 Logger.log，不提供持久的 EventBus dispatch /
+//   persistence（ADR-P07 / ADR-P12 的占位）。本决定定义的是 Insurance Policy
+//   mutation 所需的 event 语义与边界，并不自动证明当前的
+//   publishPropertyEvent_() 实作满足 P1 的完整 EventBus 基础设施要求。这是
+//   实作前提 / 注意事项，没有被转成任何代码改动；是否须先处理该基础设施问题，
+//   留给之后独立的 "912 F-01 Implementation Authorization" 决定。
+//
+//   状态：D-912-F01 DECIDED；Event Semantics Follow-up RECORDED；
+//   F-01 IMPLEMENTATION AUTHORIZATION: NOT GRANTED；F-02 至 F-10: DEFERRED；
+//   2026-10-01 追溯批准工作项维持 CLOSED，没有被重新打开。
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// REVIEW-012 — 本窗口审计与分析汇总（912 Insurance Static Audit / F-01 Phase 1 / EventBus Decision Gate / Billing）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// 编号说明：REVIEW-012 为暂定编号。项目记忆显示真实 Review History 已有 REVIEW-011（BL-21 审核，2026-10-02）以及 REVIEW-010 的
+//   BL-2 追记；本 ZIP 基础版没有它们。合并前先核对，以真实文件为准，只合并本条目与 REVIEW-010 的 2026-10-07 追记。
+//
+// Date: 2026-10-05 至 2026-10-16（沙盒时钟）。Profile：只读静态审计 + 隔离环境（Node/GasShim）测试 + 决策准备；
+// 没有任何一项在真实 GAS 或浏览器里执行。来源：上传 ZIP（e3b5166a…09404a2）；ZIP 与 outputs 副本都不是已确认的
+// 权威来源（ADR-P32）。
+//
+// (a) 912 Insurance Static Audit（2026-10-05）— 结果：FAIL
+//   F-01 High FAIL  Policy create/renew 是没有 event 的 Truth 写入（912:921–1121 内 publishPropertyEvent_ 为 0 次；P1）→ ADR-P27/P28。
+//   F-02 High FAIL  945 保单面板把 console_wrap_ 信封当成保单（946:133–137 vs 945:684）；静态推导，未在浏览器验证。
+//   F-03 Medium GAP renew 重试会产生重复（无 clientRequestId、无领域键）。
+//   F-04 Medium GAP renew 两步写入没有 logPartialFailure_。
+//   F-05 Medium GAP 日期只验非空，不验格式与先后。
+//   F-06 Low GAP    945 保单面板 innerHTML 未转义用户输入。
+//   F-07 Info UNSPECIFIED Obligation 取消/改类别后的 Policy 行为；PolicyExpiryDate 不触发提醒。
+//   F-08 Info GAP   状态字面值 vs INSURANCE_POLICY_STATUSES。
+//   F-09 Info GAP   文件漂移：920_InsuranceEngine 命名、ERD、sheet 名、912 档头"seven Command functions"。
+//   F-10 Info GAP   没有 Policy 函式的测试。
+//   其余边界：所有权、身份、锁、truth 保护、Asset/Evidence/Scheduler 边界 PASS；没有发现数据损坏路径。
+//   Provenance：独立的实作授权文件未找到（缺口保留，不等于未授权）；2026-10-01 追溯批准已 CLOSED，未重开。
+//
+// (b) 912 F-01 Phase 1 Analysis（2026-10-06）— BLOCKED — ARCHITECTURAL GAP
+//   publishPropertyEvent_（903:180–190）= LOGGING ONLY；唯一候选 OBLIGATION_UPDATED（契约是 ObligationRule 的
+//   changedFields）；先 Truth 后 Event 与所有既有命令一致。→ CC 作出 D-912-F01 后续决定（ADR-P28）。
+//
+// (c) EventBus Infrastructure Decision Gate（2026-10-13/14，只读）— COMPLETE；P1 AMBIGUOUS；没有选项被选择（ADR-P30）
+//   持久化 / 分发 / 订阅 / 重试：ABSENT IN INSPECTED SOURCE；跨 OS EventBus 契约：UNVERIFIED。
+//   Option A 保留占位：无改动，审计仍只靠两张域内表。Option B 持久记录：改 903 adapter + 新增事件表（900/901），
+//   风险是发布会因存储/配额/锁而失败、重复事件无法去重、与 ADR-P12"每个项目各建一份"的方向有张力。
+//   Option C 记录加分发：B 加订阅 adapter 与消费者（914 不存在，922/913 没有处理代码），与 ADR-P12 在 API 固定前不
+//   做真实订阅冲突，除非修订。Option D 先修订治理：不改代码，先定 P1 解释、审计定义、是否允许项目内自建持久化。
+//
+// (d) Billing（2026-10-13 至 10-16）
+//   - S2 实作与 946 修复见 BL-22、ADR-P29。946 补丁复核 PASS（Date 检测、日期/日期时间格式、值透传、不改源、
+//     唯一使用者 945:553、新增失败路径均可见）。无法确认：电子表格自身时区；非法 Date 在真实 GAS 的 formatDate 行为。
+//   - 其他读取接口的 Date 扫描（隔离环境，真日期注入）：会带 Date 的有 console_getActiveInsurancePolicyForObligation、
+//     console_listInsurancePolicyHistoryForObligation、dlp_listSidebarDefects、dlp_getSidebarDefectDetail；干净的有
+//     console_getDashboardSnapshot、console_getPaymentHistory、console_getFormOptions、各写入命令的返回值。→ BL-27。
+//   - 保存路径部分写入（模拟故障，非真实观察）：Rule 后 Occurrence 失败 → 1/0/0、无日志；Occurrence 后 History 失败
+//     → 1/1/0、无日志；event 失败 → 1/1/1、有日志；重试分别得到 2/1/1、2/2/1、2/2/2，同一个 clientRequestId
+//     也不能防重复。真实环境证据只有项目记录的 994（2026-07-29）：recordPayment 的 History 失败时 logPartialFailure_
+//     会记录，以及"无 clientRequestId 的重复 createObligation 无去重"。→ BL-24。
+//   - 945 UI 测试：对当前 945 为 52 通过、0 失败、4 项已知缺陷；对 ZIP 原版 945 为 33 通过、19 失败；9 种变异全部
+//     被抓到（ADR-P31）。946 listProperties 15/15；946 createObligation 52/52。
+//   - 真实表（Drive 只读）：Est8 记录存在；ObligationRules / ObligationOccurrences 没有任何数据行；
+//     PropertyInsurancePolicies 表尚不存在。真实保存路径 NOT VERIFIED。
+//
+// (e) checkpoint 时刻的本地测试（完整包副本 = ZIP + 输出的 945/946 + 三份新测试）
+//   通过：918（163）、922（67，见下）、947（22）、948_rectification（27）、948_search（29）、phase11_schema_consolidation（38）、
+//   phase11_schema_migration（71）、946_listProperties（15）、946_createObligation（52）、945_addBill_ui（52 + 4 已知缺陷）。
+//   既有失败（本窗口任何修改之前就存在，未调查）：local_precheck_test_911（shim 没有 PropertiesService）、
+//   local_precheck_test_phase11_defectitem_reorder_migration。local_precheck_test_922 间歇性失败（ZIP 原版 25 次中 5 次，
+//   修改后的包 25 次中 1 次；"latestEvent … chronologically" 检查）。遗留 Node 沙箱套件（900/912/919/999）在重建的
+//   目录布局里 67/101，原因是 shim 文件清单缺 910（propertyExists_ 未定义）。
+//
+// (f) 本窗口对自己早先说法的更正
+//   - 早先称 ZIP 里"没有 TestKit"：错误；TestKit.js、GasShim.js、runAllTests.js 都在 ZIP 内（扁平目录）。实际情况是
+//     套件要求 shim/ 与 tests/ 子目录，且 shim 文件清单已过时。
+//   - 946 补丁行数：+22 / −1（含一个空行），早先写成 +21。
+//   - Phase 1 / Decision Gate 报告里把 912 的 Node 套件称为"GAS-native"：不准确，912_Tests_ObligationEngine.js 是 Node shim 版。
+//
+// Disposition：审计与分析记录；没有任何 finding 被改写成 PASS；所有 F-xx 与待决事项见 ADR-P27–P32、BL-22–BL-30。
