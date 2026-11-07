@@ -1,0 +1,558 @@
+
+====================================================================================================
+0. ENVIRONMENT AND SCOPE
+====================================================================================================
+S1 evidence log for B1 (Pay hardening), candidate output. NOT APPLIED, NOT MERGED, NOT DEPLOYED. Non-authoritative working copy only.
+device clock (user_time_v0) at the start of S1 work: 2026-11-06T06:46:21+08:00 (Asia/Kuala_Lumpur)
+sandbox clock (date -u): Fri Nov  6 22:04:49 UTC 2026
+node v22.23.4 | GNU patch 2.7.6 | git version 2.43.0 | diff (GNU diffutils) 3.10
+sandbox network: disabled (no git remote, no GAS, no browser).
+
+====================================================================================================
+A. INPUT IDENTIFICATION
+====================================================================================================
+upload: /mnt/user-data/uploads/50_Property-main.zip  size=1368967  sha256=76611d8d597cfa63dc9ee44f772038bb7fa3e5e194878bdce8f13a0bb1464118
+zip comment: 8b8f2dc274e0a835f572ad90394839033f3f192f
+fresh extraction of the zip: 103 files; working base copy identical to a fresh extraction: True
+base 912_ObligationEngine.js      sha256=8a40643e21994b004da4e1790edef8fec75d0487a17f6fc9894a5c2315087839  blob=10c61992cea010326754e7e57b6f4134aa9ead0f
+base 945_OperatorConsole.html     sha256=d1bf51ed80b92ad3bd8a31ad6f367881a93eace2a1124e95d286006f07845651  blob=f09956fe4cbf8516f8151dd0ed5cf6fa210c40f8
+base 946_OperatorConsoleServer.js sha256=e993b71baed38686b17906e42587341ee98a1f531b53c7b544c5e86f5eebae26  blob=961e3ea71ea2161f3903ac6a7333c923bbb46674
+base 900_PropertyConfig.js        sha256=f3758c2fee136a91ee7d93a20a0ba857b0ba57c1aa56e7a0543e764ce6697bb3  blob=177bb4b333be3ae3159da6131bdd8e90d6177637
+base 901_PropertySchema.js        sha256=4f8c6e8012623940f34c81ee1d16a4a10795e6d7374ad802f6fff6a81014ac60  blob=625534959132568641c5e2f4d27dd5c424e46977
+
+====================================================================================================
+B. END-TO-END APPLY CHECK, USING THE FILES IN THE OUTPUT DIRECTORY ON A FRESH EXTRACTION
+====================================================================================================
+912_ObligationEngine.js: header base sha256 == fresh base: True | patch --dry-run rc=0 | patch rc=0 | patched sha256 == header: True | git apply --check (fresh base) rc=0
+    patch output: patching file 912_ObligationEngine.js
+945_OperatorConsole.html: header base sha256 == fresh base: True | patch --dry-run rc=0 | patch rc=0 | patched sha256 == header: True | git apply --check (fresh base) rc=0
+    patch output: patching file 945_OperatorConsole.html
+diff -rq (fresh extraction vs patched tree):
+Files /tmp/tmp6c3vf6cb/50.Property-main/912_ObligationEngine.js and /tmp/tmp6c3vf6cb/e2e/912_ObligationEngine.js differ
+Files /tmp/tmp6c3vf6cb/50.Property-main/945_OperatorConsole.html and /tmp/tmp6c3vf6cb/e2e/945_OperatorConsole.html differ
+after patch -R of both diffs, the tree equals the fresh extraction byte for byte: True
+
+====================================================================================================
+C. CANDIDATE TEST ON THE END-TO-END PATCHED TREE (full log)
+====================================================================================================
+exit code 0
+
+═══ Load: sources and the S1 functions ═══
+node v22.23.4 | source dir: /tmp/tmp6c3vf6cb/e2e
+912_ObligationEngine.js   sha256 2d05bb4bf5c6f8af6ec8b54e2621af989f5a7b39b1b45cd3fe582222bc5eaf3b
+945_OperatorConsole.html  sha256 ff110b40614832be328e647da68ba09ea4991c7907a4ab8f46121e61e442f272
+ok  : 945 has exactly one "<script" (the existing UI test requires this)
+ok  : 945 inline <script> block found
+ok  : 912 compiles (syntax only)
+ok  : 945 <script> compiles (syntax only)
+ok  : 912 defines malaysiaTodayIso_
+ok  : 912 defines parsePositiveAmount_
+ok  : 912 defines isRealIsoDate_
+ok  : 945 defines malaysiaTodayIso_
+ok  : 945 defines parsePayAmount_
+ok  : 945 defines isRealIsoDate_
+ok  : 945 defines interpretPayResponse_
+ok  : 945 defines formatAmount (existing helper that interpretPayResponse_ uses for "RM <amount>")
+
+═══ SR-4 same rules in 945 and 912 (comments stripped, name normalised) | SR-5 / SR-8 purity of the text ═══
+ok  : SR-4 malaysiaTodayIso_: 945 copy is character-identical to 912
+ok  : SR-4 parsePayAmount_ (945) is character-identical to parsePositiveAmount_ (912) after renaming
+ok  : SR-4 isRealIsoDate_: 945 copy is character-identical to 912
+ok  : SR-5 912 malaysiaTodayIso_ uses no Sheets/Utilities/Session API and no local-time or locale API
+ok  : SR-5 912 parsePositiveAmount_ uses no Sheets/Utilities/Session API and no local-time or locale API
+ok  : SR-5 912 isRealIsoDate_ uses no Sheets/Utilities/Session API and no local-time or locale API
+ok  : SR-8 945 malaysiaTodayIso_ touches no DOM, google.script.run, storage or shared state, and has no local-time API
+ok  : SR-8 945 parsePayAmount_ touches no DOM, google.script.run, storage or shared state, and has no local-time API
+ok  : SR-8 945 isRealIsoDate_ touches no DOM, google.script.run, storage or shared state, and has no local-time API
+ok  : SR-8 945 interpretPayResponse_ touches no DOM, google.script.run, storage or shared state, and has no local-time API
+
+═══ S-1 amount — plan matrix + extra cases, run on BOTH implementations ═══
+ok  : 912 parsePositiveAmount_ accepts 42.5 -> 42.5
+ok  : 912 parsePositiveAmount_ accepts "42.50" -> 42.5
+ok  : 912 parsePositiveAmount_ accepts " 0.01 " -> 0.01
+ok  : 912 parsePositiveAmount_ accepts ".5" -> 0.5
+ok  : 912 parsePositiveAmount_ accepts 1000000 -> 1000000
+ok  : 912 parsePositiveAmount_ accepts "1" -> 1
+ok  : 912 parsePositiveAmount_ accepts "007" -> 7
+ok  : 912 parsePositiveAmount_ accepts "0.50" -> 0.5
+ok  : 912 parsePositiveAmount_ accepts "\t5\n" -> 5
+ok  : 912 parsePositiveAmount_ accepts " 5" -> 5
+ok  : 912 parsePositiveAmount_ accepts "1500" -> 1500
+ok  : 912 parsePositiveAmount_ accepts "1550.00" -> 1550
+ok  : 912 parsePositiveAmount_ accepts "1234567890.123456" -> 1234567890.123456
+ok  : 912 parsePositiveAmount_ accepts 5e-324 -> 5e-324
+ok  : 912 parsePositiveAmount_ accepts 1.7976931348623157e+308 -> 1.7976931348623157e+308
+ok  : 912 parsePositiveAmount_ accepts 1e-7 -> 1e-7
+ok  : 912 parsePositiveAmount_ accepts "0.0000001" -> 1e-7
+ok  : 912 parsePositiveAmount_ rejects ""
+ok  : 912 parsePositiveAmount_ rejects "  "
+ok  : 912 parsePositiveAmount_ rejects "\n"
+ok  : 912 parsePositiveAmount_ rejects "\t"
+ok  : 912 parsePositiveAmount_ rejects " "
+ok  : 912 parsePositiveAmount_ rejects null
+ok  : 912 parsePositiveAmount_ rejects undefined
+ok  : 912 parsePositiveAmount_ rejects NaN
+ok  : 912 parsePositiveAmount_ rejects Infinity
+ok  : 912 parsePositiveAmount_ rejects -Infinity
+ok  : 912 parsePositiveAmount_ rejects 0
+ok  : 912 parsePositiveAmount_ rejects "0"
+ok  : 912 parsePositiveAmount_ rejects "0.00"
+ok  : 912 parsePositiveAmount_ rejects "00"
+ok  : 912 parsePositiveAmount_ rejects ".0"
+ok  : 912 parsePositiveAmount_ rejects -5
+ok  : 912 parsePositiveAmount_ rejects "-5"
+ok  : 912 parsePositiveAmount_ rejects "-0"
+ok  : 912 parsePositiveAmount_ rejects -0
+ok  : 912 parsePositiveAmount_ rejects "5."
+ok  : 912 parsePositiveAmount_ rejects "1e3"
+ok  : 912 parsePositiveAmount_ rejects "1E3"
+ok  : 912 parsePositiveAmount_ rejects "1,200.00"
+ok  : 912 parsePositiveAmount_ rejects "RM 5"
+ok  : 912 parsePositiveAmount_ rejects "5 RM"
+ok  : 912 parsePositiveAmount_ rejects "+5"
+ok  : 912 parsePositiveAmount_ rejects "--5"
+ok  : 912 parsePositiveAmount_ rejects "5 5"
+ok  : 912 parsePositiveAmount_ rejects "."
+ok  : 912 parsePositiveAmount_ rejects "..5"
+ok  : 912 parsePositiveAmount_ rejects "5.."
+ok  : 912 parsePositiveAmount_ rejects "1_000"
+ok  : 912 parsePositiveAmount_ rejects "0x10"
+ok  : 912 parsePositiveAmount_ rejects "Infinity"
+ok  : 912 parsePositiveAmount_ rejects "NaN"
+ok  : 912 parsePositiveAmount_ rejects "５"
+ok  : 912 parsePositiveAmount_ rejects "٥"
+ok  : 912 parsePositiveAmount_ rejects true
+ok  : 912 parsePositiveAmount_ rejects false
+ok  : 912 parsePositiveAmount_ rejects []
+ok  : 912 parsePositiveAmount_ rejects {}
+ok  : 912 parsePositiveAmount_ rejects [5]
+ok  : 912 parsePositiveAmount_ rejects ["5"]
+ok  : 912 parsePositiveAmount_ rejects {}
+ok  : 912 parsePositiveAmount_ rejects 5
+ok  : 912 parsePositiveAmount_ rejects function
+ok  : 912 parsePositiveAmount_ rejects Symbol()
+ok  : 912 parsePositiveAmount_ rejects 5n
+ok  : 912 parsePositiveAmount_ rejects "999999999999999999999..."
+ok  : 912 parsePositiveAmount_ rejects "0.0000000000000000000..."
+ok  : 945 parsePayAmount_ accepts 42.5 -> 42.5
+ok  : 945 parsePayAmount_ accepts "42.50" -> 42.5
+ok  : 945 parsePayAmount_ accepts " 0.01 " -> 0.01
+ok  : 945 parsePayAmount_ accepts ".5" -> 0.5
+ok  : 945 parsePayAmount_ accepts 1000000 -> 1000000
+ok  : 945 parsePayAmount_ accepts "1" -> 1
+ok  : 945 parsePayAmount_ accepts "007" -> 7
+ok  : 945 parsePayAmount_ accepts "0.50" -> 0.5
+ok  : 945 parsePayAmount_ accepts "\t5\n" -> 5
+ok  : 945 parsePayAmount_ accepts " 5" -> 5
+ok  : 945 parsePayAmount_ accepts "1500" -> 1500
+ok  : 945 parsePayAmount_ accepts "1550.00" -> 1550
+ok  : 945 parsePayAmount_ accepts "1234567890.123456" -> 1234567890.123456
+ok  : 945 parsePayAmount_ accepts 5e-324 -> 5e-324
+ok  : 945 parsePayAmount_ accepts 1.7976931348623157e+308 -> 1.7976931348623157e+308
+ok  : 945 parsePayAmount_ accepts 1e-7 -> 1e-7
+ok  : 945 parsePayAmount_ accepts "0.0000001" -> 1e-7
+ok  : 945 parsePayAmount_ rejects ""
+ok  : 945 parsePayAmount_ rejects "  "
+ok  : 945 parsePayAmount_ rejects "\n"
+ok  : 945 parsePayAmount_ rejects "\t"
+ok  : 945 parsePayAmount_ rejects " "
+ok  : 945 parsePayAmount_ rejects null
+ok  : 945 parsePayAmount_ rejects undefined
+ok  : 945 parsePayAmount_ rejects NaN
+ok  : 945 parsePayAmount_ rejects Infinity
+ok  : 945 parsePayAmount_ rejects -Infinity
+ok  : 945 parsePayAmount_ rejects 0
+ok  : 945 parsePayAmount_ rejects "0"
+ok  : 945 parsePayAmount_ rejects "0.00"
+ok  : 945 parsePayAmount_ rejects "00"
+ok  : 945 parsePayAmount_ rejects ".0"
+ok  : 945 parsePayAmount_ rejects -5
+ok  : 945 parsePayAmount_ rejects "-5"
+ok  : 945 parsePayAmount_ rejects "-0"
+ok  : 945 parsePayAmount_ rejects -0
+ok  : 945 parsePayAmount_ rejects "5."
+ok  : 945 parsePayAmount_ rejects "1e3"
+ok  : 945 parsePayAmount_ rejects "1E3"
+ok  : 945 parsePayAmount_ rejects "1,200.00"
+ok  : 945 parsePayAmount_ rejects "RM 5"
+ok  : 945 parsePayAmount_ rejects "5 RM"
+ok  : 945 parsePayAmount_ rejects "+5"
+ok  : 945 parsePayAmount_ rejects "--5"
+ok  : 945 parsePayAmount_ rejects "5 5"
+ok  : 945 parsePayAmount_ rejects "."
+ok  : 945 parsePayAmount_ rejects "..5"
+ok  : 945 parsePayAmount_ rejects "5.."
+ok  : 945 parsePayAmount_ rejects "1_000"
+ok  : 945 parsePayAmount_ rejects "0x10"
+ok  : 945 parsePayAmount_ rejects "Infinity"
+ok  : 945 parsePayAmount_ rejects "NaN"
+ok  : 945 parsePayAmount_ rejects "５"
+ok  : 945 parsePayAmount_ rejects "٥"
+ok  : 945 parsePayAmount_ rejects true
+ok  : 945 parsePayAmount_ rejects false
+ok  : 945 parsePayAmount_ rejects []
+ok  : 945 parsePayAmount_ rejects {}
+ok  : 945 parsePayAmount_ rejects [5]
+ok  : 945 parsePayAmount_ rejects ["5"]
+ok  : 945 parsePayAmount_ rejects {}
+ok  : 945 parsePayAmount_ rejects 5
+ok  : 945 parsePayAmount_ rejects function
+ok  : 945 parsePayAmount_ rejects Symbol()
+ok  : 945 parsePayAmount_ rejects 5n
+ok  : 945 parsePayAmount_ rejects "999999999999999999999..."
+ok  : 945 parsePayAmount_ rejects "0.0000000000000000000..."
+
+═══ S-1 amount — 912 vs 945 agree on generated inputs (fixed seed) ═══
+ok  : S-1 912 and 945 agree on 36009 generated inputs; every result is null or a finite number > 0; 3181 plain-integer strings are accepted
+
+═══ S-2 malaysiaTodayIso_ (fixed UTC+8) — plan table, edges, invalid input, independent Intl oracle ═══
+ok  : 912 malaysiaTodayIso_(2026-10-24T15:59:59Z) = 2026-10-24
+ok  : 912 malaysiaTodayIso_(2026-10-24T16:00:00Z) = 2026-10-25
+ok  : 912 malaysiaTodayIso_(2026-10-24T23:59:59Z) = 2026-10-25
+ok  : 912 malaysiaTodayIso_(2026-10-25T00:00:00Z) = 2026-10-25
+ok  : 912 malaysiaTodayIso_(2026-12-31T16:00:00Z) = 2027-01-01
+ok  : 912 malaysiaTodayIso_(2028-02-28T16:00:00Z) = 2028-02-29
+ok  : 912 malaysiaTodayIso_(2028-02-29T16:00:00Z) = 2028-03-01
+ok  : 912 malaysiaTodayIso_(2026-12-31T15:59:59.999Z) = 2026-12-31
+ok  : 912 malaysiaTodayIso_(1970-01-01T00:00:00Z) = 1970-01-01
+ok  : 912 malaysiaTodayIso_(1969-12-31T16:00:00Z) = 1970-01-01
+ok  : 912 malaysiaTodayIso_(9999-12-31T15:59:59.999Z) = 9999-12-31
+ok  : 912 malaysiaTodayIso_(0000-01-01T00:00:00Z) = 0000-01-01
+ok  : 912 malaysiaTodayIso_(NaN) = null (no throw)
+ok  : 912 malaysiaTodayIso_(Infinity) = null (no throw)
+ok  : 912 malaysiaTodayIso_(-Infinity) = null (no throw)
+ok  : 912 malaysiaTodayIso_("2026-10-24") = null (no throw)
+ok  : 912 malaysiaTodayIso_(null) = null (no throw)
+ok  : 912 malaysiaTodayIso_(undefined) = null (no throw)
+ok  : 912 malaysiaTodayIso_({}) = null (no throw)
+ok  : 912 malaysiaTodayIso_([]) = null (no throw)
+ok  : 912 malaysiaTodayIso_(true) = null (no throw)
+ok  : 912 malaysiaTodayIso_(8640000000000000) = null (no throw)
+ok  : 912 malaysiaTodayIso_(-8640000000000000) = null (no throw)
+ok  : 912 malaysiaTodayIso_(253402272000000) = null (no throw)
+ok  : 912 malaysiaTodayIso_(-62167248000001) = null (no throw)
+ok  : 912 malaysiaTodayIso_(Date.now()) is a yyyy-MM-dd string
+ok  : 945 malaysiaTodayIso_(2026-10-24T15:59:59Z) = 2026-10-24
+ok  : 945 malaysiaTodayIso_(2026-10-24T16:00:00Z) = 2026-10-25
+ok  : 945 malaysiaTodayIso_(2026-10-24T23:59:59Z) = 2026-10-25
+ok  : 945 malaysiaTodayIso_(2026-10-25T00:00:00Z) = 2026-10-25
+ok  : 945 malaysiaTodayIso_(2026-12-31T16:00:00Z) = 2027-01-01
+ok  : 945 malaysiaTodayIso_(2028-02-28T16:00:00Z) = 2028-02-29
+ok  : 945 malaysiaTodayIso_(2028-02-29T16:00:00Z) = 2028-03-01
+ok  : 945 malaysiaTodayIso_(2026-12-31T15:59:59.999Z) = 2026-12-31
+ok  : 945 malaysiaTodayIso_(1970-01-01T00:00:00Z) = 1970-01-01
+ok  : 945 malaysiaTodayIso_(1969-12-31T16:00:00Z) = 1970-01-01
+ok  : 945 malaysiaTodayIso_(9999-12-31T15:59:59.999Z) = 9999-12-31
+ok  : 945 malaysiaTodayIso_(0000-01-01T00:00:00Z) = 0000-01-01
+ok  : 945 malaysiaTodayIso_(NaN) = null (no throw)
+ok  : 945 malaysiaTodayIso_(Infinity) = null (no throw)
+ok  : 945 malaysiaTodayIso_(-Infinity) = null (no throw)
+ok  : 945 malaysiaTodayIso_("2026-10-24") = null (no throw)
+ok  : 945 malaysiaTodayIso_(null) = null (no throw)
+ok  : 945 malaysiaTodayIso_(undefined) = null (no throw)
+ok  : 945 malaysiaTodayIso_({}) = null (no throw)
+ok  : 945 malaysiaTodayIso_([]) = null (no throw)
+ok  : 945 malaysiaTodayIso_(true) = null (no throw)
+ok  : 945 malaysiaTodayIso_(8640000000000000) = null (no throw)
+ok  : 945 malaysiaTodayIso_(-8640000000000000) = null (no throw)
+ok  : 945 malaysiaTodayIso_(253402272000000) = null (no throw)
+ok  : 945 malaysiaTodayIso_(-62167248000001) = null (no throw)
+ok  : 945 malaysiaTodayIso_(Date.now()) is a yyyy-MM-dd string
+ok  : S-2 912 and 945 equal Intl(Asia/Kuala_Lumpur) on 140356 instants in 1990-2100 (all local midnights ±1ms + 60000 random)
+
+═══ S-3 isRealIsoDate_ — plan matrix, edges, independent calendar oracle (both implementations) ═══
+ok  : 912 isRealIsoDate_ accepts "2026-02-28"
+ok  : 912 isRealIsoDate_ accepts "2028-02-29"
+ok  : 912 isRealIsoDate_ accepts "2000-02-29"
+ok  : 912 isRealIsoDate_ accepts "2026-12-31"
+ok  : 912 isRealIsoDate_ accepts "2026-01-01"
+ok  : 912 isRealIsoDate_ accepts "9999-12-31"
+ok  : 912 isRealIsoDate_ accepts "0001-01-01"
+ok  : 912 isRealIsoDate_ accepts "0000-01-01"
+ok  : 912 isRealIsoDate_ accepts "0050-06-15"
+ok  : 912 isRealIsoDate_ rejects "2026-02-30"
+ok  : 912 isRealIsoDate_ rejects "2026-13-01"
+ok  : 912 isRealIsoDate_ rejects "abc"
+ok  : 912 isRealIsoDate_ rejects "2026/10/24"
+ok  : 912 isRealIsoDate_ rejects ""
+ok  : 912 isRealIsoDate_ rejects " 2026-10-24"
+ok  : 912 isRealIsoDate_ rejects "2026-10-24 "
+ok  : 912 isRealIsoDate_ rejects "2026-10-24T08:00:00Z"
+ok  : 912 isRealIsoDate_ rejects "2026-10-24\n"
+ok  : 912 isRealIsoDate_ rejects "2026-10-4"
+ok  : 912 isRealIsoDate_ rejects "26-10-24"
+ok  : 912 isRealIsoDate_ rejects "2026-1-04"
+ok  : 912 isRealIsoDate_ rejects "2026-00-10"
+ok  : 912 isRealIsoDate_ rejects "2026-01-00"
+ok  : 912 isRealIsoDate_ rejects "2026-04-31"
+ok  : 912 isRealIsoDate_ rejects "2100-02-29"
+ok  : 912 isRealIsoDate_ rejects "1900-02-29"
+ok  : 912 isRealIsoDate_ rejects "2026-02-29"
+ok  : 912 isRealIsoDate_ rejects "２０２６-10-24"
+ok  : 912 isRealIsoDate_ rejects "2026–10–24"
+ok  : 912 isRealIsoDate_ rejects "2026-10-24Z"
+ok  : 912 isRealIsoDate_ rejects "20261024"
+ok  : 912 isRealIsoDate_ rejects null
+ok  : 912 isRealIsoDate_ rejects undefined
+ok  : 912 isRealIsoDate_ rejects 20261024
+ok  : 912 isRealIsoDate_ rejects Date(0)
+ok  : 912 isRealIsoDate_ rejects ["2026-10-24"]
+ok  : 912 isRealIsoDate_ rejects {}
+ok  : 912 isRealIsoDate_ rejects true
+ok  : 945 isRealIsoDate_ accepts "2026-02-28"
+ok  : 945 isRealIsoDate_ accepts "2028-02-29"
+ok  : 945 isRealIsoDate_ accepts "2000-02-29"
+ok  : 945 isRealIsoDate_ accepts "2026-12-31"
+ok  : 945 isRealIsoDate_ accepts "2026-01-01"
+ok  : 945 isRealIsoDate_ accepts "9999-12-31"
+ok  : 945 isRealIsoDate_ accepts "0001-01-01"
+ok  : 945 isRealIsoDate_ accepts "0000-01-01"
+ok  : 945 isRealIsoDate_ accepts "0050-06-15"
+ok  : 945 isRealIsoDate_ rejects "2026-02-30"
+ok  : 945 isRealIsoDate_ rejects "2026-13-01"
+ok  : 945 isRealIsoDate_ rejects "abc"
+ok  : 945 isRealIsoDate_ rejects "2026/10/24"
+ok  : 945 isRealIsoDate_ rejects ""
+ok  : 945 isRealIsoDate_ rejects " 2026-10-24"
+ok  : 945 isRealIsoDate_ rejects "2026-10-24 "
+ok  : 945 isRealIsoDate_ rejects "2026-10-24T08:00:00Z"
+ok  : 945 isRealIsoDate_ rejects "2026-10-24\n"
+ok  : 945 isRealIsoDate_ rejects "2026-10-4"
+ok  : 945 isRealIsoDate_ rejects "26-10-24"
+ok  : 945 isRealIsoDate_ rejects "2026-1-04"
+ok  : 945 isRealIsoDate_ rejects "2026-00-10"
+ok  : 945 isRealIsoDate_ rejects "2026-01-00"
+ok  : 945 isRealIsoDate_ rejects "2026-04-31"
+ok  : 945 isRealIsoDate_ rejects "2100-02-29"
+ok  : 945 isRealIsoDate_ rejects "1900-02-29"
+ok  : 945 isRealIsoDate_ rejects "2026-02-29"
+ok  : 945 isRealIsoDate_ rejects "２０２６-10-24"
+ok  : 945 isRealIsoDate_ rejects "2026–10–24"
+ok  : 945 isRealIsoDate_ rejects "2026-10-24Z"
+ok  : 945 isRealIsoDate_ rejects "20261024"
+ok  : 945 isRealIsoDate_ rejects null
+ok  : 945 isRealIsoDate_ rejects undefined
+ok  : 945 isRealIsoDate_ rejects 20261024
+ok  : 945 isRealIsoDate_ rejects Date(0)
+ok  : 945 isRealIsoDate_ rejects ["2026-10-24"]
+ok  : 945 isRealIsoDate_ rejects {}
+ok  : 945 isRealIsoDate_ rejects true
+ok  : S-3 912 and 945 agree with an independent leap-year/month-length oracle on 28944 strings (years 1900-2100, months 0-13, days 0-33)
+
+═══ S-8 interpretPayResponse_ — plan response matrix (945) ═══
+ok  : res=null -> unconfirmed
+ok  : res=undefined -> unconfirmed
+ok  : res="ok" -> unconfirmed
+ok  : res=42 -> unconfirmed
+ok  : res=true -> unconfirmed
+ok  : res=[] -> unconfirmed
+ok  : res=function -> unconfirmed
+ok  : res={} -> unconfirmed
+ok  : res={success:'true'} -> unconfirmed
+ok  : res={success:1} -> unconfirmed
+ok  : res={success:false, error:'x'} (left to the existing branch; text unchanged) -> error
+ok  : res={success:false} (no error text) -> error
+ok  : res={success:false, data:{alreadyPaid:false, occurrenceId:"OCC-1"}} (success:false wins) -> error
+ok  : res={success:true, data:undefined} -> unconfirmed
+ok  : res={success:true, data:null} -> unconfirmed
+ok  : res={success:true, data:"x"} -> unconfirmed
+ok  : res={success:true, data:[]} -> unconfirmed
+ok  : res={success:true, data:42} -> unconfirmed
+ok  : res={success:true, data:{}} -> unconfirmed
+ok  : data={alreadyPaid:'false', occurrenceId:'OCC-1'} (alreadyPaid is a string) -> unconfirmed
+ok  : data={alreadyPaid:false} (no occurrenceId) -> unconfirmed
+ok  : data={alreadyPaid:false, occurrenceId:""} -> unconfirmed
+ok  : data={alreadyPaid:false, occurrenceId:"  "} -> unconfirmed
+ok  : data={alreadyPaid:false, occurrenceId:5} -> unconfirmed
+ok  : data={alreadyPaid:false, occurrenceId:null} -> unconfirmed
+ok  : data={alreadyPaid:false, occurrenceId:"OCC-1", paidAmount:42.5, paidDate:"2026-10-27"} (the only recorded case) -> recorded
+ok  : data={alreadyPaid:false, occurrenceId:"OCC-1"} (amount/date not required for recorded) -> recorded
+ok  : alreadyPaid, entered 42.5 + same day -> alreadySame
+ok  : alreadyPaid, entered "42.50" + same day -> alreadySame
+ok  : alreadyPaid, entered 42.5 (number) + same day -> alreadySame
+ok  : alreadyPaid, entered date left blank -> amount only is compared -> alreadySame
+ok  : alreadyPaid, entered amount 60 -> alreadyDifferent
+ok  : alreadyPaid, entered a different date -> alreadyDifferent
+ok  : alreadyPaid, entered=undefined (cannot prove a match, so it is NOT reported as same) -> alreadyDifferent
+ok  : alreadyPaid, entered=null (cannot prove a match, so it is NOT reported as same) -> alreadyDifferent
+ok  : alreadyPaid, entered="x" (cannot prove a match, so it is NOT reported as same) -> alreadyDifferent
+ok  : alreadyPaid, entered={} (cannot prove a match, so it is NOT reported as same) -> alreadyDifferent
+ok  : alreadyPaid, entered={"amount":"abc","date":"2026-10-27"} (cannot prove a match, so it is NOT reported as same) -> alreadyDifferent
+ok  : alreadyPaid, entered={"amount":"","date":""} (cannot prove a match, so it is NOT reported as same) -> alreadyDifferent
+ok  : alreadyPaid, entered={"amount":"0","date":"2026-10-27"} (cannot prove a match, so it is NOT reported as same) -> alreadyDifferent
+ok  : alreadyPaid with unreadable record {"alreadyPaid":true} -> alreadyUnreadable
+ok  : alreadyPaid with unreadable record {"alreadyPaid":true,"paidAmount":42.5} -> alreadyUnreadable
+ok  : alreadyPaid with unreadable record {"alreadyPaid":true,"paidDate":"2026-10-27"} -> alreadyUnreadable
+ok  : alreadyPaid with unreadable record {"alreadyPaid":true,"paidAmount":42.5,"paidDate":null} -> alreadyUnreadable
+ok  : alreadyPaid with unreadable record {"alreadyPaid":true,"paidAmount":42.5,"paidDate":""} -> alreadyUnreadable
+ok  : alreadyPaid with unreadable record {"alreadyPaid":true,"paidAmount":42.5,"paidDate":"   "} -> alreadyUnreadable
+ok  : alreadyPaid with unreadable record {"alreadyPaid":true,"paidAmount":42.5,"paidDate":"1970-01-01T00:00:00.000Z"} -> alreadyUnreadable
+ok  : alreadyPaid with unreadable record {"alreadyPaid":true,"paidAmount":null,"paidDate":"2026-10-27"} -> alreadyUnreadable
+ok  : alreadyPaid with unreadable record {"alreadyPaid":true,"paidAmount":"42.5","paidDate":"2026-10-27"} -> alreadyUnreadable
+ok  : alreadyPaid with unreadable record {"alreadyPaid":true,"paidAmount":null,"paidDate":"2026-10-27"} -> alreadyUnreadable
+ok  : alreadyPaid with unreadable record {"alreadyPaid":true,"paidAmount":null,"paidDate":"2026-10-27"} -> alreadyUnreadable
+ok  : amount formatting follows the dashboard helper: 1550 -> "RM 1,550.00"; 0 -> "RM 0.00"
+ok  : a recorded date with surrounding spaces is trimmed before it is shown and compared
+
+═══ S-8 interpretPayResponse_ — shape, purity, SR-14 read rules, never throws ═══
+ok  : result has exactly the keys kind, message, isError (in that order)
+ok  : every call returns a fresh object (mutating one result does not leak into the next)
+ok  : inputs are not mutated
+ok  : same inputs give the same result (deterministic)
+ok  : SR-14 res is an array: no property of res is read; result unconfirmed
+ok  : SR-14 res is a function: no property of res is read; result unconfirmed
+ok  : SR-14 success is neither true nor false: res.data is not read; unconfirmed
+ok  : SR-14 success is false: res.data is not read; kind error
+ok  : SR-14 res.data is an array: data.alreadyPaid is not read; unconfirmed
+ok  : never throws and never claims success: res is a throwing Proxy
+ok  : never throws and never claims success: res.success getter throws
+ok  : never throws and never claims success: res.data getter throws
+ok  : never throws and never claims success: data.alreadyPaid getter throws
+ok  : never throws and never claims success: data.occurrenceId getter throws
+ok  : never throws and never claims success: data.paidDate getter throws
+ok  : never throws and never claims success: entered is a throwing Proxy while the record is readable
+ok  : never throws and never claims success: entered.amount getter throws while the record is readable
+
+═══ S-8 interpretPayResponse_ — exhaustive cross-product: only the one recognised shape may say "Payment recorded." ═══
+ok  : S-8 70560 response/input combinations: kind equals the independent oracle, never throws, shape valid, "Payment recorded." only for kind recorded, every other non-same kind uses error style
+      distribution: recorded=392 alreadySame=10 alreadyDifferent=95 alreadyUnreadable=1855 error=11760 unconfirmed=56448
+ok  : every kind occurs in the cross-product (the oracle is not vacuous)
+
+═══ S1 SCOPE GUARD — nothing is wired yet (SR-1, SR-12). Retire with --no-s1-guard when S2/S3 wire the helpers in. ═══
+ok  : 912: malaysiaTodayIso_ appears once in code (its definition only: not called)
+ok  : 912: parsePositiveAmount_ appears once in code (not called)
+ok  : 912: isRealIsoDate_ appears once in code (not called)
+ok  : 912: no 945-only names (parsePayAmount_, interpretPayResponse_)
+ok  : 945: malaysiaTodayIso_ appears once in code (not called)
+ok  : 945: isRealIsoDate_ appears once in code (not called)
+ok  : 945: interpretPayResponse_ appears once in code (not called)
+ok  : 945: parsePayAmount_ appears twice (definition + the call inside interpretPayResponse_)
+ok  : 945: no 912-only name (parsePositiveAmount_)
+ok  : none of the 50 other .js/.html files in the directory references any of the five new names (946 and the rest are untouched in this respect)
+ok  : 912 recordPayment still has its original default-date line (S2 will change it)
+ok  : 912 recordPayment still has its original amount line (S2 will change it)
+ok  : 945 showPayForm still uses its original UTC default date (S3 will change it)
+ok  : 945 showPayForm still has its original success handling lines (S3 will change them)
+ok  : 946 console_recordPayment still has its original Number(paidAmount) conversion (S2 will change it)
+
+════════════════════════════════════════════════════════════
+ALL 374 CHECKS PASSED (0 failures)
+
+in-place run (test copied next to the sources, default directory): exit code 0; last line: ALL 374 CHECKS PASSED (0 failures)
+
+====================================================================================================
+D. NEGATIVE CONTROL: THE SAME TEST ON THE UNPATCHED BASE MUST FAIL
+====================================================================================================
+exit code 1 (non-zero expected)
+FAIL: 945 defines parsePayAmount_ 
+FAIL: 945 defines isRealIsoDate_ 
+FAIL: 945 defines interpretPayResponse_ 
+ok  : 945 defines formatAmount (existing helper that interpretPayResponse_ uses for "RM <amount>")
+
+Required functions are missing: the S1 patch is not applied in this directory.
+
+════════════════════════════════════════════════════════════
+5 passed, 7 FAILED
+
+====================================================================================================
+E. MUTATION CHECKS (defects planted in scratch copies; the candidate test must fail)
+====================================================================================================
+E1. single-copy mutants + S1 scope-guard demonstration
+mutant                                                         exit  first failing check
+M1  912 amount: n > 0 -> n >= 0 (accept zero)                  1     FAIL: SR-4 parsePayAmount_ (945) is character-identical to parsePositiveAmount_ (912) after ren
+M2  912 date: +8h -> +7h                                       1     FAIL: SR-4 malaysiaTodayIso_: 945 copy is character-identical to 912 
+M3  945 date: +8h typo (only the 945 copy)                     1     FAIL: SR-4 malaysiaTodayIso_: 945 copy is character-identical to 912 
+M4  912 amount regex accepts a trailing dot ("5.")             1     FAIL: SR-4 parsePayAmount_ (945) is character-identical to parsePositiveAmount_ (912) after ren
+M5  945 isRealIsoDate_: day-of-month check removed             1     FAIL: SR-4 isRealIsoDate_: 945 copy is character-identical to 912 
+M6  945 interpret: alreadyPaid === false -> !== true           1     FAIL: data={alreadyPaid:'false', occurrenceId:'OCC-1'} (alreadyPaid is a string) -> unconfirmed
+M7  945 interpret: arrays treated as objects                   1     FAIL: SR-14 res is an array: no property of res is read; result unconfirmed 
+M8  945 interpret: amount no longer compared                   1     FAIL: alreadyPaid, entered amount 60 -> alreadyDifferent -> got {"kind":"alreadySame","message"
+M9  912 isRealIsoDate_: typeof-string guard removed            1     FAIL: SR-4 isRealIsoDate_: 945 copy is character-identical to 912 
+M10 945 amount regex differs from 912 (trailing dot)           1     FAIL: SR-4 parsePayAmount_ (945) is character-identical to parsePositiveAmount_ (912) after ren
+M11 945 interpret: alreadySame wording changed                 1     FAIL: alreadyPaid, entered 42.5 + same day -> alreadySame -> got {"kind":"alreadySame","message
+M12 945 interpret: success:false no longer wins over data      1     FAIL: res={success:false, error:'x'} (left to the existing branch; text unchanged) -> error -> 
+G1  simulated S2 wiring, guard ON                              1     FAIL: 912: malaysiaTodayIso_ appears once in code (its definition only: not called) 
+G2  simulated S2 wiring, --no-s1-guard                         0     ALL 359 CHECKS PASSED (0 failures)
+
+all 12 mutants detected: True | guard detects wiring: True | guard can be retired cleanly: True
+
+E2. synchronized mutants (same defect planted in BOTH 912 and 945)
+synchronized mutant (applied to 912 AND 945)                     exit  first failing check
+S1  both: amount n > 0 -> n >= 0                                 1     FAIL: 912 parsePositiveAmount_ rejects 0 -> got 0
+S2  both: Malaysia offset +8h -> +7h                             1     FAIL: 912 malaysiaTodayIso_(2026-10-24T16:00:00Z) = 2026-10-25 -> got "2026-10-24"
+S3  both: amount regex accepts trailing dot                      1     FAIL: 912 parsePositiveAmount_ rejects "5." -> got 5
+S4  both: day-of-month check removed                             0     (only SR-4 or nothing failed)
+S5  both: typeof-string guard removed                            1     FAIL: 912 isRealIsoDate_ rejects ["2026-10-24"] -> got true
+S6  both: Date.UTC variant (plan sketch; 0000-0099 quirk)        1     FAIL: 912 isRealIsoDate_ accepts "0001-01-01" 
+S7  both: 4-digit-year guard removed in malaysiaTodayIso_        1     FAIL: 912 malaysiaTodayIso_(-8640000000000000) = null (no throw) -> got "-271821-04"
+S8  both: Date-range guard removed in malaysiaTodayIso_          1     FAIL: 912 malaysiaTodayIso_(8640000000000000) = null (no throw) -> got "THREW Invalid ti
+S9  both: finite-number guard removed in malaysiaTodayIso_       0     (only SR-4 or nothing failed)
+
+every synchronized mutant is caught by a behavioural check (not only SR-4): False
+
+Note on S4 and S9: the day-of-month comparison in isRealIsoDate_ and the isFinite() guard in malaysiaTodayIso_ are redundant by construction.
+  S4: a day outside the month always rolls the Date into another month, so the month comparison already rejects it; 28944 oracle strings give identical results with and without the check.
+  S9: Infinity/NaN make `new Date(...)` an Invalid Date, which the following isNaN(getTime()) guard already turns into null.
+  Removing either changes no output, so no test can distinguish them (equivalent mutants). They are kept as defence in depth.
+
+====================================================================================================
+F. REGRESSION OF THE EXISTING NODE-RUNNABLE TESTS (S-12): unpatched base copy vs patched copy
+====================================================================================================
+Run once each in separate copies (logs differ only by absolute paths / random ids unless noted):
+  local_precheck_test_911                                        exit base=1 patched=1 | base: Node.js v22.23.4 | patched: Node.js v22.23.4
+  local_precheck_test_918                                        exit base=0 patched=0 | base: ALL 163 CHECKS PASSED (0 failures) | patched: ALL 163 CHECKS PASSED (0 failures)
+  local_precheck_test_922                                        exit base=0 patched=1 | base: ALL 67 CHECKS PASSED (0 failures) | patched: 66 passed, 1 FAILED
+  local_precheck_test_945_addBill_ui                             exit base=0 patched=0 | base: 52 passed, 0 failed, 4 known defects | patched: 52 passed, 0 failed, 4 known defects
+  local_precheck_test_946_createObligation                       exit base=0 patched=0 | base: 52 passed, 0 failed | patched: 52 passed, 0 failed
+  local_precheck_test_946_listProperties                         exit base=0 patched=0 | base: 15 passed, 0 failed | patched: 15 passed, 0 failed
+  local_precheck_test_947                                        exit base=0 patched=0 | base: ALL 22 CHECKS PASSED (0 failures) | patched: ALL 22 CHECKS PASSED (0 failures)
+  local_precheck_test_948_rectification                          exit base=0 patched=0 | base: ALL 27 CHECKS PASSED (0 failures) | patched: ALL 27 CHECKS PASSED (0 failures)
+  local_precheck_test_948_search                                 exit base=0 patched=0 | base: ALL 29 CHECKS PASSED (0 failures) | patched: ALL 29 CHECKS PASSED (0 failures)
+  local_precheck_test_phase11_defectitem_reorder_migration       exit base=1 patched=1 | base: Node.js v22.23.4 | patched: Node.js v22.23.4
+  local_precheck_test_phase11_schema_consolidation_migration     exit base=0 patched=0 | base: 38 PASSED, 0 FAILED | patched: 38 PASSED, 0 FAILED
+  local_precheck_test_phase11_schema_migration                   exit base=0 patched=0 | base: ALL 71 CHECKS PASSED (0 failures) | patched: ALL 71 CHECKS PASSED (0 failures)
+
+Pre-existing failures in the UNPATCHED zip (identical after the patch): local_precheck_test_911 -> ReferenceError: PropertiesService is not defined (911_DocumentEngine.js:95); local_precheck_test_phase11_defectitem_reorder_migration -> exit 1.
+
+local_precheck_test_922 differed in that single run (base 67/67 passed, patched 66 passed + 1 FAILED). Repeated runs, 25 each, same scratch copies:
+  base (unpatched)   runs=25 passed=20 failed=5
+      5x FAIL: d3's latestEvent reflects its true latest activity chronologically (the secondary damage log, which ran AFTER the 
+  patched            runs=25 passed=23 failed=2
+      2x FAIL: d3's latestEvent reflects its true latest activity chronologically (the secondary damage log, which ran AFTER the 
+  922 sorts events with OccurredAt.localeCompare (922_DashboardAdapter.js:274); the failing check asserts which event is "latest". Same single check fails on the unpatched base.
+  922 loads 912 through GasShim, but none of the new functions is called by any code path, so the patched file behaves identically for it. Cause of the flake not investigated further.
+
+====================================================================================================
+G. STATIC PRE-CHECK FOR SR-11 (existing call sites that pass paidAmount; S1 wires nothing, this is an S2 pre-check only)
+====================================================================================================
+call sites passing paidAmount outside 912 (my regex; the plan states 26 and I did not reproduce its exact counting): 25
+distinct arguments: {'1500': 14, '1550': 5, 'occurrence.PaidAmount': 1, 'item.expectedAmount': 1, 'Number(paidAmount': 1, '250': 1, '20': 1, '22': 1}
+parsePositiveAmount_ on each numeric literal: {"20":20,"22":22,"250":250,"1500":1500,"1550":1550}
+non-literal arguments (expressions/variables, not evaluated here): ['occurrence.PaidAmount', 'item.expectedAmount', 'Number(paidAmount']
+
+====================================================================================================
+H. TREE COMPARISON AND SR-8 SUPPORT
+====================================================================================================
+files differing between the fresh zip extraction and the end-to-end patched tree: ['912_ObligationEngine.js', '945_OperatorConsole.html']
+  unchanged local_precheck_test_945_addBill_ui.js: True
+  unchanged 946_OperatorConsoleServer.js: True
+  unchanged 900_PropertyConfig.js: True
+  unchanged 901_PropertySchema.js: True
+  unchanged 903_PropertyEventDefinitions.js: True
+  unchanged 913_ObligationScheduler.js: True
+  unchanged 922_DashboardAdapter.js: True
+  unchanged 912_Tests_ObligationEngine.js: True
+  unchanged 00_ADR_Log.js: True
+  unchanged 00_Review_History.js: True
+  unchanged 00_Product_Backlog.js: True
+  unchanged 00_Project_State.js: True
+  unchanged appsscript.json: True
+  unchanged .claspignore: True
+appsscript.json (static): {   "timeZone": "Asia/Singapore",   "dependencies": {   },   "exceptionLogging": "STACKDRIVER",   "runtimeVersion": "V8",   "webapp": {     "executeAs": "USER_DEPLOYING",     "access": "MYSELF"   } }
+.claspignore contains the wildcard line: True
+945 showToast (unchanged) writes text with textContent:
+1799:function showToast(msg, isError, durationMs) {
+1800-  var t = document.getElementById('toast');
+1801-  t.textContent = msg;
+1802-  t.className = 'toast' + (isError ? ' error' : '');
+1803-  t.style.display = 'block';
