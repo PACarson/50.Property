@@ -1,0 +1,221 @@
+
+====================================================================================================
+0. ENVIRONMENT AND SCOPE
+====================================================================================================
+S3 evidence log for B1 (Pay hardening), candidate output. NOT APPLIED, NOT MERGED, NOT DEPLOYED. Non-authoritative working copy only.
+device clock (user_time_v0) at the start of S3 work: 2026-11-08T15:46:46+08:00 (Asia/Kuala_Lumpur)
+sandbox clock (date -u): Sun Nov  8 13:18:34 UTC 2026
+node v22.23.4 | GNU patch 2.7.6 | git version 2.43.0
+sandbox network: disabled. No Apps Script, no browser, no real Sheets. There is NO fake DOM and NO click simulation anywhere in S3 (D10 plan A); S-13 stays BLOCKED.
+Authorization used: the S0 text of 2026-11-06, the user message "请继续S2" (2026-11-07) and the user message "继续s3" (2026-11-08), the last read as authorizing S3 under the S0 constraints.
+
+====================================================================================================
+A. HASH CHAIN: zip -> S1 -> S3 for 945, and the complete tree zip -> S1 -> S2 -> S3, built from fresh extractions using ONLY delivered diff files
+====================================================================================================
+945_OperatorConsole.html: zip d1bf51ed80b92ad3 -> (S1; S2 did not touch it) ff110b40614832be -> S3 b27d3e0292dfc720 | header hashes match the trees: True | patch --dry-run rc=0 | patch rc=0 | git apply --check on the S1/S2 state rc=0
+    patch output: patching file 945_OperatorConsole.html
+S3 diff onto the ORIGINAL 945 (S1 not applied): patch --dry-run rc=1 (1 out of 3 hunks FAILED); git apply --check rc=1  -> non-zero expected; NOTE plain patch (without --dry-run) would apply the hunks that fit and leave a .rej file, so always run --dry-run first
+after reversing the S3 diff the tree equals the S1+S2 state byte for byte: True
+files differing between the S1+S2 state and the S3 state: ['945_OperatorConsole.html']
+files differing between the ORIGINAL zip and the S3 state: ['912_ObligationEngine.js', '945_OperatorConsole.html', '946_OperatorConsoleServer.js']
+  S3 state vs S2 state, unchanged 912_ObligationEngine.js: True
+  S3 state vs S2 state, unchanged 946_OperatorConsoleServer.js: True
+  S3 state vs S2 state, unchanged local_precheck_test_945_addBill_ui.js: True
+  S3 state vs S2 state, unchanged 900_PropertyConfig.js: True
+  S3 state vs S2 state, unchanged 901_PropertySchema.js: True
+  S3 state vs S2 state, unchanged 903_PropertyEventDefinitions.js: True
+  S3 state vs S2 state, unchanged 913_ObligationScheduler.js: True
+  S3 state vs S2 state, unchanged 922_DashboardAdapter.js: True
+  S3 state vs S2 state, unchanged GasShim.js: True
+  S3 state vs S2 state, unchanged 00_ADR_Log.js: True
+  S3 state vs S2 state, unchanged 00_Review_History.js: True
+  S3 state vs S2 state, unchanged 00_Product_Backlog.js: True
+  S3 state vs S2 state, unchanged 00_Project_State.js: True
+  S3 state vs S2 state, unchanged appsscript.json: True
+  S3 state vs S2 state, unchanged .claspignore: True
+
+====================================================================================================
+B. WHERE THE S3 CHANGES SIT (SR-1, SR-12)
+====================================================================================================
+showPayForm spans old lines 811-851 / new lines 811-858; the S1 header comment spans old lines 1707-1710 / new lines 1714-1717
+removed lines (old numbering): [818, 831, 836, 837, 1707, 1709, 1710]
+added lines (new numbering): [818, 819, 834, 835, 836, 837, 840, 841, 842, 843, 844, 1714, 1716, 1717]
+every changed line is inside showPayForm or the S1 header comment: True
+
+====================================================================================================
+C. S3 STATIC TEST ON THE CHAIN-BUILT S3 TREE, base = the tree before S3 (full log)
+====================================================================================================
+exit code 0
+
+═══ A. Load: 945, its single script, the Pay form and the S1 functions it calls ═══
+node v22.23.4 | source dir: /tmp/tmpdm52p_y1/tree_s3 | base dir: /tmp/tmpdm52p_y1/tree_s2
+945_OperatorConsole.html  sha256 b27d3e0292dfc7202636da22f6c26848c81bfd984d8920d190548ac496220e7c
+ok  : 945 has exactly one "<script" (the existing UI test requires this)
+ok  : 945 inline <script> block found
+ok  : 945 <script> compiles (syntax only)
+ok  : 945 defines malaysiaTodayIso_
+ok  : 945 defines parsePayAmount_
+ok  : 945 defines isRealIsoDate_
+ok  : 945 defines interpretPayResponse_
+ok  : 945 defines formatAmount
+ok  : 945 defines showToast
+ok  : 945 defines loadDashboard
+ok  : 945 defines showPayForm
+ok  : the Confirm click handler is found inside showPayForm
+ok  : the handler contains a success handler followed by a failure handler
+
+═══ B. Default date (B1-D1, SR-6): the Pay form starts from today in Malaysia, not from the UTC day ═══
+ok  : the default date is  var today = malaysiaTodayIso_(Date.now()) || '';
+ok  : showPayForm no longer builds a date with toISOString()
+ok  : the date input is still pre-filled from `today`
+ok  : the OTHER UTC date default (insurance renewal "New Start Date": nextStart.toISOString().slice(0, 10)) is still there exactly once and is NOT touched, as the plan says (count before: 1, after: 1)
+
+═══ C. Input is checked BEFORE the button is disabled or anything is sent (B1-1, B1-2) ═══
+ok  : order inside the handler: amount check < date check < disabling the button < google.script.run
+ok  : nothing before the validation has passed disables the button or touches google.script.run
+ok  : a blank or non-numeric amount shows the exact prompt and returns
+ok  : a non-blank, unreal date shows the date prompt and returns; a BLANK date is allowed (the server then uses the Malaysia day)
+ok  : the amount prompt text exists exactly once in the whole script
+ok  : the date prompt text exists exactly once in the whole script
+ok  : the RAW field values are what is sent: .console_recordPayment(item.occurrenceId, amount, date, '') is unchanged
+ok  : the values are read from the two fields before validation
+
+═══ D. The response is interpreted, not trusted (B1-3, B1-D5, B1-D12, SR-7) ═══
+ok  : the success handler calls interpretPayResponse_(res, { amount: amount, date: date }) with the raw field values
+ok  : the success handler never reads res.success, res.data, res.alreadyPaid or res.occurrenceId itself
+ok  : res.error is read exactly once: inside the unchanged error branch
+ok  : the ORIGINAL error line (toast + button restored + return) survives word for word
+ok  : 'Payment recorded.' is shown only in the recorded branch, with the original literal call; every other kind shows r.message with r.isError; then loadDashboard() for all of them
+ok  : the literal 'Payment recorded.' appears exactly twice in the script: showPayForm and interpretPayResponse_
+ok  : loadDashboard() is called exactly once in the success handler, after the toast (so every non-error outcome refreshes the dashboard)
+ok  : the two kinds the handler branches on ('error', 'recorded') are kinds interpretPayResponse_ can return
+
+═══ E. What the plan says must NOT change (SR-12, SR-8) ═══
+ok  : the transport-failure callback is unchanged (toast with err.message, button restored)
+ok  : the failure-path restore line `confirmBtn.disabled = false` still appears in exactly the two places it did (error branch, failure callback)
+ok  : the Cancel button handler is unchanged (form removed, original button shown again)
+ok  : SR-8 the only HTML the form builds contains item.expectedAmount and `today`; no server text, no response, no error is put into innerHTML
+ok  : SR-8 the response text reaches the page only through showToast (which writes with textContent)
+      info (not a check): showToast keeps its default duration of 3500 ms; the longest new message is 103 characters (the "NOT saved" message with a typical date and amount).
+
+═══ F. Nothing else in 945 changed: with showPayForm and the S1 header comment cut out, before and after are identical ═══
+ok  : the base 945 can be read from /tmp/tmpdm52p_y1/tree_s2
+ok  : outside showPayForm and the S1 header comment, 945 is byte-identical before and after S3 (Add Bill, dashboard, toast, CSS, markup, the S1 functions)
+ok  : the cut-out parts really differ (the comparison is not vacuous)
+ok  : the S1 function malaysiaTodayIso_ is byte-identical before and after S3
+ok  : the S1 function parsePayAmount_ is byte-identical before and after S3
+ok  : the S1 function isRealIsoDate_ is byte-identical before and after S3
+ok  : the S1 function interpretPayResponse_ is byte-identical before and after S3
+ok  : 945 submitAddBill is byte-identical before and after S3
+ok  : 945 loadDashboard is byte-identical before and after S3
+ok  : 945 showToast is byte-identical before and after S3
+ok  : 945 renderDashboard is byte-identical before and after S3
+ok  : 945 loadProperties is byte-identical before and after S3
+ok  : the header comment no longer says the helpers are unwired
+
+NOTE: S-13 (Pay form click path in a real browser) is NOT covered by this static test and remains unverified.
+
+════════════════════════════════════════════════════════════
+ALL 51 CHECKS PASSED (0 failures)
+
+in-place run (test copied next to the sources, no --base, so group F is skipped): exit code 0; last line: ALL 38 CHECKS PASSED (0 failures)
+
+====================================================================================================
+D. NEGATIVE CONTROL: the same test on the tree before S3 must fail
+====================================================================================================
+exit code 1 (non-zero expected); summary: 26 passed, 12 FAILED
+
+====================================================================================================
+E. MUTATION CHECKS (17 defects planted in scratch copies of the S3 945; the static test must fail each time)
+====================================================================================================
+S3 mutant                                                  exit  first failing check
+M1  amount validation removed                              1     fails=4   FAIL: order inside the handler: amount check < date check < disabling the button < googl
+M2  button disabled BEFORE the validation                  1     fails=1   FAIL: order inside the handler: amount check < date check < disabling the button < googl
+M3  default date back to the UTC day                       1     fails=2   FAIL: the default date is  var today = malaysiaTodayIso_(Date.now()) || ''; 
+M4  success handler reads res.success again                1     fails=2   FAIL: the success handler never reads res.success, res.data, res.alreadyPaid or res.occu
+M5  no dashboard refresh for already-paid / unconfirmed    1     fails=1   FAIL: 'Payment recorded.' is shown only in the recorded branch, with the original litera
+M6  error branch no longer restores the button             1     fails=3   FAIL: res.error is read exactly once: inside the unchanged error branch 
+M7  recorded branch shows r.message (literal gone)         1     fails=2   FAIL: 'Payment recorded.' is shown only in the recorded branch, with the original litera
+M8  server error text put into innerHTML                   1     fails=2   FAIL: res.error is read exactly once: inside the unchanged error branch 
+M9  transport-failure callback no longer restores          1     fails=2   FAIL: the transport-failure callback is unchanged (toast with err.message, button restor
+M10 loadDashboard changed (scope)                          1     fails=2   FAIL: outside showPayForm and the S1 header comment, 945 is byte-identical before and af
+M11 S1 function parsePayAmount_ changed (scope)            1     fails=2   FAIL: outside showPayForm and the S1 header comment, 945 is byte-identical before and af
+M12 amount prompt text changed                             1     fails=2   FAIL: a blank or non-numeric amount shows the exact prompt and returns 
+M13 a blank date is no longer allowed                      1     fails=1   FAIL: a non-blank, unreal date shows the date prompt and returns; a BLANK date is allowe
+M14 the PARSED amount is sent instead of the raw text      1     fails=1   FAIL: the RAW field values are what is sent: .console_recordPayment(item.occurrenceId, a
+M15 interpretPayResponse_ gets a parsed amount             1     fails=1   FAIL: the success handler calls interpretPayResponse_(res, { amount: amount, date: date 
+M16 an extra unrelated line added to Add Bill (scope)      1     fails=1   FAIL: outside showPayForm and the S1 header comment, 945 is byte-identical before and af
+M17 the insurance renewal UTC default changed (scope)      1     fails=2   FAIL: the OTHER UTC date default (insurance renewal "New Start Date": nextStart.toISOStr
+
+all 17 S3 mutants detected: True
+
+====================================================================================================
+F. S-12 / SR-13: THE EXISTING UI TEST FILE, UNMODIFIED, ON THE S3 TREE; AND ALL OTHER EXISTING NODE TESTS
+====================================================================================================
+local_precheck_test_945_addBill_ui.js hash unchanged by S3: True
+  local_precheck_test_911                                        exit zip=1 s3=1 check lines identical=True | ═══ attachEvidence — upload path ═══
+  local_precheck_test_918                                        exit zip=0 s3=0 check lines identical=False | ALL 163 CHECKS PASSED (0 failures)
+  local_precheck_test_922                                        exit zip=0 s3=0 check lines identical=True | ALL 67 CHECKS PASSED (0 failures)
+  local_precheck_test_945_addBill_ui                             exit zip=0 s3=0 check lines identical=True | 52 passed, 0 failed, 4 known defects
+  local_precheck_test_946_createObligation                       exit zip=0 s3=0 check lines identical=True | 52 passed, 0 failed
+  local_precheck_test_946_listProperties                         exit zip=0 s3=0 check lines identical=True | 15 passed, 0 failed
+  local_precheck_test_947                                        exit zip=0 s3=0 check lines identical=True | ALL 22 CHECKS PASSED (0 failures)
+  local_precheck_test_948_rectification                          exit zip=0 s3=0 check lines identical=True | ALL 27 CHECKS PASSED (0 failures)
+  local_precheck_test_948_search                                 exit zip=0 s3=0 check lines identical=True | ALL 29 CHECKS PASSED (0 failures)
+  local_precheck_test_phase11_defectitem_reorder_migration       exit zip=1 s3=1 check lines identical=True | ═══ Case 2: 3 pre-existing rows — full field-by-field re
+  local_precheck_test_phase11_schema_consolidation_migration     exit zip=0 s3=0 check lines identical=True | 38 PASSED, 0 FAILED
+  local_precheck_test_phase11_schema_migration                   exit zip=0 s3=0 check lines identical=True | ALL 71 CHECKS PASSED (0 failures)
+
+local_precheck_test_918: only randomly generated DefectItem IDs in the labels differ (both runs 163/163).
+Pre-existing failures in the UNPATCHED zip, unchanged: 911 (ReferenceError: PropertiesService is not defined) and phase11_defectitem_reorder_migration (exit 1).
+
+local_precheck_test_922 is timing-dependent (922_DashboardAdapter.js:274 sorts by OccurredAt.localeCompare) and loads neither 945 nor any S3 code. Interleaved 40+40 runs, unpatched zip vs S3 tree:
+  unpatched zip failed 4/40, S3 tree failed 3/40; Fisher exact two-sided p = 1.000
+
+====================================================================================================
+G. THE S1 AND S2 CANDIDATE TESTS ON THE S3 TREE
+====================================================================================================
+S1 test --no-s1-guard: exit code 0; last line: ALL 359 CHECKS PASSED (0 failures)
+S1 test with the guard ON: exit code 1; 361 passed, 13 FAILED; every failing check belongs to the retired S1 scope guard:
+   FAIL: 912: malaysiaTodayIso_ appears once in code (its definition only: not called) 
+   FAIL: 912: parsePositiveAmount_ appears once in code (not called) 
+   FAIL: 912: isRealIsoDate_ appears once in code (not called) 
+   FAIL: 945: malaysiaTodayIso_ appears once in code (not called) 
+   FAIL: 945: isRealIsoDate_ appears once in code (not called) 
+   FAIL: 945: interpretPayResponse_ appears once in code (not called) 
+   FAIL: 945: parsePayAmount_ appears twice (definition + the call inside interpretPayResponse_) 
+   FAIL: none of the 50 other .js/.html files in the directory references any of the five new names (946 and the rest are untouched in this respect) -> 946_OperatorConsoleServer.js:parsePositiveAmount_
+   FAIL: 912 recordPayment still has its original default-date line (S2 will change it) 
+   FAIL: 912 recordPayment still has its original amount line (S2 will change it) 
+   FAIL: 945 showPayForm still uses its original UTC default date (S3 will change it) 
+   FAIL: 945 showPayForm still has its original success handling lines (S3 will change them) 
+   FAIL: 946 console_recordPayment still has its original Number(paidAmount) conversion (S2 will change it) 
+
+S2 test (base = the S1-only tree): exit code 0; last line: ALL 250 CHECKS PASSED (0 failures)
+S2 test (base = the ORIGINAL zip tree): exit code 0; last line: ALL 250 CHECKS PASSED (0 failures)
+
+====================================================================================================
+H. THE OLD NODE SUITES 900 / 912 / 919 / 999 IN THE SCRATCH LAYOUT (they do not load 945; run for completeness)
+====================================================================================================
+Same scratch-only harness adjustments as in the S2 evidence (layout rebuilt from copies; 910 added to the shim copy; hard-coded PropertyIDs seeded). No project file was modified.
+unpatched zip: exit 1
+   SUMMARY 900_Tests_Foundation 18/19 failed=1
+   FAILED-TEST 900_Tests_Foundation :: buildPropertyEvent_ succeeds and shapes the envelope correctly when complete :: Cannot publish PAYMENT_COMPLETED: missing required payload field(s) [category]. Refusing to pu
+   SUMMARY 912_Tests_ObligationEngine 40/40 failed=0
+   SUMMARY 919_Tests_ObligationIntegration 39/42 failed=3
+   FAILED-TEST 919_Tests_ObligationIntegration :: Contract: PAYMENT_COMPLETED — minimal valid payload is accepted :: Cannot publish PAYMENT_COMPLETED: missing required payload field(s) [category]. Refusing to publ
+   FAILED-TEST 919_Tests_ObligationIntegration :: Contract: PAYMENT_REVERSED — minimal valid payload is accepted :: Cannot publish PAYMENT_REVERSED: missing required payload field(s) [category]. Refusing to publis
+   FAILED-TEST 919_Tests_ObligationIntegration :: Migration: adding a new Category to 900_PropertyConfig.js source does not break existing rows or require a schema change :: ENOENT: no such file or directory, open
+   SUMMARY 999_Tests_PlatformVerification 7/7 failed=0
+   SUMMARY-TOTAL 104/108 failed=4
+S1+S2+S3 tree: exit 1
+   SUMMARY 900_Tests_Foundation 18/19 failed=1
+   FAILED-TEST 900_Tests_Foundation :: buildPropertyEvent_ succeeds and shapes the envelope correctly when complete :: Cannot publish PAYMENT_COMPLETED: missing required payload field(s) [category]. Refusing to pu
+   SUMMARY 912_Tests_ObligationEngine 40/40 failed=0
+   SUMMARY 919_Tests_ObligationIntegration 39/42 failed=3
+   FAILED-TEST 919_Tests_ObligationIntegration :: Contract: PAYMENT_COMPLETED — minimal valid payload is accepted :: Cannot publish PAYMENT_COMPLETED: missing required payload field(s) [category]. Refusing to publ
+   FAILED-TEST 919_Tests_ObligationIntegration :: Contract: PAYMENT_REVERSED — minimal valid payload is accepted :: Cannot publish PAYMENT_REVERSED: missing required payload field(s) [category]. Refusing to publis
+   FAILED-TEST 919_Tests_ObligationIntegration :: Migration: adding a new Category to 900_PropertyConfig.js source does not break existing rows or require a schema change :: ENOENT: no such file or directory, open
+   SUMMARY 999_Tests_PlatformVerification 7/7 failed=0
+   SUMMARY-TOTAL 104/108 failed=4
+identical suite totals and identical failing test names: True

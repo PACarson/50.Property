@@ -1,0 +1,487 @@
+
+====================================================================================================
+0. ENVIRONMENT AND SCOPE
+====================================================================================================
+S2 evidence log for B1 (Pay hardening), candidate output. NOT APPLIED, NOT MERGED, NOT DEPLOYED. Non-authoritative working copy only.
+device clock (user_time_v0) at the start of S2 work: 2026-11-07T16:12:25+08:00 (Asia/Kuala_Lumpur)
+sandbox clock (date -u): Sat Nov  7 22:31:07 UTC 2026
+node v22.23.4 | GNU patch 2.7.6 | git version 2.43.0
+sandbox network: disabled. No git remote, no Apps Script, no browser, no real Sheets.
+Authorization used: the S0 text of 2026-11-06 plus the user message "请继续S2" (2026-11-07), read as authorizing S2 under the S0 constraints.
+
+====================================================================================================
+A. HASH CHAIN: zip -> S1 -> S2, built from fresh extractions using ONLY the delivered diff files
+====================================================================================================
+S1 912_ObligationEngine.js: rc=0/0
+S1 945_OperatorConsole.html: rc=0/0
+912_ObligationEngine.js: zip 8a40643e21994b00 -> (S1) 2d05bb4bf5c6f8af -> S2 cc36243a3ced41bb | header hashes match the trees: True | patch --dry-run rc=0 | patch rc=0 | git apply --check on the S1 state rc=0
+    patch output: patching file 912_ObligationEngine.js
+946_OperatorConsoleServer.js: zip e993b71baed38686 -> (S1) e993b71baed38686 -> S2 1026be1160d358ac | header hashes match the trees: True | patch --dry-run rc=0 | patch rc=0 | git apply --check on the S1 state rc=0
+    patch output: patching file 946_OperatorConsoleServer.js
+S2 diff of 912 onto the ORIGINAL file (S1 not applied): patch --dry-run rc=1 (1 out of 2 hunks FAILED); git apply --check rc=1  -> S2 cannot be applied without S1 (non-zero expected)
+S2 diff of 946 onto the ORIGINAL 946 (946 was not touched by S1): patch --dry-run rc=0; git apply --check rc=0
+after reversing both S2 diffs the tree equals the S1 state byte for byte: True
+files differing between the S1 state and the S2 state: ['912_ObligationEngine.js', '946_OperatorConsoleServer.js']
+files differing between the ORIGINAL zip and the S2 state: ['912_ObligationEngine.js', '945_OperatorConsole.html', '946_OperatorConsoleServer.js']
+  S2 state vs S1 state, unchanged 945_OperatorConsole.html: True
+  S2 state vs S1 state, unchanged local_precheck_test_945_addBill_ui.js: True
+  S2 state vs S1 state, unchanged 900_PropertyConfig.js: True
+  S2 state vs S1 state, unchanged 901_PropertySchema.js: True
+  S2 state vs S1 state, unchanged 903_PropertyEventDefinitions.js: True
+  S2 state vs S1 state, unchanged 913_ObligationScheduler.js: True
+  S2 state vs S1 state, unchanged 922_DashboardAdapter.js: True
+  S2 state vs S1 state, unchanged GasShim.js: True
+  S2 state vs S1 state, unchanged 00_ADR_Log.js: True
+  S2 state vs S1 state, unchanged 00_Review_History.js: True
+  S2 state vs S1 state, unchanged 00_Product_Backlog.js: True
+  S2 state vs S1 state, unchanged 00_Project_State.js: True
+  S2 state vs S1 state, unchanged appsscript.json: True
+  S2 state vs S1 state, unchanged .claspignore: True
+
+====================================================================================================
+B. WHERE THE S2 CHANGES SIT (SR-1, SR-9, SR-12)
+====================================================================================================
+912_ObligationEngine.js: recordPayment (with its JSDoc) spans old lines 543-658 / new lines 543-685; removed lines [589, 590]; added lines 548..617 (29); every changed line is inside recordPayment: True
+946_OperatorConsoleServer.js: console_recordPayment (with its JSDoc) spans old lines 98-107 / new lines 98-120; removed lines [102]; added lines 100..115 (14); every changed line is inside console_recordPayment: True
+added CODE lines (comments excluded): 24; of them touching a Sheet/Lock/Utilities/Session API: 0 []
+
+====================================================================================================
+C. S2 CANDIDATE TEST ON THE CHAIN-BUILT S2 TREE, base = the S1 tree (full log)
+====================================================================================================
+exit code 0
+
+═══ A. Load: sources, shim, functions, clock injection, static order of the checks ═══
+node v22.23.4 | source dir: /tmp/tmpi_m1q3rb/tree_s2 | base dir: /tmp/tmpi_m1q3rb/tree_s1
+912_ObligationEngine.js        sha256 cc36243a3ced41bbb0533d7f46e97441b5578fc778dc360b45f3c40bec3c7100
+946_OperatorConsoleServer.js   sha256 1026be1160d358ac77be881982de0d590acd71f278147f8d0b3e501924909526
+ok  : parsePositiveAmount_ exists in the loaded runtime (S1 must be applied first)
+ok  : isRealIsoDate_ exists in the loaded runtime (S1 must be applied first)
+ok  : malaysiaTodayIso_ exists in the loaded runtime (S1 must be applied first)
+ok  : recordPayment exists in the loaded runtime
+ok  : console_recordPayment exists in the loaded runtime
+ok  : clock injection works: Date.now() inside the runtime returns the injected instant
+ok  : malaysiaTodayIso_(Date.now()) under the injected clock 2026-10-24T16:00:00Z is 2026-10-25
+ok  : 912 recordPayment source is found
+ok  : SR-3 the amount check and the date check both come BEFORE the Occurrence is read and BEFORE any write
+ok  : D4 compatibility: the engine still falls back to the Occurrence amount when paidAmount is null/undefined
+ok  : the default date comes from malaysiaTodayIso_(Date.now()); the script-time-zone default toIsoDate_(new Date()) is gone from recordPayment
+ok  : 946 console_recordPayment source is found
+ok  : SR-4 946 uses the single shared parser parsePositiveAmount_ and has no regex of its own
+ok  : 946 no longer converts with Number(paidAmount) (a blank amount can no longer become 0)
+ok  : 946 passes the validated NUMBER to the engine, not the raw text
+
+═══ S-4 recordPayment — a PROVIDED amount that is not a finite number > 0 is rejected before anything is read or written ═══
+ok  : positive control: a valid payment succeeds and DOES change the sheets (so "unchanged" below is meaningful)
+ok  : amount "": rejected with INVALID_INPUT and the exact message
+ok  : amount "": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "  ": rejected with INVALID_INPUT and the exact message
+ok  : amount "  ": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "\t": rejected with INVALID_INPUT and the exact message
+ok  : amount "\t": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount 0: rejected with INVALID_INPUT and the exact message
+ok  : amount 0: no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "0": rejected with INVALID_INPUT and the exact message
+ok  : amount "0": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "0.00": rejected with INVALID_INPUT and the exact message
+ok  : amount "0.00": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount -5: rejected with INVALID_INPUT and the exact message
+ok  : amount -5: no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "-5": rejected with INVALID_INPUT and the exact message
+ok  : amount "-5": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "-0": rejected with INVALID_INPUT and the exact message
+ok  : amount "-0": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount -0: rejected with INVALID_INPUT and the exact message
+ok  : amount -0: no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "abc": rejected with INVALID_INPUT and the exact message
+ok  : amount "abc": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "5.": rejected with INVALID_INPUT and the exact message
+ok  : amount "5.": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "1e3": rejected with INVALID_INPUT and the exact message
+ok  : amount "1e3": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "1,200.00": rejected with INVALID_INPUT and the exact message
+ok  : amount "1,200.00": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "RM 5": rejected with INVALID_INPUT and the exact message
+ok  : amount "RM 5": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "+5": rejected with INVALID_INPUT and the exact message
+ok  : amount "+5": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "1 2": rejected with INVALID_INPUT and the exact message
+ok  : amount "1 2": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount ".": rejected with INVALID_INPUT and the exact message
+ok  : amount ".": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount NaN: rejected with INVALID_INPUT and the exact message
+ok  : amount NaN: no sheet changed, no event published, the Occurrence is still Active
+ok  : amount Infinity: rejected with INVALID_INPUT and the exact message
+ok  : amount Infinity: no sheet changed, no event published, the Occurrence is still Active
+ok  : amount -Infinity: rejected with INVALID_INPUT and the exact message
+ok  : amount -Infinity: no sheet changed, no event published, the Occurrence is still Active
+ok  : amount true: rejected with INVALID_INPUT and the exact message
+ok  : amount true: no sheet changed, no event published, the Occurrence is still Active
+ok  : amount false: rejected with INVALID_INPUT and the exact message
+ok  : amount false: no sheet changed, no event published, the Occurrence is still Active
+ok  : amount []: rejected with INVALID_INPUT and the exact message
+ok  : amount []: no sheet changed, no event published, the Occurrence is still Active
+ok  : amount {}: rejected with INVALID_INPUT and the exact message
+ok  : amount {}: no sheet changed, no event published, the Occurrence is still Active
+ok  : amount [5]: rejected with INVALID_INPUT and the exact message
+ok  : amount [5]: no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "٥": rejected with INVALID_INPUT and the exact message
+ok  : amount "٥": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "５": rejected with INVALID_INPUT and the exact message
+ok  : amount "５": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount "999999999999999999999...": rejected with INVALID_INPUT and the exact message
+ok  : amount "999999999999999999999...": no sheet changed, no event published, the Occurrence is still Active
+ok  : amount 42.5: accepted; the number 42.5 is returned and stored
+ok  : amount "42.50": accepted; the number 42.5 is returned and stored
+ok  : amount " 0.01 ": accepted; the number 0.01 is returned and stored
+ok  : amount ".5": accepted; the number 0.5 is returned and stored
+ok  : amount 1000000: accepted; the number 1000000 is returned and stored
+ok  : amount "007": accepted; the number 7 is returned and stored
+ok  : amount "1550.00": accepted; the number 1550 is returned and stored
+ok  : D4 compatibility: paidAmount omitted falls back to the Occurrence expected amount 42.5 (the engine is NOT strict about a missing amount)
+ok  : D4 compatibility: paidAmount undefined falls back to the Occurrence expected amount 42.5 (the engine is NOT strict about a missing amount)
+ok  : D4 compatibility: paidAmount null falls back to the Occurrence expected amount 42.5 (the engine is NOT strict about a missing amount)
+ok  : both amount and date invalid: the amount error is reported first
+
+═══ S-5 recordPayment — blank date = Malaysia day from the injected clock; malformed or unreal date rejected; valid date written as given ═══
+ok  : paidDate undefined at 2026-10-24T15:59:59Z -> 2026-10-24 (returned and stored)
+ok  : paidDate null at 2026-10-24T15:59:59Z -> 2026-10-24 (returned and stored)
+ok  : paidDate '' at 2026-10-24T15:59:59Z -> 2026-10-24 (returned and stored)
+ok  : paidDate '   ' at 2026-10-24T15:59:59Z -> 2026-10-24 (returned and stored)
+ok  : paidDate '\t\n' at 2026-10-24T15:59:59Z -> 2026-10-24 (returned and stored)
+ok  : paidDate undefined at 2026-10-24T16:00:00Z -> 2026-10-25 (returned and stored)
+ok  : paidDate null at 2026-10-24T16:00:00Z -> 2026-10-25 (returned and stored)
+ok  : paidDate '' at 2026-10-24T16:00:00Z -> 2026-10-25 (returned and stored)
+ok  : paidDate '   ' at 2026-10-24T16:00:00Z -> 2026-10-25 (returned and stored)
+ok  : paidDate '\t\n' at 2026-10-24T16:00:00Z -> 2026-10-25 (returned and stored)
+ok  : paidDate undefined at 2026-12-31T16:00:00Z -> 2027-01-01 (returned and stored)
+ok  : paidDate null at 2026-12-31T16:00:00Z -> 2027-01-01 (returned and stored)
+ok  : paidDate '' at 2026-12-31T16:00:00Z -> 2027-01-01 (returned and stored)
+ok  : paidDate '   ' at 2026-12-31T16:00:00Z -> 2027-01-01 (returned and stored)
+ok  : paidDate '\t\n' at 2026-12-31T16:00:00Z -> 2027-01-01 (returned and stored)
+ok  : paidDate undefined at 2028-02-28T16:00:00Z -> 2028-02-29 (returned and stored)
+ok  : paidDate null at 2028-02-28T16:00:00Z -> 2028-02-29 (returned and stored)
+ok  : paidDate '' at 2028-02-28T16:00:00Z -> 2028-02-29 (returned and stored)
+ok  : paidDate '   ' at 2028-02-28T16:00:00Z -> 2028-02-29 (returned and stored)
+ok  : paidDate '\t\n' at 2028-02-28T16:00:00Z -> 2028-02-29 (returned and stored)
+ok  : paidDate undefined at 2026-11-07T08:00:00Z -> 2026-11-07 (returned and stored)
+ok  : paidDate null at 2026-11-07T08:00:00Z -> 2026-11-07 (returned and stored)
+ok  : paidDate '' at 2026-11-07T08:00:00Z -> 2026-11-07 (returned and stored)
+ok  : paidDate '   ' at 2026-11-07T08:00:00Z -> 2026-11-07 (returned and stored)
+ok  : paidDate '\t\n' at 2026-11-07T08:00:00Z -> 2026-11-07 (returned and stored)
+ok  : the default no longer follows the sandbox/script time zone: at 2026-10-24T16:00:00Z the day is 2026-10-25 whatever TZ this process uses
+ok  : paidDate "2026-02-30": rejected with INVALID_INPUT and the exact message
+ok  : paidDate "2026-02-30": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate "2026-13-01": rejected with INVALID_INPUT and the exact message
+ok  : paidDate "2026-13-01": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate "2026-00-10": rejected with INVALID_INPUT and the exact message
+ok  : paidDate "2026-00-10": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate "2026-01-00": rejected with INVALID_INPUT and the exact message
+ok  : paidDate "2026-01-00": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate "2026-04-31": rejected with INVALID_INPUT and the exact message
+ok  : paidDate "2026-04-31": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate "2100-02-29": rejected with INVALID_INPUT and the exact message
+ok  : paidDate "2100-02-29": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate "abc": rejected with INVALID_INPUT and the exact message
+ok  : paidDate "abc": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate "2026/10/24": rejected with INVALID_INPUT and the exact message
+ok  : paidDate "2026/10/24": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate " 2026-10-24": rejected with INVALID_INPUT and the exact message
+ok  : paidDate " 2026-10-24": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate "2026-10-24 ": rejected with INVALID_INPUT and the exact message
+ok  : paidDate "2026-10-24 ": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate "2026-10-24T08:00:00Z": rejected with INVALID_INPUT and the exact message
+ok  : paidDate "2026-10-24T08:00:00Z": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate "20261024": rejected with INVALID_INPUT and the exact message
+ok  : paidDate "20261024": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate "2026-1-4": rejected with INVALID_INPUT and the exact message
+ok  : paidDate "2026-1-4": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate "26-10-24": rejected with INVALID_INPUT and the exact message
+ok  : paidDate "26-10-24": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate "2026-10-24\n": rejected with INVALID_INPUT and the exact message
+ok  : paidDate "2026-10-24\n": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate "２０２６-10-24": rejected with INVALID_INPUT and the exact message
+ok  : paidDate "２０２６-10-24": no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate 20261024: rejected with INVALID_INPUT and the exact message
+ok  : paidDate 20261024: no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate 0: rejected with INVALID_INPUT and the exact message
+ok  : paidDate 0: no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate false: rejected with INVALID_INPUT and the exact message
+ok  : paidDate false: no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate true: rejected with INVALID_INPUT and the exact message
+ok  : paidDate true: no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate Date(0): rejected with INVALID_INPUT and the exact message
+ok  : paidDate Date(0): no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate []: rejected with INVALID_INPUT and the exact message
+ok  : paidDate []: no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate {}: rejected with INVALID_INPUT and the exact message
+ok  : paidDate {}: no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate ["2026-10-24"]: rejected with INVALID_INPUT and the exact message
+ok  : paidDate ["2026-10-24"]: no sheet changed, no event published, the Occurrence is still Active
+ok  : paidDate 2026-02-28 is written as given (past and future dates are not restricted)
+ok  : paidDate 2028-02-29 is written as given (past and future dates are not restricted)
+ok  : paidDate 2026-10-24 is written as given (past and future dates are not restricted)
+ok  : paidDate 2019-01-01 is written as given (past and future dates are not restricted)
+ok  : paidDate 2030-12-31 is written as given (past and future dates are not restricted)
+ok  : paidDate 9999-12-31 is written as given (past and future dates are not restricted)
+
+═══ S-6 console_recordPayment — raw amount checked at the Console boundary; the engine is not called when it is rejected (spy) ═══
+ok  : harness: the spy replaces recordPayment inside the runtime (a valid call reaches it)
+ok  : console amount "" (missing): {success:false, error:"Payment amount is required.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount "   " (missing): {success:false, error:"Payment amount is required.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount "\t" (missing): {success:false, error:"Payment amount is required.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount null (missing): {success:false, error:"Payment amount is required.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount undefined (missing): {success:false, error:"Payment amount is required.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount "0" (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount "-5" (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount "abc" (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount "0.00" (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount "5." (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount "1e3" (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount "1,200.00" (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount "RM 5" (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount 0 (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount -5 (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount NaN (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount Infinity (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount -Infinity (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount true (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount false (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount [] (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount {} (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount "５" (illegal): {success:false, error:"Payment amount must be a number greater than 0.", code:INVALID_INPUT} and the engine is NOT called
+ok  : console amount "42.50": the engine receives the NUMBER 42.5
+ok  : console amount 42.5: the engine receives the NUMBER 42.5
+ok  : console amount " 0.01 ": the engine receives the NUMBER 0.01
+ok  : console amount ".5": the engine receives the NUMBER 0.5
+ok  : console amount "1550": the engine receives the NUMBER 1550
+ok  : paidDate "2026-10-24" is passed through to the engine unchanged (the engine validates it); note is passed
+ok  : paidDate "" is passed through to the engine unchanged (the engine validates it); note is passed
+ok  : paidDate "not-a-date" is passed through to the engine unchanged (the engine validates it); note is passed
+ok  : paidDate undefined is passed through to the engine unchanged (the engine validates it); note is passed
+ok  : paidDate null is passed through to the engine unchanged (the engine validates it); note is passed
+ok  : note defaults to an empty string
+
+═══ S-6 console_recordPayment — end to end through the REAL engine (no spy) ═══
+ok  : invalid date through the console: {success:false, code:INVALID_INPUT, error:date message}; nothing written
+ok  : blank amount through the console: "Payment amount is required."; nothing written (it used to become 0)
+ok  : valid call: {success:true, data:{alreadyPaid:false, occurrenceId, paidAmount:42.5, paidDate}}
+ok  : the stored Occurrence is Paid with the validated number and date
+
+═══ S-7 regression — idempotency, existing error codes and partial-write behaviour are unchanged ═══
+ok  : second valid call on the same Occurrence: alreadyPaid:true with the first payment's date and amount
+ok  : second call writes nothing and publishes no event
+ok  : a repeat with a DIFFERENT valid amount and date still returns the ORIGINAL payment (alreadyPaid:true) and writes nothing
+ok  : DOCUMENTED BEHAVIOUR: an INVALID amount on an already-paid Occurrence is rejected (the checks run before the Occurrence is read), not answered with alreadyPaid
+ok  : a Monthly auto-generate payment still schedules the next Occurrence
+ok  : paying under a Suspended obligation still succeeds and schedules no next Occurrence
+ok  : Cancelled obligation: OBLIGATION_CANCELLED as before, nothing written
+ok  : Cancelled obligation + invalid amount: the input check wins (INVALID_INPUT)
+ok  : unknown Occurrence with valid input: OCCURRENCE_NOT_FOUND as before
+ok  : missing occurrenceId: INVALID_INPUT "recordPayment requires occurrenceId." as before
+ok  : missing occurrenceId + invalid amount/date: the occurrenceId error still comes first
+ok  : unknown paidVia: INVALID_INPUT as before, nothing written
+ok  : partial write (History fails after the Truth write): the error is re-thrown, the Occurrence is left Paid, a PARTIAL FAILURE line is logged (unchanged behaviour)
+ok  : partial write (event publish fails after the Truth write): same unchanged behaviour
+ok  : pay, reverse, pay again still works and records the new amount and date
+
+═══ F. The real server responses, classified by the S1 function interpretPayResponse_ (945) ═══
+ok  : new payment response -> kind recorded, "Payment recorded."
+ok  : new payment response contains no Date object (google.script.run would hand the browser null for such a response)
+ok  : repeat of the same payment -> kind alreadySame with the stored date and amount
+ok  : already-paid response contains no Date object
+ok  : repeat with another amount -> kind alreadyDifferent (error style, "NOT saved")
+ok  : repeat with another date -> kind alreadyDifferent
+ok  : repeat with the date left blank -> only the amount is compared: alreadySame
+ok  : a rejected payment (invalid date) -> kind error, message = the server text, error style
+ok  : SIMULATION ONLY: the server returns paidDate as text and paidAmount as a number in this shim; the real google.script.run shapes are unverified (REAL-5 / VT-08)
+
+═══ G. Differential: the same VALID-input scenarios on the tree before S2 and on this tree must give identical transcripts ═══
+ok  : identical transcript (results, all sheets, log) before and after S2: pay: number amount + date
+ok  : identical transcript (results, all sheets, log) before and after S2: pay: string amount "42.50" + date
+ok  : identical transcript (results, all sheets, log) before and after S2: pay: string amount ".5" + date
+ok  : identical transcript (results, all sheets, log) before and after S2: pay: amount omitted (fallback)
+ok  : identical transcript (results, all sheets, log) before and after S2: pay: amount null (fallback)
+ok  : identical transcript (results, all sheets, log) before and after S2: pay: with note, evidence and paidVia
+ok  : identical transcript (results, all sheets, log) before and after S2: pay twice (second is alreadyPaid)
+ok  : identical transcript (results, all sheets, log) before and after S2: pay after pause
+ok  : identical transcript (results, all sheets, log) before and after S2: pay on a cancelled obligation
+ok  : identical transcript (results, all sheets, log) before and after S2: unknown occurrence
+ok  : identical transcript (results, all sheets, log) before and after S2: missing occurrenceId
+ok  : identical transcript (results, all sheets, log) before and after S2: wrong id prefix
+ok  : identical transcript (results, all sheets, log) before and after S2: unknown paidVia
+ok  : identical transcript (results, all sheets, log) before and after S2: partial write: History throws
+ok  : identical transcript (results, all sheets, log) before and after S2: partial write: event publish throws
+ok  : identical transcript (results, all sheets, log) before and after S2: pay, reverse, pay again
+ok  : identical transcript (results, all sheets, log) before and after S2: console: valid string amount + date
+ok  : identical transcript (results, all sheets, log) before and after S2: console: valid, with note, then the same again
+ok  : identical transcript (results, all sheets, log) before and after S2: console: unknown occurrence
+ok  : the differential is not vacuous: the transcript records the payment itself (a row whose Status is exactly "Paid", amount 42.5, date 2026-10-24)
+      intended difference, blank date at 2026-10-24T16:00:00Z: before S2 -> 2026-11-07 (old default = new Date() in the script time zone; it ignores the injected instant) | after S2 -> 2026-10-25 (Malaysia day)
+      intended difference, amount "abc": before S2 -> accepted, PaidAmount stored as NaN | after S2 -> rejected (INVALID_INPUT)
+      intended difference, console blank amount: before S2 -> accepted, PaidAmount stored as 0 (Number("") is 0) | after S2 -> rejected: "Payment amount is required."
+ok  : the intended differences really exist (so the groups above test something): blank-date default differs, "abc" was accepted before S2, and a blank console amount was recorded as 0 before S2
+
+═══ H. What the tree BEFORE S2 did with the invalid amounts and dates of S-4 / S-5 (printed for the audit trail) ═══
+      before S2, amount "": ACCEPTED, amount became 0   | after S2: rejected
+      before S2, amount "  ": ACCEPTED, amount became 0   | after S2: rejected
+      before S2, amount "\t": ACCEPTED, amount became 0   | after S2: rejected
+      before S2, amount 0: ACCEPTED, amount became 0   | after S2: rejected
+      before S2, amount "0": ACCEPTED, amount became 0   | after S2: rejected
+      before S2, amount "0.00": ACCEPTED, amount became 0   | after S2: rejected
+      before S2, amount -5: ACCEPTED, amount became -5   | after S2: rejected
+      before S2, amount "-5": ACCEPTED, amount became -5   | after S2: rejected
+      before S2, amount "-0": ACCEPTED, amount became -0   | after S2: rejected
+      before S2, amount -0: ACCEPTED, amount became -0   | after S2: rejected
+      before S2, amount "abc": ACCEPTED, amount became NaN   | after S2: rejected
+      before S2, amount "5.": ACCEPTED, amount became 5   | after S2: rejected
+      before S2, amount "1e3": ACCEPTED, amount became 1000   | after S2: rejected
+      before S2, amount "1,200.00": ACCEPTED, amount became NaN   | after S2: rejected
+      before S2, amount "RM 5": ACCEPTED, amount became NaN   | after S2: rejected
+      before S2, amount "+5": ACCEPTED, amount became 5   | after S2: rejected
+      before S2, amount "1 2": ACCEPTED, amount became NaN   | after S2: rejected
+      before S2, amount ".": ACCEPTED, amount became NaN   | after S2: rejected
+      before S2, amount NaN: ACCEPTED, amount became NaN   | after S2: rejected
+      before S2, amount Infinity: ACCEPTED, amount became Infinity   | after S2: rejected
+      before S2, amount -Infinity: ACCEPTED, amount became -Infinity   | after S2: rejected
+      before S2, amount true: ACCEPTED, amount became 1   | after S2: rejected
+      before S2, amount false: ACCEPTED, amount became 0   | after S2: rejected
+      before S2, amount []: ACCEPTED, amount became 0   | after S2: rejected
+      before S2, amount {}: ACCEPTED, amount became NaN   | after S2: rejected
+      before S2, amount [5]: ACCEPTED, amount became 5   | after S2: rejected
+      before S2, amount "٥": ACCEPTED, amount became NaN   | after S2: rejected
+      before S2, amount "５": ACCEPTED, amount became NaN   | after S2: rejected
+      before S2, amount "999999999999999999999...": ACCEPTED, amount became Infinity   | after S2: rejected
+      before S2, date "2026-02-30": ACCEPTED, date became "2026-02-30"   | after S2: rejected
+      before S2, date "2026-13-01": ACCEPTED, date became "2026-13-01"   | after S2: rejected
+      before S2, date "2026-00-10": ACCEPTED, date became "2026-00-10"   | after S2: rejected
+      before S2, date "2026-01-00": ACCEPTED, date became "2026-01-00"   | after S2: rejected
+      before S2, date "2026-04-31": ACCEPTED, date became "2026-04-31"   | after S2: rejected
+      before S2, date "2100-02-29": ACCEPTED, date became "2100-02-29"   | after S2: rejected
+      before S2, date "abc": ACCEPTED, date became "abc"   | after S2: rejected
+      before S2, date "2026/10/24": ACCEPTED, date became "2026/10/24"   | after S2: rejected
+      before S2, date " 2026-10-24": ACCEPTED, date became " 2026-10-24"   | after S2: rejected
+      before S2, date "2026-10-24 ": ACCEPTED, date became "2026-10-24 "   | after S2: rejected
+      before S2, date "2026-10-24T08:00:00Z": ACCEPTED, date became "2026-10-24T08:00:00Z"   | after S2: rejected
+      before S2, date "20261024": ACCEPTED, date became "20261024"   | after S2: rejected
+      before S2, date "2026-1-4": ACCEPTED, date became "2026-1-4"   | after S2: rejected
+      before S2, date "26-10-24": ACCEPTED, date became "26-10-24"   | after S2: rejected
+      before S2, date "2026-10-24\n": ACCEPTED, date became "2026-10-24\n"   | after S2: rejected
+      before S2, date "２０２６-10-24": ACCEPTED, date became "２０２６-10-24"   | after S2: rejected
+      before S2, date 20261024: ACCEPTED, date became 20261024   | after S2: rejected
+      before S2, date 0: ACCEPTED, date became "2026-11-07"   | after S2: rejected
+      before S2, date false: ACCEPTED, date became "2026-11-07"   | after S2: rejected
+      before S2, date true: ACCEPTED, date became true   | after S2: rejected
+      before S2, date Date(0): ACCEPTED, date became Date(0)   | after S2: rejected
+      before S2, date []: ACCEPTED, date became []   | after S2: rejected
+      before S2, date {}: ACCEPTED, date became {}   | after S2: rejected
+      before S2, date ["2026-10-24"]: ACCEPTED, date became ["2026-10-24"]   | after S2: rejected
+ok  : H. before S2 the tree ACCEPTED 29 of the 29 invalid amounts and 24 of the 24 invalid dates (the new checks close real gaps)
+
+════════════════════════════════════════════════════════════
+ALL 250 CHECKS PASSED (0 failures)
+
+cumulative differential (base = the ORIGINAL zip tree): exit code 0; last line: ALL 250 CHECKS PASSED (0 failures)
+in-place run (test copied next to the sources, no --base, so groups G and H are skipped): exit code 0; last line: ALL 228 CHECKS PASSED (0 failures)
+
+====================================================================================================
+D. NEGATIVE CONTROL: the same test on the S1-only tree (S2 not applied) must fail
+====================================================================================================
+exit code 1 (non-zero expected); summary: 62 passed, 166 FAILED
+
+====================================================================================================
+E. MUTATION CHECKS (14 defects planted in scratch copies of the S2 files; the test must fail each time)
+====================================================================================================
+S2 mutant                                                  exit  first failing check
+M1  912 amount rejection removed                           1     fails=61   behavioural=61   FAIL: amount "": rejected with INVALID_INPUT and the exact message -> 
+M2  912 date rejection removed                             1     fails=54   behavioural=53   FAIL: SR-3 the amount check and the date check both come BEFORE the Oc
+M3  912 default date back to script-time-zone day          1     fails=23   behavioural=22   FAIL: the default date comes from malaysiaTodayIso_(Date.now()); the s
+M4  912 amount checked only when truthy (0 and "" skip)    1     fails=10   behavioural=10   FAIL: amount "": rejected with INVALID_INPUT and the exact message -> 
+M5  912 fallback to expected amount removed (D4)           1     fails=6    behavioural=5    FAIL: D4 compatibility: the engine still falls back to the Occurrence 
+M6  912 whitespace-only date no longer counts as blank     1     fails=10   behavioural=10   FAIL: paidDate '   ' at 2026-10-24T15:59:59Z -> 2026-10-24 (returned a
+M7  912 validation moved AFTER the Occurrence is read      1     fails=3    behavioural=2    FAIL: SR-3 the amount check and the date check both come BEFORE the Oc
+M8  912 amount parsed with Number() instead of the rule    1     fails=62   behavioural=61   FAIL: SR-3 the amount check and the date check both come BEFORE the Oc
+M9  912 date error text changed                            1     fails=26   behavioural=26   FAIL: paidDate "2026-02-30": rejected with INVALID_INPUT and the exact
+M10 946 Number(paidAmount) restored                        1     fails=2    behavioural=0    FAIL: 946 no longer converts with Number(paidAmount) (a blank amount c
+M11 946 "required" branch removed                          1     fails=6    behavioural=6    FAIL: console amount "" (missing): {success:false, error:"Payment amou
+M12 946 "must be a number" branch removed                  1     fails=18   behavioural=18   FAIL: console amount "0" (illegal): {success:false, error:"Payment amo
+M13 946 treats 0 as missing                                1     fails=3    behavioural=3    FAIL: console amount 0 (illegal): {success:false, error:"Payment amoun
+M14 946 whitespace-only no longer counts as missing        1     fails=2    behavioural=2    FAIL: console amount "   " (missing): {success:false, error:"Payment a
+
+all 14 S2 mutants detected: True | each caught by at least one BEHAVIOURAL check (not only the static text checks): False
+
+Note on M10: after the S2 validation the engine receives a value that is already known to be a plain decimal string or a number, so Number(paidAmount) and the validated number are the same number.
+M10 therefore changes no behaviour (an equivalent mutant) and can only be caught by the static text check "946 no longer converts with Number(paidAmount)", which is what happens.
+
+====================================================================================================
+F. S1 CANDIDATE TEST ON THE S2 TREE (the S1 scope guard is retired by design)
+====================================================================================================
+--no-s1-guard: exit code 0; last line: ALL 359 CHECKS PASSED (0 failures)
+with the guard ON: exit code 1; 367 passed, 7 FAILED; every failing check is inside the retired guard group:
+   FAIL: 912: malaysiaTodayIso_ appears once in code (its definition only: not called) 
+   FAIL: 912: parsePositiveAmount_ appears once in code (not called) 
+   FAIL: 912: isRealIsoDate_ appears once in code (not called) 
+   FAIL: none of the 50 other .js/.html files in the directory references any of the five new names (946 and the rest are untouched in this respect) -> 946_OperatorConsoleServer.js:parsePositiveAmount_
+   FAIL: 912 recordPayment still has its original default-date line (S2 will change it) 
+   FAIL: 912 recordPayment still has its original amount line (S2 will change it) 
+   FAIL: 946 console_recordPayment still has its original Number(paidAmount) conversion (S2 will change it) 
+
+====================================================================================================
+G. REGRESSION OF THE EXISTING NODE-RUNNABLE TESTS (flat layout): unpatched zip vs S1+S2 tree (single run each, in separate scratch copies)
+====================================================================================================
+  local_precheck_test_911                                        exit base=1 s2=1 check lines identical=True | Node.js v22.23.4
+  local_precheck_test_918                                        exit base=0 s2=0 check lines identical=False | ALL 163 CHECKS PASSED (0 failures)
+  local_precheck_test_922                                        exit base=0 s2=0 check lines identical=True | ALL 67 CHECKS PASSED (0 failures)
+  local_precheck_test_945_addBill_ui                             exit base=0 s2=0 check lines identical=True | 52 passed, 0 failed, 4 known defects
+  local_precheck_test_946_createObligation                       exit base=0 s2=0 check lines identical=True | 52 passed, 0 failed
+  local_precheck_test_946_listProperties                         exit base=0 s2=0 check lines identical=True | 15 passed, 0 failed
+  local_precheck_test_947                                        exit base=0 s2=0 check lines identical=True | ALL 22 CHECKS PASSED (0 failures)
+  local_precheck_test_948_rectification                          exit base=0 s2=0 check lines identical=True | ALL 27 CHECKS PASSED (0 failures)
+  local_precheck_test_948_search                                 exit base=0 s2=0 check lines identical=True | ALL 29 CHECKS PASSED (0 failures)
+  local_precheck_test_phase11_defectitem_reorder_migration       exit base=1 s2=1 check lines identical=True | Node.js v22.23.4
+  local_precheck_test_phase11_schema_consolidation_migration     exit base=0 s2=0 check lines identical=True | 38 PASSED, 0 FAILED
+  local_precheck_test_phase11_schema_migration                   exit base=0 s2=0 check lines identical=True | ALL 71 CHECKS PASSED (0 failures)
+
+local_precheck_test_918: the check lines differ only in randomly generated DefectItem IDs inside the labels (both runs 163/163).
+Pre-existing failures in the UNPATCHED zip, unchanged: 911 (ReferenceError: PropertiesService is not defined) and phase11_defectitem_reorder_migration (exit 1).
+
+local_precheck_test_922 is timing-dependent (it sorts events by OccurredAt.localeCompare, 922_DashboardAdapter.js:274). Failure counts of the SAME single check "d3's latestEvent ...":
+  25 runs each: unpatched zip failed 8, S1+S2 tree failed 11
+  60 runs each, interleaved: unpatched zip failed 11, S1+S2 tree failed 14; Fisher exact two-sided p = 0.654; any other failing check: none
+
+====================================================================================================
+H. THE OLD NODE SUITES 900 / 912 / 919 / 999 (they contain 23 recordPayment call sites), run in a SCRATCH LAYOUT
+====================================================================================================
+The suites require ../shim/GasShim, ../shim/TestKit and ../../property-os, a layout that does not exist in the flat zip. I rebuilt that layout in a scratch directory from COPIES.
+Even then they fail on the unpatched zip because the shim file list lacks 910_PropertyAssetEngine.js (propertyExists_ is not defined) and the suites use hard-coded PropertyIDs that createObligation now requires to exist.
+So, in the scratch copy of the shim only: 910 was added to OBLIGATION_ENGINE_FILES and the hard-coded PropertyIDs were seeded. No project file was modified; the suites themselves are untouched.
+unpatched zip: exit 1
+   SUMMARY 900_Tests_Foundation 18/19 failed=1
+   FAILED-TEST 900_Tests_Foundation :: buildPropertyEvent_ succeeds and shapes the envelope correctly when complete :: Cannot publish PAYMENT_COMPLETED: missing required payload field(s) [category]. Refusing to pu
+   SUMMARY 912_Tests_ObligationEngine 40/40 failed=0
+   SUMMARY 919_Tests_ObligationIntegration 39/42 failed=3
+   FAILED-TEST 919_Tests_ObligationIntegration :: Contract: PAYMENT_COMPLETED — minimal valid payload is accepted :: Cannot publish PAYMENT_COMPLETED: missing required payload field(s) [category]. Refusing to publ
+   FAILED-TEST 919_Tests_ObligationIntegration :: Contract: PAYMENT_REVERSED — minimal valid payload is accepted :: Cannot publish PAYMENT_REVERSED: missing required payload field(s) [category]. Refusing to publis
+   FAILED-TEST 919_Tests_ObligationIntegration :: Migration: adding a new Category to 900_PropertyConfig.js source does not break existing rows or require a schema change :: ENOENT: no such file or directory, open
+   SUMMARY 999_Tests_PlatformVerification 7/7 failed=0
+   SUMMARY-TOTAL 104/108 failed=4
+S1+S2 tree: exit 1
+   SUMMARY 900_Tests_Foundation 18/19 failed=1
+   FAILED-TEST 900_Tests_Foundation :: buildPropertyEvent_ succeeds and shapes the envelope correctly when complete :: Cannot publish PAYMENT_COMPLETED: missing required payload field(s) [category]. Refusing to pu
+   SUMMARY 912_Tests_ObligationEngine 40/40 failed=0
+   SUMMARY 919_Tests_ObligationIntegration 39/42 failed=3
+   FAILED-TEST 919_Tests_ObligationIntegration :: Contract: PAYMENT_COMPLETED — minimal valid payload is accepted :: Cannot publish PAYMENT_COMPLETED: missing required payload field(s) [category]. Refusing to publ
+   FAILED-TEST 919_Tests_ObligationIntegration :: Contract: PAYMENT_REVERSED — minimal valid payload is accepted :: Cannot publish PAYMENT_REVERSED: missing required payload field(s) [category]. Refusing to publis
+   FAILED-TEST 919_Tests_ObligationIntegration :: Migration: adding a new Category to 900_PropertyConfig.js source does not break existing rows or require a schema change :: ENOENT: no such file or directory, open
+   SUMMARY 999_Tests_PlatformVerification 7/7 failed=0
+   SUMMARY-TOTAL 104/108 failed=4
+identical suite totals and identical failing test names before and after S2: True
+
+====================================================================================================
+I. STATIC PRE-CHECK (SR-11): recordPayment call sites in the existing test files
+====================================================================================================
+call sites per file: {'912_Tests_ObligationEngine.js': 13, '919_Tests_ObligationIntegration.js': 3, '991_Tests_ObligationEngine.js': 5, '993_Tests_FullLifecycle.js': 13, '994_Tests_ExtendedPlatform.js': 5, '999_Tests_PlatformVerification.js': 7}  (total 46)
+passing paidAmount: 26, values {'1500': 17, '1550': 6, '250': 1, '20': 1, '22': 1}; passing no paidAmount: 20
+passing paidDate as an argument: 0 (the one window that mentions the word is a payload field list in 919_Tests_ObligationIntegration.js:86, not an argument)
+assertions on PaidDate or paidDate in these six files: 0, so the new default date source cannot change an existing assertion
+Of these, 912 / 919 / 999 (23 sites) ran in section H on both trees with identical results. 991 / 993 / 994 (23 sites) are Apps Script native suites that need a real spreadsheet; they could NOT be run here and are covered by this static scan only.
+The plan counts 42 sites (16 without paidAmount, 26 with); my scan finds 46 (20 without, 26 with). The 26 and their values (1500 x17, 1550 x6, 250, 20, 22) agree with the plan. All 20 sites without paidAmount (listed one by one while preparing this log) pass only occurrenceId, so neither new check can reject them; I did not reconcile the plan's count of 16.
